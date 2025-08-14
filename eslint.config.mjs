@@ -1,38 +1,33 @@
 // eslint.config.mjs
 import js from '@eslint/js';
-import pluginImport from 'eslint-plugin-import';
-import pluginN from 'eslint-plugin-n';
-import pluginPromise from 'eslint-plugin-promise';
-import prettier from 'eslint-config-prettier';
-import globals from 'globals'; // <-- add this
+import globals from 'globals';
 
 export default [
-  { ignores: ['node_modules', 'dist', 'build', '**/*.min.js'] },
-  js.configs.recommended,
-
+  // Base config for all JS files
   {
-    plugins: {
-      import: pluginImport,
-      n: pluginN,
-      promise: pluginPromise,
-    },
+    files: ['**/*.{js,mjs,cjs}'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
-      globals: {
-        ...globals.node, // <-- Node globals (includes console)
-        // If you also run code in browsers, add:
-        // ...globals.browser,
-      },
+      globals: { ...globals.node }, // default to Node.js globals
     },
     rules: {
-      ...(pluginImport.configs.recommended?.rules ?? {}),
-      ...(pluginN.configs['flat/recommended']?.rules ?? {}),
-      ...(pluginPromise.configs['flat/recommended']?.rules ?? {}),
-      'import/order': ['warn', { alphabetize: { order: 'asc', caseInsensitive: true } }],
-      'n/no-missing-import': 'off',
+      ...js.configs.recommended.rules,
     },
   },
 
-  prettier,
+  // Browser-specific override for UI apps
+  {
+    files: ['apps/**'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: { ...globals.browser }, // allow window, document, etc.
+    },
+  },
+
+  // Ignore linting the dist/build outputs
+  {
+    ignores: ['**/dist/**', '**/build/**'],
+  },
 ];
