@@ -1,0 +1,25 @@
+{
+  "name": "@qawolf/ratio-estimator",
+  "version": "0.1.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon --watch src src/index.js",
+    "start": "node src/index.js",
+    "test": "node -e \"console.log('no tests yet')\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "type": "module",
+  "bin": {
+    "ratio-estimator": "src/index.js"
+  },
+  "dependencies": {
+    "csv-parser": "^3.2.0",
+    "dotenv": "^17.2.1",
+    "openai": "^5.12.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": { "nodemon": "^3.0.0" }
+}

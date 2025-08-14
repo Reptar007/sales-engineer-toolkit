@@ -1,0 +1,29 @@
+{
+  "name": "sales-engineer-toolkit",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:ratio": "npm run dev -w @qawolf/ratio-estimator",
+    "start:ratio": "npm run start -w @qawolf/ratio-estimator"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Reptar007/sales-engineer-toolkit.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Reptar007/sales-engineer-toolkit/issues"
+  },
+  "homepage": "https://github.com/Reptar007/sales-engineer-toolkit#readme",
+  "private": "true",
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
