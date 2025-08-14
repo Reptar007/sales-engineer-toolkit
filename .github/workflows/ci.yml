@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-format:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Checkout repo
+      - uses: actions/checkout@v4
+
+      # 2) Use Node 20 (matches engines / local env)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # 3) Install deps (respects workspaces)
+      - run: npm ci
+
+      # 4) Lint (ESLint flat config)
+      - run: npm run lint
+
+      # 5) Prettier formatting check (non-destructive)
+      - run: npm run format:check
+
+  # Optional: run tests across all workspaces when you add them
+  tests:
+    name: Workspace Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-format
+    if: always()   # run even if lint job fails? change to `success()` if you prefer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm -ws test --if-present
