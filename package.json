@@ -3,27 +3,49 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev:ratio": "npm run dev -w @qawolf/ratio-estimator",
-    "start:ratio": "npm run start -w @qawolf/ratio-estimator"
+    "start:ratio": "npm run start -w @qawolf/ratio-estimator",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,json,md}": [
+      "prettier --write"
+    ],
+    "*.js": [
+      "eslint --fix"
+    ]
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Reptar007/sales-engineer-toolkit.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "bugs": {
     "url": "https://github.com/Reptar007/sales-engineer-toolkit/issues"
   },
   "homepage": "https://github.com/Reptar007/sales-engineer-toolkit#readme",
-  "private": "true",
-  "workspaces": [
-    "packages/*"
-  ],
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "@eslint/js": "^9.33.0",
+    "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-n": "^17.21.3",
+    "eslint-plugin-promise": "^7.2.1",
+    "globals": "^16.3.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.5",
+    "nodemon": "^3.1.10",
+    "prettier": "^3.6.2"
   }
 }
