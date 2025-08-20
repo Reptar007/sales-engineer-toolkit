@@ -12,8 +12,10 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:a11y": "node tests/accessibility.test.mjs",
-    "test:visual": "playwright test",
-    "test:all": "npm run test && npm run test:a11y && npm run test:visual"
+    "test:visual": "vitest --run tests/visual-regression.test.js",
+    "test:e2e": "playwright test",
+    "test:ci": "vitest --run --exclude='**/visual-regression.test.js' && npm run test:a11y",
+    "test:all": "npm run test && npm run test:a11y && npm run test:visual && npm run test:e2e"
   },
   "dependencies": {
     "papaparse": "^5.5.3",
