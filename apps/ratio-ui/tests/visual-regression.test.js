@@ -8,7 +8,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // Check if we're in CI environment
 const DEV_SERVER_URL = 'http://localhost:5173';
-const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+const isCI =
+  globalThis.process?.env?.CI === 'true' || globalThis.process?.env?.GITHUB_ACTIONS === 'true';
 
 // Conditional import function
 const getPuppeteer = async () => {
