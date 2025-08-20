@@ -1,0 +1,73 @@
+/* ==== Camp Tidy Overrides (paste at end) ==== */
+
+/* Soften parchment background */
+body {
+  background:
+    radial-gradient(1200px 800px at -10% -10%, rgba(20,83,45,.02), transparent 60%),
+    radial-gradient(800px 600px at 110% 10%, rgba(20,83,45,.015), transparent 60%),
+    var(--canvas);
+}
+
+/* Headings rhythm + slimmer trail marker */
+main h2 { margin-block: 1.25rem .5rem; padding-left: .55rem; }
+main h2::before { width: 4px; height: 1.1em; border-radius: 2px; }
+
+/* Cards: remove beveled look, lighter elevation */
+.prompt,
+.file-row {
+  background: #fff;                      /* flat */
+  border: 1px solid var(--sage-200);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(11,61,46,.06);
+}
+.prompt { padding: 14px 16px; }
+.file-row { padding: 10px 12px; gap: 10px; }
+
+/* Unify buttons: same size, one is outline, one is filled */
+.btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  box-shadow: none;                      /* remove extra shine */
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.btn:hover { transform: none; }          /* remove lift */
+
+/* Choose CSV = pine outline */
+.file-btn {
+  background: transparent;
+  color: var(--pine-900);
+  border-color: var(--pine-900);
+}
+.file-btn:hover { background: var(--pine-900); color: #fff; }
+
+/* Submit = pine filled */
+.btn.primary {
+  background: var(--pine-900);
+  border-color: var(--pine-900);
+  color: #fff;
+}
+.btn.primary:hover { background: var(--pine-700); }
+
+/* Filename color a touch darker for contrast */
+.file-name { color: var(--bark-700); }
+
+/* Table: keep flat shell, reduce shouty caps */
+table.review {
+  box-shadow: 0 2px 10px rgba(11,61,46,.06);
+}
+table.review th {
+  text-transform: none;
+  font-size: .92rem;
+  letter-spacing: .01em;
+}
+
+/* Actions buttons match new sizing */
+table.review td.actions .btn { height: 32px; padding: 0 12px; }
+
+/* Modal: subtler panel */
+.modal {
+  box-shadow: 0 8px 24px rgba(11,61,46,.16);
+}
