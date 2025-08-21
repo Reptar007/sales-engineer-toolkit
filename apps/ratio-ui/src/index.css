@@ -114,4 +114,18 @@
   :focus:not(:focus-visible) {
     outline: none;
   }
+
+  /* Intrinsic web design - better responsive defaults */
+  * {
+    min-width: 0; /* Prevent flex/grid items from overflowing */
+  }
+
+  /* Enhanced media query for reduced data */
+  @media (prefers-reduced-data: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 } /* End @layer base */
