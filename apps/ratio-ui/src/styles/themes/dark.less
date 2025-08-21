@@ -21,18 +21,18 @@
   // Dark theme specific component styling
   .status-badge {
     &.pending {
-      background: rgba(156, 163, 175, 0.15);
-      color: #9ca3af;
+      background: @status-pending-bg-dark;
+      color: @status-pending-text-dark;
     }
 
     &.approved {
-      background: rgba(76, 175, 80, 0.15);
-      color: #4caf50;
+      background: @status-approved-bg-dark;
+      color: @status-approved-text-dark;
     }
 
     &.rejected {
-      background: rgba(244, 67, 54, 0.15);
-      color: #f44336;
+      background: @status-rejected-bg-dark;
+      color: @status-rejected-text-dark;
     }
   }
 
@@ -49,28 +49,28 @@
 
     &.circular {
       &.approve.active {
-        background: #4caf50;
-        border-color: #4caf50;
-        box-shadow: 0 0.125rem 0.5rem rgba(76, 175, 80, 0.4);
+        background: @success-green-alt;
+        border-color: @success-green-alt;
+        box-shadow: @btn-shadow-active-success;
       }
 
       &.reject.active {
-        background: #f44336;
-        border-color: #f44336;
-        box-shadow: 0 0.125rem 0.5rem rgba(244, 67, 54, 0.4);
+        background: @error-red-alt;
+        border-color: @error-red-alt;
+        box-shadow: @btn-shadow-active-error;
       }
     }
   }
 
   // Row states in dark theme
   .row-approved {
-    background: rgba(56, 142, 60, 0.15) !important;
-    border-left-color: #4caf50;
+    background: @status-approved-bg-dark !important;
+    border-left-color: @success-green-alt;
   }
 
   .row-rejected {
-    background: rgba(211, 47, 47, 0.15) !important;
-    border-left-color: #f44336;
+    background: @status-rejected-bg-dark !important;
+    border-left-color: @error-red-alt;
   }
 
   // Form elements in dark theme
@@ -85,7 +85,7 @@
   }
 
   .reject-modal h3 {
-    color: #f44336;
+    color: @error-red-alt;
   }
 
   // Tooltip styling in dark theme

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import './App.less';
+import './styles/App.less';
 import './styles/themes.less';
 import RejectModal from './RejectModal';
 import Header from './components/Header';

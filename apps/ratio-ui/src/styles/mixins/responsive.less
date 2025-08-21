@@ -1,0 +1,231 @@
+// =========================
+// Responsive Design Mixins - LESS
+// =========================
+
+@import '../tokens/_index.less';
+
+// =========================
+// Breakpoint Variables
+// =========================
+
+@breakpoint-mobile: 30rem; // 480px
+@breakpoint-tablet: 48rem; // 768px
+@breakpoint-desktop: 64rem; // 1024px
+@breakpoint-wide: 80rem; // 1280px
+
+// =========================
+// Media Query Mixins
+// =========================
+
+// Mobile-first responsive mixins
+.mobile-up(@rules) {
+  @media (min-width: @breakpoint-mobile) {
+    @rules();
+  }
+}
+
+.tablet-up(@rules) {
+  @media (min-width: @breakpoint-tablet) {
+    @rules();
+  }
+}
+
+.desktop-up(@rules) {
+  @media (min-width: @breakpoint-desktop) {
+    @rules();
+  }
+}
+
+.wide-up(@rules) {
+  @media (min-width: @breakpoint-wide) {
+    @rules();
+  }
+}
+
+// Mobile-first down mixins
+.mobile-down(@rules) {
+  @media (max-width: (@breakpoint-mobile - 0.0625rem)) {
+    @rules();
+  }
+}
+
+.tablet-down(@rules) {
+  @media (max-width: (@breakpoint-tablet - 0.0625rem)) {
+    @rules();
+  }
+}
+
+.desktop-down(@rules) {
+  @media (max-width: (@breakpoint-desktop - 0.0625rem)) {
+    @rules();
+  }
+}
+
+// Between breakpoints
+.mobile-tablet(@rules) {
+  @media (min-width: @breakpoint-mobile) and (max-width: (@breakpoint-tablet - 0.0625rem)) {
+    @rules();
+  }
+}
+
+.tablet-desktop(@rules) {
+  @media (min-width: @breakpoint-tablet) and (max-width: (@breakpoint-desktop - 0.0625rem)) {
+    @rules();
+  }
+}
+
+// =========================
+// Accessibility Media Query Mixins
+// =========================
+
+.reduced-motion(@rules) {
+  @media (prefers-reduced-motion: reduce) {
+    @rules();
+  }
+}
+
+.reduced-data(@rules) {
+  @media (prefers-reduced-data: reduce) {
+    @rules();
+  }
+}
+
+.high-contrast(@rules) {
+  @media (prefers-contrast: high) {
+    @rules();
+  }
+}
+
+.forced-colors(@rules) {
+  @media (forced-colors: active) {
+    @rules();
+  }
+}
+
+.dark-scheme(@rules) {
+  @media (prefers-color-scheme: dark) {
+    @rules();
+  }
+}
+
+.light-scheme(@rules) {
+  @media (prefers-color-scheme: light) {
+    @rules();
+  }
+}
+
+// =========================
+// Common Responsive Patterns
+// =========================
+
+// Stack on mobile, row on tablet+
+.stack-mobile(@gap: @space-md) {
+  display: flex;
+  flex-direction: column;
+  gap: @gap;
+
+  .tablet-up({
+    flex-direction: row;
+    align-items: center;
+    gap: (@gap * 1.5);
+  });
+}
+
+// Center on mobile, space between on tablet+
+.mobile-center-tablet-between() {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: @space-sm;
+
+  .tablet-up({
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  });
+}
+
+// Responsive padding
+.padding-responsive(@mobile: @space-md, @tablet: @space-lg, @desktop: @space-xl) {
+  padding: @mobile;
+
+  .tablet-up({
+    padding: @tablet;
+  });
+
+  .desktop-up({
+    padding: @desktop;
+  });
+}
+
+// Responsive font sizes
+.font-responsive(@mobile: @font-size-body, @tablet: null, @desktop: null) {
+  font-size: @mobile;
+
+  & when not (@tablet = null) {
+    .tablet-up({
+      font-size: @tablet;
+    });
+  }
+
+  & when not (@desktop = null) {
+    .desktop-up({
+      font-size: @desktop;
+    });
+  }
+}
+
+// =========================
+// Container Query Mixins (Future Enhancement)
+// =========================
+
+.container-query(@min-width, @rules) {
+  @container (min-width: @min-width) {
+    @rules();
+  }
+}
+
+// Artist mode mobile adjustments
+.artist-mobile-adjustments() {
+  .tablet-down({
+    .toggle-buttons {
+      top: @space-md;
+      right: @space-md;
+      gap: @space-xs;
+    }
+
+    .section::after {
+      font-size: 1.5rem;
+      top: 0.625rem;
+      right: 0.9375rem;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+    }
+
+    .section {
+      padding: @space-lg;
+    }
+  });
+}
+
+// Table responsive behavior
+.table-responsive() {
+  .tablet-down({
+    font-size: 0.75rem;
+    table-layout: auto;
+
+    th,
+    td {
+      padding: @space-sm;
+      width: auto;
+    }
+
+    th:nth-child(4),
+    td:nth-child(4) {
+      width: auto;
+      min-width: 5rem;
+    }
+  });
+}

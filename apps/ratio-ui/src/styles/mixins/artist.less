@@ -147,3 +147,85 @@
   .artist-transform(@artist-rotate-small);
   .artist-elevation(3);
 }
+
+// =========================
+// Enhanced Utility Mixins
+// =========================
+
+// Status-specific shadow mixin
+.status-shadow(@color, @alpha: 0.4) {
+  box-shadow: 0.25rem 0.25rem 0.75rem fade(@color, (@alpha * 100));
+}
+
+// Alpha background mixin
+.alpha-bg(@color, @alpha: 5%) {
+  background: fade(@color, (@alpha * 100));
+}
+
+// Status badge styling mixin
+.status-badge-style(@bg-color, @text-color, @border-color: fade(@text-color, 20%)) {
+  background: fade(@bg-color, 10%);
+  color: @text-color;
+  border-color: @border-color;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: @radius-sm;
+  font-size: 0.75rem;
+  font-weight: @font-weight-medium;
+  border: 0.0625rem solid transparent;
+  .transition(all, 0.2s);
+
+  [data-theme='dark'] & {
+    background: fade(@bg-color, 15%);
+  }
+}
+
+// Table header with icon and gradient mixin
+.table-header-with-icon(@icon: '', @gradient-light: @table-header-gradient-light, @gradient-dark: @table-header-gradient-dark) {
+  background: @gradient-light;
+  color: #2c3e50;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.0625rem;
+  font-family: @font-family-artist;
+  padding: 1rem 0.875rem;
+
+  [data-theme='dark'] & {
+    background: @gradient-dark;
+    color: #ffffff;
+    text-shadow: 0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.3);
+  }
+
+  &::before when not (@icon = '') {
+    content: @icon;
+    filter: drop-shadow(0.0625rem 0.0625rem 0.125rem @drop-shadow-light);
+
+    [data-theme='dark'] & {
+      filter: drop-shadow(0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.4));
+    }
+  }
+}
+
+// Button with gradient and artist styling
+.artist-button-gradient(@gradient: @btn-gradient-artist, @icon: '') {
+  .artist-button(@icon);
+  background: @gradient;
+  color: @white;
+  border: 0.1875rem solid @artist-border-color;
+  box-shadow: @artist-shadow;
+
+  &:hover {
+    .artist-transform(@artist-rotate-small, 1.1);
+    box-shadow: @artist-shadow-hover;
+  }
+}
+
+// Circular button active state mixin
+.circular-active-state(@color, @gradient) {
+  background: @gradient;
+  color: @white;
+  border-color: @artist-border-color;
+  .artist-transform(@artist-rotate-small, 1.15);
+  .status-shadow(@color);
+}
