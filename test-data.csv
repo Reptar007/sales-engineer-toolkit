@@ -1,0 +1,21 @@
+Test Name,Ratio,Reasoning
+User Login Authentication Test,3:5,Validates user login with correct credentials and handles invalid attempts gracefully
+API Rate Limiting Validation,2:3,Tests API rate limiting functionality under various load conditions
+Database Connection Pool Management,4:7,Comprehensive test of connection pool behavior including failover scenarios
+File Upload Security Check,1:2,Ensures uploaded files are properly validated for type size and security threats
+Payment Gateway Integration,5:8,End-to-end testing of payment processing with multiple payment providers
+Cross-Browser Compatibility Validation,2:4,Tests application functionality across Chrome Firefox Safari and Edge browsers
+Security Penetration Testing,6:9,Comprehensive security audit including SQL injection XSS and CSRF protection
+Performance Load Testing,3:6,Validates application performance under high concurrent user loads
+Data Migration Integrity Check,4:5,Ensures data consistency and integrity during database schema migrations
+Mobile Responsiveness Testing,2:5,Tests responsive design and touch interactions across various mobile devices
+Email Notification System,1:3,Validates email delivery templates and notification triggers
+Search Functionality Testing,3:4,Tests search algorithms filters and result ranking accuracy
+Session Management Validation,2:3,Ensures proper session creation timeout and cleanup mechanisms
+Error Handling and Recovery,4:6,Tests application resilience and error recovery procedures
+Backup and Restore Procedures,5:7,Validates data backup integrity and restore functionality
+User Permissions and Access Control,3:5,Tests role-based access control and permission inheritance
+Integration with Third-party APIs,2:4,Validates external API integration stability and error handling
+Internationalization Support,1:4,Tests multi-language support and locale-specific formatting
+Caching Layer Performance,3:7,Validates caching strategies and cache invalidation mechanisms
+Analytics and Reporting Accuracy,2:6,Tests data collection processing and report generation accuracy
