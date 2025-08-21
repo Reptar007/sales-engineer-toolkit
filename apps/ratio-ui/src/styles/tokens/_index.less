@@ -1,0 +1,117 @@
+// =========================
+// Design Tokens - Main Index
+// =========================
+
+// Import all token files
+@import 'colors.less';
+@import 'spacing.less';
+@import 'typography.less';
+@import 'shadows.less';
+@import 'animations.less';
+
+// CSS Custom Properties for Browser Compatibility
+// These maintain compatibility with existing CSS while providing LESS benefits
+:root {
+  // Colors
+  --white: @white;
+  --canvas-light: @canvas-light;
+  --canvas-dark: @canvas-dark;
+  --primary-green: @primary-green;
+  --primary-green-hover: @primary-green-hover;
+  --success-green: @success-green;
+  --success-green-hover: @success-green-hover;
+  --dark-gray: @dark-gray;
+  --dark-gray-light: @dark-gray-light;
+  --dark-gray-lighter: @dark-gray-lighter;
+  --soft-gray: @soft-gray;
+  --soft-gray-dark: @soft-gray-dark;
+  --error-red: @error-red;
+  --error-red-hover: @error-red-hover;
+
+  // Typography
+  --font-size-header: @font-size-header;
+  --font-size-subheader: @font-size-subheader;
+  --font-size-body: @font-size-body;
+  --font-size-button: @font-size-button;
+  --font-size-table: @font-size-table;
+  --font-weight-bold: @font-weight-bold;
+  --font-weight-medium: @font-weight-medium;
+  --font-weight-regular: @font-weight-regular;
+
+  // Spacing
+  --space-xs: @space-xs;
+  --space-sm: @space-sm;
+  --space-md: @space-md;
+  --space-lg: @space-lg;
+  --space-xl: @space-xl;
+  --space-fluid-xs: @space-fluid-xs;
+  --space-fluid-sm: @space-fluid-sm;
+  --space-fluid-md: @space-fluid-md;
+  --space-fluid-lg: @space-fluid-lg;
+  --space-fluid-xl: @space-fluid-xl;
+
+  // Border radius
+  --radius-sm: @radius-sm;
+  --radius-md: @radius-md;
+  --radius-lg: @radius-lg;
+  --radius-pill: @radius-pill;
+
+  // Shadows
+  --shadow-sm: @shadow-sm;
+  --shadow-md: @shadow-md;
+  --shadow-sm-dark: @shadow-sm-dark;
+  --shadow-md-dark: @shadow-md-dark;
+
+  // Focus
+  --focus-ring: @focus-ring;
+  --focus-offset: @focus-offset;
+
+  // Common values
+  --font-family-system: @font-family-system;
+  --transition-fast: @transition-fast;
+  --transition-normal: @transition-normal;
+  --max-width-container: @max-width-container;
+  --z-index-modal: @z-index-modal;
+  --z-index-toggle: @z-index-toggle;
+  --z-index-icon: @z-index-icon;
+  --z-index-overlay: @z-index-overlay;
+
+  // Alpha colors
+  --error-bg: @error-bg;
+  --modal-backdrop: @modal-backdrop;
+  --drop-shadow-light: @drop-shadow-light;
+  --drop-shadow-dark: @drop-shadow-dark;
+
+  // Button sizes
+  --btn-size-circular: @btn-size-circular;
+  --btn-min-height: @btn-min-height;
+  --btn-padding-standard: @btn-padding-standard;
+  --btn-padding-ghost: @btn-padding-ghost;
+  --btn-font-size-mobile: @btn-font-size-mobile;
+  --btn-padding-mobile: @btn-padding-mobile;
+
+  // Container query units
+  --container-xs: @container-xs;
+  --container-sm: @container-sm;
+  --container-md: @container-md;
+  --container-lg: @container-lg;
+
+  // Artist mode values
+  --artist-border-width: @artist-border-width;
+  --artist-border-style: @artist-border-style;
+  --artist-rotate-slight: @artist-rotate-slight;
+  --artist-rotate-slight-alt: @artist-rotate-slight-alt;
+  --artist-rotate-small: @artist-rotate-small;
+  --artist-rotate-small-alt: @artist-rotate-small-alt;
+  --artist-rotate-medium: @artist-rotate-medium;
+  --artist-rotate-large: @artist-rotate-large;
+  --artist-rotate-large-alt: @artist-rotate-large-alt;
+  --artist-brush-cursor: @artist-brush-cursor;
+
+  // Modern color space support
+  @supports (color: oklch(0.7 0.15 180)) {
+    --primary-green: oklch(0.45 0.15 140);
+    --success-green: oklch(0.5 0.15 140);
+    --error-red: oklch(0.55 0.2 25);
+  }
+}

@@ -1,0 +1,56 @@
+@keyframes spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.1);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+@keyframes bounce {
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-0.5rem);
+  }
+  60% {
+    transform: translateY(-0.25rem);
+  }
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+@keyframes ripple {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 1;
+  }
+  100% {
+    width: 2rem;
+    height: 2rem;
+    opacity: 0;
+  }
+}
+@keyframes gentle-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-0.3deg);
+  }
+  50% {
+    transform: translate3d(0, -0.125rem, 0) rotate(-0.3deg);
+  }
+}

@@ -182,78 +182,7 @@
   }
 } /* End @layer tokens */
 
-@layer themes {
-  /* Light theme variables (default) */
-  [data-theme='light'],
-  :root {
-    --canvas: var(--canvas-light);
-    --text-primary: #333333;
-    --text-secondary: #666666;
-    --text-muted: #999999;
-    --bg-card: #ffffff;
-    --bg-hover: #f5f5f5;
-    --border-color: var(--soft-gray);
-    --table-header-bg: #f8f9fa;
-    --table-border: var(--soft-gray);
-    --current-shadow-sm: var(--shadow-sm);
-    --current-shadow-md: var(--shadow-md);
-  }
-
-  /* Dark theme variables */
-  [data-theme='dark'] {
-    --canvas: var(--canvas-dark);
-    --text-primary: var(--text-primary-dark);
-    --text-secondary: var(--text-secondary-dark);
-    --text-muted: #aaaaaa;
-    --bg-card: var(--bg-card-dark);
-    --bg-hover: var(--dark-gray-lighter);
-    --border-color: var(--dark-gray-lighter);
-    --table-header-bg: var(--dark-gray-lighter);
-    --table-border: var(--dark-gray-lighter);
-    --current-shadow-sm: var(--shadow-sm-dark);
-    --current-shadow-md: var(--shadow-md-dark);
-  }
-  /* Dark theme artist mode - override with dark gradient */
-  [data-theme='dark'][data-artist='true'] .review-table th {
-    background: linear-gradient(180deg, #2f4157 0%, #2d3e52 33%, #2b3a4e 66%, #293649 100%);
-    color: #ffffff;
-    text-shadow: 0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.3);
-  }
-
-  /* Artist mode icon adjustments - light theme default */
-  [data-artist='true'] .review-table th::before {
-    filter: drop-shadow(0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.2));
-  }
-
-  /* Dark theme artist mode icon adjustments */
-  [data-theme='dark'][data-artist='true'] .review-table th::before {
-    filter: drop-shadow(0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.4));
-  }
-
-  /* Dark theme table body overrides */
-  [data-theme='dark'][data-artist='true'] .review-table td {
-    border-bottom: 0.0625rem solid rgba(44, 62, 80, 0.3) !important;
-    color: var(--text-primary-dark) !important;
-  }
-
-  [data-theme='dark'][data-artist='true'] .review-table tbody tr:nth-child(even) td {
-    background: rgba(44, 62, 80, 0.08) !important;
-  }
-
-  [data-theme='dark'][data-artist='true'] .review-table tbody tr:hover td {
-    background: rgba(74, 144, 226, 0.15) !important;
-  }
-
-  /* Light theme artist mode header - make it darker */
-  [data-artist='true'] header h1 {
-    color: #1a2332; /* Darker color for light theme */
-  }
-
-  /* Dark theme artist mode header - keep original color */
-  [data-theme='dark'][data-artist='true'] header h1 {
-    color: var(--border-color); /* Original artist mode color for dark theme */
-  }
-} /* End @layer themes */
+/* Themes are now handled in themes.less */
 
 @layer base {
   /* =========================
@@ -977,16 +906,7 @@
     line-height: 1.5;
   }
 
-  /* Artist mode styling for empty state */
-  [data-artist='true'] .empty-icon {
-    transform: rotate(var(--artist-rotate-small));
-    filter: drop-shadow(0.125rem 0.125rem 0.25rem rgba(44, 62, 80, 0.2));
-  }
-
-  [data-artist='true'] .empty-content h3 {
-    color: #2c3e50;
-    text-shadow: 0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.1);
-  }
+  /* Empty state artist mode styling now handled in themes.less */
 
   /* =========================
    Loading State
@@ -1147,114 +1067,13 @@
     }
   }
 
-  /* Artist mode styling for loading state */
-  [data-artist='true'] .spinner-icon {
-    transform: rotate(var(--artist-rotate-small));
-    filter: drop-shadow(0.125rem 0.125rem 0.25rem rgba(44, 62, 80, 0.2));
-  }
+  /* Loading state artist mode styling now handled in themes.less */
 
-  [data-artist='true'] .loading-content h3 {
-    color: #2c3e50;
-    text-shadow: 0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.1);
-  }
+  /* Pagination and table wrapper artist mode styling now handled in themes.less */
 
-  [data-artist='true'] .loading-bar {
-    border: 0.125rem solid var(--artist-border-color, #2c3e50);
-    background: rgba(44, 62, 80, 0.1);
-  }
+  /* Button states and row states artist mode styling now handled in themes.less */
 
-  /* Artist mode pagination styling */
-  [data-artist='true'] .pagination-btn,
-  [data-artist='true'] .pagination-number {
-    border: 0.125rem solid #2c3e50;
-    border-radius: 1rem;
-    transform: rotate(var(--artist-rotate-small));
-    box-shadow: 0.125rem 0.125rem 0.25rem rgba(44, 62, 80, 0.2);
-    font-weight: bold;
-  }
-
-  [data-artist='true'] .pagination-btn:hover:not(:disabled),
-  [data-artist='true'] .pagination-number:hover {
-    transform: rotate(var(--artist-rotate-small)) translateY(-0.125rem);
-    box-shadow: 0.1875rem 0.1875rem 0.375rem rgba(44, 62, 80, 0.3);
-  }
-
-  [data-artist='true'] .pagination-number.active {
-    background: linear-gradient(135deg, var(--primary-green), var(--success-green));
-    border-color: #2c3e50;
-    transform: rotate(var(--artist-rotate-small)) scale(1.05);
-  }
-
-  [data-artist='true'] .table-wrapper {
-    border: 0.125rem solid #2c3e50;
-    border-radius: 0.9375rem;
-    box-shadow: 0.25rem 0.25rem 0.75rem rgba(44, 62, 80, 0.15);
-  }
-
-  [data-artist='true'] .table-wrapper.scrollable::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, var(--primary-green), var(--success-green));
-    border-radius: 0.5rem;
-  }
-
-  /* Artist mode button states */
-  [data-artist='true'] .btn.circular.approve.active {
-    background: linear-gradient(135deg, var(--success-green), #4caf50);
-    border: 0.125rem solid #2c3e50;
-    transform: rotate(var(--artist-rotate-small)) scale(1.15);
-    box-shadow: 0.25rem 0.25rem 0.75rem rgba(56, 142, 60, 0.4);
-  }
-
-  [data-artist='true'] .btn.circular.reject.active {
-    background: linear-gradient(135deg, var(--error-red), #f44336);
-    border: 0.125rem solid #2c3e50;
-    transform: rotate(var(--artist-rotate-small)) scale(1.15);
-    box-shadow: 0.25rem 0.25rem 0.75rem rgba(211, 47, 47, 0.4);
-  }
-
-  [data-artist='true'] .btn.circular:disabled {
-    opacity: 0.2;
-    transform: rotate(var(--artist-rotate-small)) scale(0.85);
-  }
-
-  /* Artist mode row states */
-  [data-artist='true'] .row-approved {
-    background: rgba(56, 142, 60, 0.08) !important;
-    border-left: 0.25rem solid var(--success-green);
-    border-radius: 0.5rem;
-    transform: translateX(0.125rem);
-  }
-
-  [data-artist='true'] .row-rejected {
-    background: rgba(211, 47, 47, 0.08) !important;
-    border-left: 0.25rem solid var(--error-red);
-    border-radius: 0.5rem;
-    opacity: 0.6;
-    transform: translateX(-0.125rem);
-  }
-
-  /* Dark theme row states */
-  [data-theme='dark'] .row-approved {
-    background: rgba(56, 142, 60, 0.15) !important;
-    border-left-color: #4caf50;
-  }
-
-  [data-theme='dark'] .row-rejected {
-    background: rgba(211, 47, 47, 0.15) !important;
-    border-left-color: #f44336;
-  }
-
-  /* Dark theme button states */
-  [data-theme='dark'] .btn.circular.approve.active {
-    background: #4caf50;
-    border-color: #4caf50;
-    box-shadow: 0 0.125rem 0.5rem rgba(76, 175, 80, 0.4);
-  }
-
-  [data-theme='dark'] .btn.circular.reject.active {
-    background: #f44336;
-    border-color: #f44336;
-    box-shadow: 0 0.125rem 0.5rem rgba(244, 67, 54, 0.4);
-  }
+  /* Dark theme row and button states now handled in themes.less */
 
   /* Respect reduced motion preferences */
   @media (prefers-reduced-motion: reduce) {
@@ -1275,11 +1094,7 @@
     .row-approved,
     .row-rejected,
     .row-pending,
-    [data-artist='true'] .btn.circular.approve.active,
-    [data-artist='true'] .btn.circular.reject.active {
-      animation: none !important;
-      transition: none !important;
-    }
+    /* Artist mode button animations now handled in themes.less */
 
     .btn.circular.approve.active::after {
       animation: none !important;
@@ -1289,11 +1104,7 @@
     .tooltip,
     .rejection-indicator,
     .rejection-indicator:hover,
-    [data-artist='true'] .tooltip,
-    [data-artist='true'] .rejection-indicator:hover .tooltip {
-      transition: none !important;
-      transform: none !important;
-    }
+    /* Artist mode tooltip animations now handled in themes.less */
 
     .rejection-indicator:hover .tooltip {
       opacity: 1 !important;
@@ -1479,33 +1290,7 @@
     color: #f44336;
   }
 
-  /* Artist mode form styling */
-  [data-artist='true'] .reject-modal {
-    border: 0.25rem solid var(--error-red);
-    border-radius: 1.5625rem; /* 25px */
-    transform: rotate(var(--artist-rotate-small));
-    box-shadow: 0.375rem 0.375rem 1rem rgba(211, 47, 47, 0.2);
-  }
-
-  [data-artist='true'] .form-textarea {
-    border: 0.125rem solid var(--border-color);
-    border-radius: 1rem;
-    transform: rotate(calc(var(--artist-rotate-small) * -0.5));
-    transition: all 0.3s ease;
-  }
-
-  [data-artist='true'] .form-textarea:focus {
-    border-color: var(--error-red);
-    transform: rotate(0deg) scale(1.02);
-    box-shadow: 0.125rem 0.125rem 0.375rem rgba(211, 47, 47, 0.2);
-  }
-
-  [data-artist='true'] .form-label {
-    color: var(--error-red);
-    font-weight: var(--font-weight-bold);
-    text-transform: uppercase;
-    letter-spacing: 0.0625rem;
-  }
+  /* Form styling artist mode now handled in themes.less */
 
   /* =========================
    Rejection Reason Indicator
@@ -1690,44 +1475,7 @@
     color: var(--bg-card);
   }
 
-  /* Artist mode rejection indicator */
-  [data-artist='true'] .rejection-indicator {
-    transform: rotate(var(--artist-rotate-small));
-    filter: drop-shadow(0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.2));
-  }
-
-  [data-artist='true'] .rejection-indicator:hover {
-    transform: rotate(var(--artist-rotate-small)) scale(1.3);
-  }
-
-  [data-artist='true'] .tooltip {
-    border: 0.125rem solid var(--error-red);
-    border-radius: 1rem;
-    transform: translateX(-50%) rotate(calc(var(--artist-rotate-small) * -0.5));
-    box-shadow: 0.25rem 0.25rem 0.75rem rgba(0, 0, 0, 0.2);
-    z-index: 9999; /* Ensure artist mode tooltip is also on top */
-    /* Inherit dynamic sizing from base tooltip */
-    min-width: 12rem; /* 192px */
-    max-width: clamp(20rem, 40vw, 32rem); /* Same responsive sizing as base */
-    font-weight: 500; /* Slightly bolder for artist mode */
-  }
-
-  [data-artist='true'] .tooltip::after {
-    border-top-color: var(--error-red);
-  }
-
-  [data-artist='true'] .tooltip-below .tooltip::after {
-    border-top-color: transparent;
-    border-bottom-color: var(--error-red);
-  }
-
-  [data-artist='true'] .rejection-indicator:hover .tooltip {
-    transform: translateX(-50%) translateY(-0.25rem) rotate(0deg) scale(1.02);
-  }
-
-  [data-artist='true'] .tooltip-below.rejection-indicator:hover .tooltip {
-    transform: translateX(-50%) translateY(0.25rem) rotate(0deg) scale(1.02);
-  }
+  /* Rejection indicator artist mode styling now handled in themes.less */
 
   /* Enhanced tooltip for rejection reasons */
   .row-rejected:hover {
@@ -1774,69 +1522,7 @@
     color: var(--text-primary-dark);
   }
 
-  /* Dark theme artist mode tooltip */
-  [data-theme='dark'][data-artist='true'] .tooltip {
-    background: var(--bg-card-dark);
-    border-color: var(--error-red);
-    color: var(--text-primary-dark);
-    z-index: 9999; /* Ensure dark mode artist tooltip is also on top */
-    /* Maintain dynamic sizing in dark mode */
-    min-width: 12rem; /* 192px */
-    max-width: clamp(20rem, 40vw, 32rem); /* Same responsive sizing */
-  }
-
-  [data-theme='dark'][data-artist='true'] .tooltip::after {
-    border-top-color: var(--error-red);
-  }
-
-  [data-theme='dark'][data-artist='true'] .tooltip-below .tooltip::after {
-    border-top-color: transparent;
-    border-bottom-color: var(--error-red);
-  }
-
-  /* Artist mode tooltip positioning adjustments */
-  [data-artist='true'] .tooltip-left-adjusted::after,
-  [data-artist='true'] .tooltip-below .tooltip-left-adjusted::after {
-    left: 1rem;
-    transform: translateX(0);
-    border-top-color: var(--error-red);
-  }
-
-  [data-artist='true'] .tooltip-right-adjusted::after,
-  [data-artist='true'] .tooltip-below .tooltip-right-adjusted::after {
-    left: auto;
-    right: 1rem;
-    transform: translateX(0);
-    border-top-color: var(--error-red);
-  }
-
-  [data-artist='true'] .tooltip-below .tooltip-left-adjusted::after,
-  [data-artist='true'] .tooltip-below .tooltip-right-adjusted::after {
-    border-top-color: transparent;
-    border-bottom-color: var(--error-red);
-  }
-
-  /* Dark theme artist mode tooltip positioning adjustments */
-  [data-theme='dark'][data-artist='true'] .tooltip-left-adjusted::after,
-  [data-theme='dark'][data-artist='true'] .tooltip-below .tooltip-left-adjusted::after {
-    left: 1rem;
-    transform: translateX(0);
-    border-top-color: var(--error-red);
-  }
-
-  [data-theme='dark'][data-artist='true'] .tooltip-right-adjusted::after,
-  [data-theme='dark'][data-artist='true'] .tooltip-below .tooltip-right-adjusted::after {
-    left: auto;
-    right: 1rem;
-    transform: translateX(0);
-    border-top-color: var(--error-red);
-  }
-
-  [data-theme='dark'][data-artist='true'] .tooltip-below .tooltip-left-adjusted::after,
-  [data-theme='dark'][data-artist='true'] .tooltip-below .tooltip-right-adjusted::after {
-    border-top-color: transparent;
-    border-bottom-color: var(--error-red);
-  }
+  /* Dark theme artist mode tooltip styling now handled in themes.less */
 
   /* =========================
    Footer
@@ -1893,352 +1579,7 @@
     outline-offset: var(--focus-offset);
   }
 
-  /* =========================
-   Artist Mode
-   ========================= */
-
-  [data-artist='true'] {
-    --canvas-light: #f0f8ff;
-    --canvas-dark: #1a1f2e;
-    --primary-green: #4a90e2;
-    --border-color: #2c3e50;
-    --artist-shadow: 0.1875rem 0.1875rem 0rem var(--artist-shadow-color); /* 3px 3px 0px */
-    --artist-shadow-strong: 0.25rem 0.375rem 0rem var(--artist-shadow-color-strong); /* 4px 6px 0px */
-    --artist-shadow-extra: 0.5rem 0.5rem 0rem var(--artist-shadow-color-strong); /* 8px 8px 0px */
-    --artist-border: var(--artist-border-width) var(--artist-border-style) var(--border-color);
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-  }
-
-  [data-artist='true'] body,
-  [data-artist='true'] .section,
-  [data-artist='true'] .search-input,
-  [data-artist='true'] .review-table,
-  [data-artist='true'] h1,
-  [data-artist='true'] h2,
-  [data-artist='true'] p,
-  [data-artist='true'] td,
-  [data-artist='true'] th {
-    cursor: var(--artist-brush-cursor), auto;
-  }
-
-  [data-artist='true'] .btn,
-  [data-artist='true'] .artist-toggle,
-  [data-artist='true'] .theme-toggle,
-  [data-artist='true'] button {
-    cursor: var(--artist-brush-cursor), pointer;
-  }
-
-  [data-artist='true'] input,
-  [data-artist='true'] textarea {
-    cursor: text;
-  }
-
-  [data-artist='true'] .section:active,
-  [data-artist='true'] .app:active {
-    cursor: var(--artist-brush-cursor), grabbing;
-  }
-
-  [data-artist='true'] .section {
-    border: var(--artist-border);
-    border-radius: 0.9375rem; /* 15px */
-    background: var(--bg-card);
-    position: relative;
-    box-shadow: var(--artist-shadow);
-    transform: rotate(0deg);
-    margin-bottom: var(--space-lg);
-    padding: var(--space-xl);
-  }
-
-  [data-artist='true'] .section:nth-child(odd) {
-    transform: rotate(var(--artist-rotate-slight));
-  }
-
-  [data-artist='true'] .section:nth-child(even) {
-    transform: rotate(var(--artist-rotate-slight-alt));
-  }
-
-  [data-artist='true'] .section::after {
-    content: '🤖';
-    position: absolute;
-    top: 0.9375rem; /* 15px */
-    right: 1.5625rem; /* 25px */
-    font-size: 2rem; /* 32px */
-    z-index: var(--z-index-icon);
-    filter: drop-shadow(0.125rem 0.125rem 0.25rem var(--drop-shadow-light)); /* 2px 2px 4px */
-  }
-
-  /* Different icons for different sections */
-  [data-artist='true'] .section:nth-child(2)::after {
-    content: '🗄️';
-    top: 1.25rem; /* 20px */
-    right: 1.875rem; /* 30px */
-  }
-
-  [data-artist='true'] .section:nth-child(3)::after {
-    content: '🤓';
-    top: 0.9375rem; /* 15px */
-    right: 1.5625rem; /* 25px */
-  }
-
-  [data-artist='true'] .section:nth-child(4)::after {
-    content: '🔍🐕';
-    top: 0.625rem; /* 10px */
-    right: 1.25rem; /* 20px */
-  }
-
-  [data-artist='true'] header {
-    position: relative;
-    text-align: center;
-    margin-bottom: var(--space-xl);
-  }
-
-  [data-artist='true'] header h1 {
-    font-size: 2rem; /* 32px */
-    font-weight: bold;
-    transform: rotate(var(--artist-rotate-medium));
-    text-shadow: 0.125rem 0.125rem 0rem var(--artist-shadow-color); /* 2px 2px 0px */
-    letter-spacing: 0.125rem; /* 2px */
-    color: #1a2332; /* Default dark color for light theme */
-  }
-
-  [data-artist='true'] header h1::after {
-    content: '🐺';
-    margin-left: 0.9375rem; /* 15px */
-    font-size: 1.75rem; /* 28px */
-    vertical-align: middle;
-  }
-
-  /* Artist Mode Search Input Styling */
-  [data-artist='true'] .search-input {
-    border: var(--artist-border);
-    border-radius: 1.5625rem; /* 25px */
-    font-family: inherit;
-    font-size: 0.875rem; /* 14px */
-    transform: rotate(var(--artist-rotate-small));
-    box-shadow: var(--artist-shadow);
-  }
-
-  [data-artist='true'] .search-container::before {
-    font-size: 1.125rem; /* 18px */
-  }
-
-  [data-artist='true'] .btn {
-    border: var(--artist-border);
-    border-radius: 1.25rem; /* 20px */
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 0.0625rem; /* 1px */
-    transform: rotate(var(--artist-rotate-small));
-    box-shadow: var(--artist-shadow);
-    padding: var(--btn-padding-standard);
-    font-family: inherit;
-  }
-
-  [data-artist='true'] .btn:hover {
-    transform: rotate(var(--artist-rotate-small)) translateY(-0.125rem); /* -2px */
-    box-shadow: var(--artist-shadow-strong);
-  }
-
-  [data-artist='true'] .btn.file-btn::before {
-    content: '📁 ';
-  }
-
-  [data-artist='true'] .btn.primary::before {
-    content: '🚀 ';
-  }
-
-  [data-artist='true'] .btn.approve::before {
-    content: '';
-  }
-
-  [data-artist='true'] .btn.reject::before {
-    content: '';
-  }
-
-  [data-artist='true'] .review-table {
-    border: var(--artist-border);
-    border-collapse: separate;
-    border-spacing: 0;
-    background: var(--bg-card);
-    transform: rotate(0deg);
-    border-radius: 0.9375rem; /* 15px */
-    overflow: hidden;
-    box-shadow:
-      0.25rem 0.25rem 0.75rem rgba(44, 62, 80, 0.15),
-      0.125rem 0.125rem 0rem rgba(44, 62, 80, 0.2); /* Enhanced shadow */
-    width: 100%;
-    /* Better text contrast */
-    color: var(--text-primary);
-  }
-
-  [data-artist='true'] .review-table th {
-    border-bottom: var(--artist-border);
-    /* Default light theme gradient - overridden by theme-specific rules */
-    background: linear-gradient(180deg, #a3d2ff 0%, #baddff 33%, #d1e7ff 66%, #e8f2ff 100%);
-    color: #2c3e50;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 0.0625rem; /* 1px */
-    position: relative;
-    padding: 1rem 0.875rem; /* 16px 14px - increased padding */
-    font-family: inherit;
-    font-size: 0.8125rem; /* 13px - slightly larger */
-  }
-
-  [data-artist='true'] .review-table td {
-    border-bottom: 0.0625rem solid rgba(44, 62, 80, 0.15); /* Light theme border */
-    background: var(--bg-card);
-    font-weight: 500;
-    padding: 1rem 0.875rem; /* 16px 14px - matched header padding */
-    font-family: inherit;
-    color: #2c3e50; /* Light theme text color */
-    font-size: 0.8125rem; /* 13px - consistent with header */
-  }
-
-  /* Alternating row colors for better readability */
-  [data-artist='true'] .review-table tbody tr:nth-child(even) td {
-    background: rgba(74, 144, 226, 0.04); /* Light theme alternate row color */
-  }
-
-  /* Improved hover state for rows */
-  [data-artist='true'] .review-table tbody tr:hover td {
-    background: rgba(74, 144, 226, 0.12); /* Light theme hover color */
-    transform: translateX(0.125rem); /* Subtle shift on hover */
-    transition: all 0.2s ease;
-  }
-
-  /* Better visual separation and spacing */
-  [data-artist='true'] .review-table td:first-child {
-    border-left: none;
-  }
-
-  [data-artist='true'] .review-table td:last-child {
-    border-right: none;
-  }
-
-  /* Improved text contrast for better readability */
-  [data-artist='true'] .review-table tbody tr td {
-    position: relative;
-  }
-
-  [data-artist='true'] .review-table tbody tr td::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    height: 0.0625rem;
-    background: linear-gradient(90deg, transparent, rgba(44, 62, 80, 0.1), transparent);
-    pointer-events: none;
-  }
-
-  [data-artist='true'] .review-table tr:last-child td {
-    border-bottom: none;
-  }
-
-  [data-artist='true'] .review-table th:first-child::before {
-    content: '🏷️ ';
-  }
-
-  [data-artist='true'] .review-table th:nth-child(2)::before {
-    content: '⚖️ ';
-  }
-
-  [data-artist='true'] .review-table th:nth-child(3)::before {
-    content: '💭 ';
-  }
-
-  [data-artist='true'] .review-table th:nth-child(4)::before {
-    content: '👍 ';
-  }
-
-  /* Improved action buttons in artist mode */
-  [data-artist='true'] .review-table .actions .btn {
-    margin: 0 0.25rem;
-    box-shadow: 0.125rem 0.125rem 0.25rem rgba(44, 62, 80, 0.3);
-    border-width: 0.125rem; /* 2px */
-  }
-
-  [data-artist='true'] .review-table .actions .btn:hover {
-    transform: translateY(-0.0625rem) rotate(var(--artist-rotate-small));
-    box-shadow: 0.1875rem 0.1875rem 0.375rem rgba(44, 62, 80, 0.4);
-  }
-
-  [data-artist='true'] .artist-toggle {
-    background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
-    color: white;
-    border: 0.1875rem solid #2c3e50; /* 3px */
-    transform: rotate(var(--artist-rotate-large));
-    box-shadow: 0.1875rem 0.1875rem 0rem var(--artist-shadow-color-strong); /* 3px 3px 0px */
-  }
-
-  [data-artist='true'] .artist-toggle:hover {
-    transform: rotate(var(--artist-rotate-large)) scale(1.1);
-  }
-
-  [data-artist='true'] .theme-toggle {
-    transform: rotate(var(--artist-rotate-large-alt));
-    border: 0.1875rem solid var(--border-color); /* 3px */
-    box-shadow: 0.1875rem 0.1875rem 0rem var(--artist-shadow-color-strong); /* 3px 3px 0px */
-  }
-
-  [data-artist='true'] .modal {
-    border: 0.25rem solid var(--border-color); /* 4px */
-    border-radius: 1.5625rem; /* 25px */
-    transform: rotate(var(--artist-rotate-medium));
-    box-shadow: var(--artist-shadow-extra);
-  }
-
-  [data-artist='true'] .modal h3::before {
-    content: '🤔 ';
-  }
-
-  [data-artist='true'] .file-name {
-    font-style: italic;
-    font-weight: 500;
-  }
-
-  [data-artist='true'] .file-name::before {
-    content: '📄 ';
-  }
-
-  [data-artist='true'] .prompt-text::before {
-    content: '💡 ';
-    margin-right: 0.5rem; /* 8px */
-  }
-
-  /* Add some subtle animations for artist mode */
-  [data-artist='true'] .section {
-    animation: gentle-float 8s ease-in-out infinite;
-  }
-
-  [data-artist='true'] .section:nth-child(even) {
-    animation: gentle-float 8s ease-in-out infinite reverse;
-    animation-delay: -2s;
-  }
-
-  @keyframes gentle-float {
-    0%,
-    100% {
-      transform: translateY(0rem) rotate(var(--artist-rotate-slight)); /* 0px */
-    }
-    50% {
-      transform: translateY(-0.125rem) rotate(var(--artist-rotate-slight)); /* -2px */
-    }
-  }
-
-  /* Disable animations in artist mode if user prefers reduced motion */
-  @media (prefers-reduced-motion: reduce) {
-    [data-artist='true'] .section {
-      animation: none;
-      transform: rotate(var(--artist-rotate-slight));
-    }
-
-    [data-artist='true'] .section:nth-child(even) {
-      animation: none;
-      transform: rotate(var(--artist-rotate-slight-alt));
-    }
-  }
+  /* Artist mode styles are now handled in themes.less */
 } /* End @layer components */
 
 @layer utilities {
@@ -2505,26 +1846,7 @@
     }
   }
 
-  /* Artist mode mobile adjustments */
-  [data-artist='true'] .toggle-buttons {
-    top: var(--space-md);
-    right: var(--space-md);
-    gap: var(--space-xs);
-  }
-
-  [data-artist='true'] .section::after {
-    font-size: 1.5rem; /* 24px */
-    top: 0.625rem; /* 10px */
-    right: 0.9375rem; /* 15px */
-  }
-
-  [data-artist='true'] header h1 {
-    font-size: 1.5rem; /* 24px */
-  }
-
-  [data-artist='true'] .section {
-    padding: var(--space-lg);
-  }
+  /* Artist mode mobile adjustments now handled in themes.less */
 }
 
 @media (max-width: 30rem) {
@@ -2656,10 +1978,11 @@
   @media print {
     .toggle-buttons,
     .btn.approve,
-    .btn.reject,
-    [data-artist='true'] .section::after {
+    .btn.reject {
       display: none;
     }
+
+    /* Artist mode print styles handled in themes.less */
 
     .section {
       break-inside: avoid;

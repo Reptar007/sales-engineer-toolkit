@@ -1,0 +1,100 @@
+// =========================
+// Light Theme - LESS with Nesting
+// =========================
+
+@import '../tokens/_index.less';
+
+// Light theme variables (default)
+[data-theme='light'],
+:root {
+  --canvas: @canvas-light;
+  --text-primary: @text-primary-light;
+  --text-secondary: @text-secondary-light;
+  --text-muted: @text-muted-light;
+  --bg-card: @bg-card-light;
+  --bg-hover: @bg-hover-light;
+  --border-color: @soft-gray;
+  --table-header-bg: @table-header-bg-light;
+  --table-border: @table-border-light;
+  --current-shadow-sm: @shadow-sm;
+  --current-shadow-md: @shadow-md;
+}
+
+// Light theme specific component styling
+[data-theme='light'] {
+  // Status badges in light theme
+  .status-badge {
+    &.pending {
+      background: rgba(156, 163, 175, 0.1);
+      color: #6b7280;
+      border-color: rgba(156, 163, 175, 0.2);
+    }
+
+    &.approved {
+      background: rgba(56, 142, 60, 0.1);
+      color: @success-green;
+      border-color: rgba(56, 142, 60, 0.2);
+    }
+
+    &.rejected {
+      background: rgba(211, 47, 47, 0.1);
+      color: @error-red;
+      border-color: rgba(211, 47, 47, 0.2);
+    }
+  }
+
+  // Button states in light theme
+  .btn.circular {
+    &.approve.active {
+      background: @success-green;
+      color: @white;
+      border-color: @success-green;
+      transform: scale(1.1);
+      box-shadow: 0 0.125rem 0.5rem rgba(56, 142, 60, 0.4);
+    }
+
+    &.reject.active {
+      background: @error-red;
+      color: @white;
+      border-color: @error-red;
+      transform: scale(1.1);
+      box-shadow: 0 0.125rem 0.5rem rgba(211, 47, 47, 0.4);
+    }
+  }
+
+  // Row states in light theme
+  .row-approved {
+    background: rgba(56, 142, 60, 0.05) !important;
+    border-left: 0.25rem solid @success-green;
+  }
+
+  .row-rejected {
+    background: rgba(211, 47, 47, 0.05) !important;
+    border-left: 0.25rem solid @error-red;
+    opacity: 0.7;
+  }
+
+  // Tooltip styling
+  .tooltip {
+    background: @text-primary-light;
+    color: @bg-card-light;
+
+    &::after {
+      border-top-color: @text-primary-light;
+    }
+
+    strong {
+      color: @bg-card-light;
+    }
+  }
+
+  .tooltip-below .tooltip::after {
+    border-top-color: transparent;
+    border-bottom-color: @text-primary-light;
+  }
+
+  // Rejection indicator
+  .rejection-indicator {
+    filter: drop-shadow(0 0.0625rem 0.125rem @drop-shadow-light);
+  }
+}

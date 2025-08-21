@@ -1,0 +1,208 @@
+@keyframes spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.1);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+@keyframes bounce {
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-0.5rem);
+  }
+  60% {
+    transform: translateY(-0.25rem);
+  }
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+@keyframes ripple {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 1;
+  }
+  100% {
+    width: 2rem;
+    height: 2rem;
+    opacity: 0;
+  }
+}
+@keyframes gentle-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-0.3deg);
+  }
+  50% {
+    transform: translate3d(0, -0.125rem, 0) rotate(-0.3deg);
+  }
+}
+:root {
+  --white: #ffffff;
+  --canvas-light: #faf8f5;
+  --canvas-dark: #333333;
+  --primary-green: #2e7d32;
+  --primary-green-hover: #1b5e20;
+  --success-green: #388e3c;
+  --success-green-hover: #2e7d32;
+  --dark-gray: #333333;
+  --dark-gray-light: #555555;
+  --dark-gray-lighter: #666666;
+  --soft-gray: #e0e0e0;
+  --soft-gray-dark: #cccccc;
+  --error-red: #d32f2f;
+  --error-red-hover: #b71c1c;
+  --font-size-header: 1.5rem;
+  --font-size-subheader: 1.125rem;
+  --font-size-body: 0.875rem;
+  --font-size-button: 0.875rem;
+  --font-size-table: 0.8125rem;
+  --font-weight-bold: 700;
+  --font-weight-medium: 500;
+  --font-weight-regular: 400;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-fluid-xs: clamp(0.125rem, 0.5vw, 0.25rem);
+  --space-fluid-sm: clamp(0.25rem, 1vw, 0.5rem);
+  --space-fluid-md: clamp(0.5rem, 2vw, 1rem);
+  --space-fluid-lg: clamp(1rem, 3vw, 1.5rem);
+  --space-fluid-xl: clamp(1.5rem, 4vw, 2rem);
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-pill: 62.4375rem;
+  --shadow-sm: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 0.25rem 0.375rem rgba(0, 0, 0, 0.1);
+  --shadow-sm-dark: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.3);
+  --shadow-md-dark: 0 0.25rem 0.375rem rgba(0, 0, 0, 0.3);
+  --focus-ring: 0.125rem solid #2e7d32;
+  --focus-offset: 0.125rem;
+  --font-family-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --transition-fast: all 0.2s ease;
+  --transition-normal: all 0.3s ease;
+  --max-width-container: 75rem;
+  --z-index-modal: 1000;
+  --z-index-toggle: 100;
+  --z-index-icon: 10;
+  --z-index-overlay: 1;
+  --error-bg: rgba(211, 47, 47, 0.1);
+  --modal-backdrop: rgba(0, 0, 0, 0.5);
+  --drop-shadow-light: rgba(0, 0, 0, 0.1);
+  --drop-shadow-dark: rgba(0, 0, 0, 0.3);
+  --btn-size-circular: 2.25rem;
+  --btn-min-height: 2.5rem;
+  --btn-padding-standard: 0.625rem 1.25rem;
+  --btn-padding-ghost: 0.5rem 1.5rem;
+  --btn-font-size-mobile: 0.75rem;
+  --btn-padding-mobile: 0.5rem 1rem;
+  --container-xs: 20cqw;
+  --container-sm: 30cqw;
+  --container-md: 50cqw;
+  --container-lg: 70cqw;
+  --artist-border-width: 0.125rem;
+  --artist-border-style: solid;
+  --artist-rotate-slight: -0.3deg;
+  --artist-rotate-slight-alt: 0.3deg;
+  --artist-rotate-small: -0.5deg;
+  --artist-rotate-small-alt: 0.5deg;
+  --artist-rotate-medium: -1deg;
+  --artist-rotate-large: -5deg;
+  --artist-rotate-large-alt: 5deg;
+  --artist-brush-cursor: url(\"data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='35' height='52' viewBox='0 0 69 103' fill='none'%3E%3Cpath d='M16.3233 7.57656L9.06567 12.0874C7.51167 8.19816 5.75607 5.01456 3.32007 1.76376C8.26767 1.20096 13.4337 3.53616 16.3233 7.57656Z' fill='white' stroke='black' stroke-width='3' stroke-miterlimit='10' stroke-linecap='round'/%3E%3Cpath d='M66.0932 94.3648C64.262 97.3552 60.5156 97.1536 56.8952 97.1788C48.6212 97.246 41.9432 91.618 41.9432 91.618C41.9432 91.618 42.8336 96.2296 43.85 98.4052C38.6084 94.9024 33.686 90.9292 29.1416 86.5612C29.5028 89.1064 29.864 91.6432 30.2252 94.1884C23.0012 87.3676 15.6176 80.2696 10.04 71.9872C7.7048 68.518 5.924 65.3848 5.462 61.21C4.8824 56.0272 4.7648 50.7856 5.1176 45.586C5.4788 40.252 6.9908 34.0444 13.7192 34.0108C13.9544 34.0108 14.1644 34.0108 14.366 34.0108L34.778 33.1372C37.676 33.448 40.4732 34.5652 42.7832 36.3376C47.5376 35.5816 52.586 37.4716 56.1308 40.7392C59.6672 43.9984 61.9268 48.4672 63.2792 53.0872C64.6232 57.7072 65.1272 62.5372 65.6312 67.3252C66.0932 71.8024 66.5552 76.2964 67.0172 80.7736C67.4204 84.6376 68.126 91.0552 66.0932 94.3648Z' fill='white' stroke='black' stroke-width='3' stroke-miterlimit='10' stroke-linecap='round'/%3E%3Cpath d='M14.3662 34.0031C17.113 33.9779 17.6338 33.9359 20.7166 34.3727' stroke='black' stroke-width='3' stroke-miterlimit='10' stroke-linecap='round'/%3E%3Cpath d='M42.7832 36.3296C43.2032 36.6488 43.6148 36.9848 43.9928 37.3544C46.6136 39.8156 48.3608 43.184 48.8648 46.7372' stroke='black' stroke-width='3' stroke-miterlimit='10' stroke-linecap='round'/%3E%3Cpath d='M34.7865 33.129C34.6353 33.1038 34.4841 33.0954 34.3413 33.0786' stroke='black' stroke-width='3' stroke-miterlimit='10' stroke-linecap='round'/%3E%3Cpath d='M20.4392 63.7051C20.2628 59.6479 20.456 58.6231 20.54 55.9855L16.4576 57.6739C17.5832 53.8267 17.936 46.5691 17.1632 42.6043C16.466 38.9755 15.7436 37.4635 14.3744 34.0111C14.0132 33.0787 13.6268 32.1463 13.2236 31.2307C11.6192 27.5599 10.1828 23.8051 9.12441 19.9411C8.21721 16.6483 7.69641 11.4151 10.3172 8.59265C10.8296 8.03825 11.468 7.57625 12.2492 7.24025C13.61 6.66065 14.9036 6.49265 16.1132 6.63545C18.7088 6.93785 20.96 8.64305 22.766 10.7767C28.352 17.3455 32.4008 24.9643 34.7864 33.1375C35.9372 37.0687 37.3988 40.4119 37.76 44.5447' fill='white'/%3E%3Cpath d='M20.4392 63.7051C20.2628 59.6479 20.456 58.6231 20.54 55.9855L16.4576 57.6739C17.5832 53.8267 17.936 46.5691 17.1632 42.6043C16.466 38.9755 15.7436 37.4635 14.3744 34.0111C14.0132 33.0787 13.6268 32.1463 13.2236 31.2307C11.6192 27.5599 10.1828 23.8051 9.12441 19.9411C8.21721 16.6483 7.69641 11.4151 10.3172 8.59265C10.8296 8.03825 11.468 7.57625 12.2492 7.24025C13.61 6.66065 14.9036 6.49265 16.1132 6.63545C18.7088 6.93785 20.96 8.64305 22.766 10.7767C28.352 17.3455 32.4008 24.9643 34.7864 33.1375C35.9372 37.0687 37.3988 40.4119 37.76 44.5447' stroke='black' stroke-width='3' stroke-miterlimit='10' stroke-linecap='round'/%3E%3C/svg%3E\") 10 5;
+}
+@supports (color: oklch(0.7 0.15 180)) {
+  :root {
+    --primary-green: oklch(0.45 0.15 140);
+    --success-green: oklch(0.5 0.15 140);
+    --error-red: oklch(0.55 0.2 25);
+  }
+}
+[data-theme='light'],
+:root {
+  --canvas: #faf8f5;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --bg-card: #ffffff;
+  --bg-hover: #f5f5f5;
+  --border-color: #e0e0e0;
+  --table-header-bg: #f8f9fa;
+  --table-border: #e0e0e0;
+  --current-shadow-sm: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.1);
+  --current-shadow-md: 0 0.25rem 0.375rem rgba(0, 0, 0, 0.1);
+}
+[data-theme='light'] .status-badge.pending {
+  background: rgba(156, 163, 175, 0.1);
+  color: #6b7280;
+  border-color: rgba(156, 163, 175, 0.2);
+}
+[data-theme='light'] .status-badge.approved {
+  background: rgba(56, 142, 60, 0.1);
+  color: #388e3c;
+  border-color: rgba(56, 142, 60, 0.2);
+}
+[data-theme='light'] .status-badge.rejected {
+  background: rgba(211, 47, 47, 0.1);
+  color: #d32f2f;
+  border-color: rgba(211, 47, 47, 0.2);
+}
+[data-theme='light'] .btn.circular.approve.active {
+  background: #388e3c;
+  color: #ffffff;
+  border-color: #388e3c;
+  transform: scale(1.1);
+  box-shadow: 0 0.125rem 0.5rem rgba(56, 142, 60, 0.4);
+}
+[data-theme='light'] .btn.circular.reject.active {
+  background: #d32f2f;
+  color: #ffffff;
+  border-color: #d32f2f;
+  transform: scale(1.1);
+  box-shadow: 0 0.125rem 0.5rem rgba(211, 47, 47, 0.4);
+}
+[data-theme='light'] .row-approved {
+  background: rgba(56, 142, 60, 0.05) !important;
+  border-left: 0.25rem solid #388e3c;
+}
+[data-theme='light'] .row-rejected {
+  background: rgba(211, 47, 47, 0.05) !important;
+  border-left: 0.25rem solid #d32f2f;
+  opacity: 0.7;
+}
+[data-theme='light'] .tooltip {
+  background: #333333;
+  color: #ffffff;
+}
+[data-theme='light'] .tooltip::after {
+  border-top-color: #333333;
+}
+[data-theme='light'] .tooltip strong {
+  color: #ffffff;
+}
+[data-theme='light'] .tooltip-below .tooltip::after {
+  border-top-color: transparent;
+  border-bottom-color: #333333;
+}
+[data-theme='light'] .rejection-indicator {
+  filter: drop-shadow(0 0.0625rem 0.125rem rgba(0, 0, 0, 0.1));
+}

@@ -1,0 +1,65 @@
+// =========================
+// Shadow Design Tokens - LESS Variables
+// =========================
+
+@import 'colors.less';
+
+// Standard Shadows
+@shadow-sm: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.1); // 0 1px 3px
+@shadow-md: 0 0.25rem 0.375rem rgba(0, 0, 0, 0.1); // 0 4px 6px
+
+// Dark Theme Shadows
+@shadow-sm-dark: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.3);
+@shadow-md-dark: 0 0.25rem 0.375rem rgba(0, 0, 0, 0.3);
+
+// Focus Ring
+@focus-ring: 0.125rem solid @primary-green; // 2px
+
+// Artist Mode Shadows
+@artist-shadow: 0.1875rem 0.1875rem 0rem @artist-shadow-color; // 3px 3px 0px
+@artist-shadow-strong: 0.25rem 0.375rem 0rem @artist-shadow-color-strong; // 4px 6px 0px
+@artist-shadow-extra: 0.5rem 0.5rem 0rem @artist-shadow-color-strong; // 8px 8px 0px
+
+// Border Styles
+@artist-border-width: 0.125rem; // 2px
+@artist-border-style: solid;
+
+// Shadow Mixins
+.elevation-light(@level: 1) when (@level = 1) {
+  box-shadow: @shadow-sm;
+}
+
+.elevation-light(@level: 1) when (@level = 2) {
+  box-shadow: @shadow-md;
+}
+
+.elevation-dark(@level: 1) when (@level = 1) {
+  box-shadow: @shadow-sm-dark;
+}
+
+.elevation-dark(@level: 1) when (@level = 2) {
+  box-shadow: @shadow-md-dark;
+}
+
+.artist-elevation(@level: 1) when (@level = 1) {
+  box-shadow: @artist-shadow;
+}
+
+.artist-elevation(@level: 1) when (@level = 2) {
+  box-shadow: @artist-shadow-strong;
+}
+
+.artist-elevation(@level: 1) when (@level = 3) {
+  box-shadow: @artist-shadow-extra;
+}
+
+// Focus styles
+.focus-ring(@color: @primary-green) {
+  outline: 0.125rem solid @color;
+  outline-offset: 0.125rem;
+}
+
+// Artist border mixin
+.artist-border(@color: @artist-border-color) {
+  border: @artist-border-width @artist-border-style @color;
+}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import './App.css';
+import './styles/themes.less';
 import RejectModal from './RejectModal';
 import Header from './components/Header';
 import FileUpload from './components/FileUpload';

@@ -1,0 +1,149 @@
+// =========================
+// Artist Mode Mixins - LESS
+// =========================
+
+@import '../tokens/_index.less';
+
+// Artist mode transformation mixins
+.artist-transform(@rotation: @artist-rotate-small, @scale: 1, @translate-y: 0) {
+  transform: rotate(@rotation) scale(@scale) translateY(@translate-y);
+}
+
+.artist-hover-transform(@rotation: @artist-rotate-small, @translate-y: -0.125rem) {
+  &:hover {
+    .artist-transform(@rotation, 1, @translate-y);
+    .artist-elevation(2);
+  }
+}
+
+// Artist mode section styling
+.artist-section(@nth: odd) when (@nth = odd) {
+  .artist-transform(@artist-rotate-slight);
+}
+
+.artist-section(@nth: odd) when (@nth = even) {
+  .artist-transform(@artist-rotate-slight-alt);
+}
+
+// Artist mode border and shadow combination
+.artist-card(@border-color: @artist-border-color, @shadow-level: 1) {
+  .artist-border(@border-color);
+  .artist-elevation(@shadow-level);
+  border-radius: 0.9375rem;
+  position: relative;
+}
+
+// Artist mode button styling
+.artist-button(@icon: '') {
+  .artist-border();
+  border-radius: 1.25rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.0625rem;
+  .artist-transform(@artist-rotate-small);
+  .artist-elevation(1);
+  font-family: @font-family-artist;
+
+  &::before when not (@icon = '') {
+    content: @icon;
+  }
+
+  .artist-hover-transform();
+}
+
+// Artist mode table styling
+.artist-table-header(@icon: '', @gradient-light, @gradient-dark) {
+  background: @gradient-light;
+  color: #2c3e50;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.0625rem;
+  font-family: @font-family-artist;
+  padding: 1rem 0.875rem;
+
+  [data-theme='dark'] & {
+    background: @gradient-dark;
+    color: #ffffff;
+    text-shadow: 0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.3);
+  }
+
+  &::before when not (@icon = '') {
+    content: @icon;
+    filter: drop-shadow(0.0625rem 0.0625rem 0.125rem @drop-shadow-light);
+
+    [data-theme='dark'] & {
+      filter: drop-shadow(0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.4));
+    }
+  }
+}
+
+// Artist mode row states
+.artist-row-state(@type, @color, @alpha: 0.08) {
+  background: fade(@color, (@alpha * 100)) !important;
+  border-left: 0.25rem solid @color;
+  border-radius: 0.5rem;
+
+  // Different transforms for approved vs rejected
+  & when (@type = approved) {
+    transform: translateX(0.125rem);
+  }
+
+  & when (@type = rejected) {
+    transform: translateX(-0.125rem);
+    opacity: 0.6;
+  }
+}
+
+// Artist mode tooltip styling
+.artist-tooltip(@border-color: @error-red) {
+  border: 0.125rem solid @border-color;
+  border-radius: 1rem;
+  transform: translateX(-50%) rotate(calc(@artist-rotate-small * -0.5));
+  box-shadow: 0.25rem 0.25rem 0.75rem rgba(0, 0, 0, 0.2);
+  min-width: 12rem;
+  max-width: ~'clamp(20rem, 40vw, 32rem)';
+  font-weight: 500;
+
+  &::after {
+    border-top-color: @border-color;
+  }
+
+  // Hover effect
+  .rejection-indicator:hover & {
+    transform: translateX(-50%) translateY(-0.25rem) rotate(0deg) scale(1.02);
+  }
+
+  // Below variant
+  .tooltip-below & {
+    &::after {
+      border-top-color: transparent;
+      border-bottom-color: @border-color;
+    }
+
+    .rejection-indicator:hover & {
+      transform: translateX(-50%) translateY(0.25rem) rotate(0deg) scale(1.02);
+    }
+  }
+}
+
+// Artist mode form styling
+.artist-form-field() {
+  border: 0.125rem solid @soft-gray;
+  border-radius: 1rem;
+  transform: rotate(calc(@artist-rotate-small * -0.5));
+  .transition(all, 0.3s ease);
+
+  &:focus {
+    border-color: @error-red;
+    transform: rotate(0deg) scale(1.02);
+    box-shadow: 0.125rem 0.125rem 0.375rem rgba(211, 47, 47, 0.2);
+  }
+}
+
+// Artist mode modal styling
+.artist-modal(@border-color: @error-red) {
+  border: 0.25rem solid @border-color;
+  border-radius: 1.5625rem;
+  .artist-transform(@artist-rotate-small);
+  .artist-elevation(3);
+}
