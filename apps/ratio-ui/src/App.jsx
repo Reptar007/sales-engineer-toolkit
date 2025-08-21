@@ -9,6 +9,7 @@ function App() {
   const [pendingReject, setPendingReject] = useState(null);
   const [showReview, setShowReview] = useState(true);
   const [theme, setTheme] = useState('light');
+  const [artistMode, setArtistMode] = useState(false);
 
   // Sample prompt data
   const prompt = "This is the current prompt we're using to generate the test ratio estimation:";
@@ -38,8 +39,21 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Artist mode management
+  useEffect(() => {
+    if (artistMode) {
+      document.documentElement.setAttribute('data-artist', 'true');
+    } else {
+      document.documentElement.removeAttribute('data-artist');
+    }
+  }, [artistMode]);
+
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
+
+  const toggleArtistMode = () => {
+    setArtistMode((prev) => !prev);
   };
 
   function confirmReject() {
@@ -92,9 +106,18 @@ function App() {
 
   return (
     <div className="app">
-      <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
-        {theme === 'light' ? '🌙' : '☀️'}
-      </button>
+      <div className="toggle-buttons">
+        <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
+          {theme === 'light' ? '🌙' : '☀️'}
+        </button>
+        <button
+          className="artist-toggle"
+          onClick={toggleArtistMode}
+          aria-label="Toggle artist mode"
+        >
+          {artistMode ? '🐕' : '🎨'}
+        </button>
+      </div>
 
       <header>
         <h1>Ratio Estimator</h1>
@@ -158,6 +181,14 @@ function App() {
         {showReview && (
           <section className="section">
             <h2 className="section-title">Review Section</h2>
+            <div className="search-container">
+              <input
+                type="text"
+                placeholder="Search"
+                className="search-input"
+                aria-label="Search tests"
+              />
+            </div>
             <table className="review-table">
               <thead>
                 <tr>
