@@ -183,21 +183,20 @@
 
   // Review table styling
   .review-table {
-    .artist-border();
     border-collapse: separate;
     border-spacing: 0;
     background: var(--bg-card);
-    transform: rotate(0deg);
     border-radius: 0.9375rem;
     overflow: hidden;
-    box-shadow: @artist-shadow-table-strong;
     width: 100%;
     color: var(--text-primary);
 
     // Table headers with icons and gradients
     th {
-      .artist-border();
       border-bottom: @artist-border-width @artist-border-style @artist-border-color;
+      vertical-align: middle;
+      text-align: center;
+      height: auto !important;
 
       &:first-child {
         .table-header-with-icon('🏷️ ');
@@ -220,11 +219,11 @@
     td {
       border-bottom: 0.0625rem solid rgba(44, 62, 80, 0.15);
       background: var(--bg-card);
-      font-weight: 500;
+      font-weight: 600;
       padding: 1rem 0.875rem;
-      font-family: inherit;
-      color: #2c3e50;
-      font-size: @font-size-table;
+      font-family: @font-family-artist;
+      color: #1a252f;
+      font-size: @font-size-body;
 
       // Dark theme overrides
       [data-theme='dark'] & {
@@ -240,17 +239,8 @@
         border-right: none;
       }
 
-      // Decorative bottom border
-      &::before {
-        content: '';
-        position: absolute;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        height: 0.0625rem;
-        background: linear-gradient(90deg, transparent, rgba(44, 62, 80, 0.1), transparent);
-        pointer-events: none;
-      }
+      // Ensure clean cell borders
+      position: relative;
     }
 
     // Row states
@@ -265,7 +255,6 @@
 
       &:hover td {
         background: rgba(74, 144, 226, 0.12);
-        transform: translateX(0.125rem);
         .transition(all, 0.2s ease);
 
         [data-theme='dark'] & {
@@ -320,9 +309,9 @@
 
   // Table wrapper
   .table-wrapper {
-    .artist-border(@artist-border-color);
     border-radius: 0.9375rem;
     box-shadow: @artist-shadow-table;
+    border: 0.125rem solid @artist-border-color;
 
     &.scrollable::-webkit-scrollbar-thumb {
       background: @btn-gradient-success;
