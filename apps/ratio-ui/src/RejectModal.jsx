@@ -1,27 +1,49 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react';
 
 function RejectModal({ row, onClose, onConfirm }) {
-  const dialogRef = useRef(null)
-  const cancelBtnRef = useRef(null)
+  const dialogRef = useRef(null);
+  const reasonInputRef = useRef(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
-  // Focus first actionable element on open
+  // Focus rejection reason input on open
   useEffect(() => {
-    cancelBtnRef.current?.focus()
-  }, [])
+    reasonInputRef.current?.focus();
+  }, []);
 
   // Close on ESC
   useEffect(() => {
     function onKeyDown(e) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onClose();
     }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
 
   // Close on backdrop click
   function onBackdropClick(e) {
-    if (e.target === dialogRef.current) onClose()
+    if (e.target === dialogRef.current) onClose();
   }
+
+  // Handle rejection reason change
+  function handleReasonChange(e) {
+    setRejectionReason(e.target.value);
+  }
+
+  // Handle form submission
+  function handleConfirm() {
+    if (rejectionReason.trim()) {
+      onConfirm(rejectionReason.trim());
+    }
+  }
+
+  // Handle Enter key in textarea (Ctrl/Cmd + Enter to submit)
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && rejectionReason.trim()) {
+      handleConfirm();
+    }
+  }
+
+  const isReasonValid = rejectionReason.trim().length >= 3;
 
   return (
     <div
@@ -31,27 +53,61 @@ function RejectModal({ row, onClose, onConfirm }) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="reject-title"
+      aria-describedby="reject-description"
     >
-      <div className="modal">
+      <div className="modal reject-modal">
         <h3 id="reject-title">Reject this test?</h3>
-        <p>
+        <p id="reject-description">
           {row?.name ? (
-            <>Are you sure you want to reject <strong>{row.name}</strong>?</>
+            <>
+              Please provide a reason for rejecting <strong>{row.name}</strong>:
+            </>
           ) : (
-            'Are you sure?'
+            'Please provide a reason for rejection:'
           )}
         </p>
+
+        <div className="form-group">
+          <label htmlFor="rejection-reason" className="form-label">
+            Rejection Reason <span className="required">*</span>
+          </label>
+          <textarea
+            ref={reasonInputRef}
+            id="rejection-reason"
+            className="form-textarea"
+            placeholder="Enter reason for rejection (minimum 3 characters)..."
+            value={rejectionReason}
+            onChange={handleReasonChange}
+            onKeyDown={handleKeyDown}
+            rows="3"
+            required
+            aria-describedby="reason-hint"
+          />
+          <small id="reason-hint" className="form-hint">
+            {rejectionReason.length === 0
+              ? 'A rejection reason is required'
+              : rejectionReason.length < 3
+                ? `${3 - rejectionReason.length} more characters required`
+                : `${rejectionReason.length} characters • Press Ctrl+Enter to submit`}
+          </small>
+        </div>
+
         <div className="modal-actions">
-          <button ref={cancelBtnRef} className="btn ghost" onClick={onClose}>
+          <button className="btn ghost" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn reject solid" onClick={onConfirm}>
+          <button
+            className="btn reject solid"
+            onClick={handleConfirm}
+            disabled={!isReasonValid}
+            title={!isReasonValid ? 'Please provide a reason for rejection' : 'Reject with reason'}
+          >
             Reject
           </button>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default RejectModal
+export default RejectModal;

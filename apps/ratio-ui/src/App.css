@@ -1325,6 +1325,180 @@
     justify-content: flex-end;
   }
 
+  /* Enhanced reject modal styling */
+  .reject-modal {
+    max-width: 32rem; /* 512px - wider for form */
+  }
+
+  .reject-modal h3 {
+    color: var(--error-red);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .reject-modal h3::before {
+    content: '⚠️';
+    font-size: 1.25rem;
+  }
+
+  /* =========================
+   Form Elements in Modal
+   ========================= */
+
+  .form-group {
+    margin: var(--space-lg) 0;
+  }
+
+  .form-label {
+    display: block;
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+  }
+
+  .required {
+    color: var(--error-red);
+    margin-left: 0.125rem;
+  }
+
+  .form-textarea {
+    width: 100%;
+    padding: var(--space-md);
+    border: 0.0625rem solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: var(--font-size-body);
+    line-height: 1.5;
+    color: var(--text-primary);
+    background: var(--bg-card);
+    resize: vertical;
+    min-height: 4.5rem; /* 72px */
+    transition: var(--transition-fast);
+  }
+
+  .form-textarea:focus {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-offset);
+    border-color: var(--primary-green);
+  }
+
+  .form-textarea:focus:invalid {
+    border-color: var(--error-red);
+    outline-color: var(--error-red);
+  }
+
+  .form-textarea::placeholder {
+    color: var(--text-muted);
+  }
+
+  .form-hint {
+    display: block;
+    margin-top: var(--space-xs);
+    font-size: 0.75rem; /* 12px */
+    color: var(--text-muted);
+    line-height: 1.4;
+    transition: color 0.2s ease;
+  }
+
+  /* Validation states */
+  .form-textarea:invalid {
+    border-color: rgba(211, 47, 47, 0.3);
+  }
+
+  .form-textarea:valid {
+    border-color: rgba(56, 142, 60, 0.3);
+  }
+
+  /* Character count styling with CSS :has() selector */
+  .form-group:has(.form-textarea:invalid) .form-hint {
+    color: var(--error-red);
+  }
+
+  .form-group:has(.form-textarea:valid) .form-hint {
+    color: var(--success-green);
+  }
+
+  /* Dark theme form elements */
+  [data-theme='dark'] .form-textarea {
+    background: var(--bg-card-dark);
+    border-color: var(--border-color);
+    color: var(--text-primary-dark);
+  }
+
+  [data-theme='dark'] .form-textarea::placeholder {
+    color: var(--text-secondary-dark);
+  }
+
+  [data-theme='dark'] .reject-modal h3 {
+    color: #f44336;
+  }
+
+  /* Artist mode form styling */
+  [data-artist='true'] .reject-modal {
+    border: 0.25rem solid var(--error-red);
+    border-radius: 1.5625rem; /* 25px */
+    transform: rotate(var(--artist-rotate-small));
+    box-shadow: 0.375rem 0.375rem 1rem rgba(211, 47, 47, 0.2);
+  }
+
+  [data-artist='true'] .form-textarea {
+    border: 0.125rem solid var(--border-color);
+    border-radius: 1rem;
+    transform: rotate(calc(var(--artist-rotate-small) * -0.5));
+    transition: all 0.3s ease;
+  }
+
+  [data-artist='true'] .form-textarea:focus {
+    border-color: var(--error-red);
+    transform: rotate(0deg) scale(1.02);
+    box-shadow: 0.125rem 0.125rem 0.375rem rgba(211, 47, 47, 0.2);
+  }
+
+  [data-artist='true'] .form-label {
+    color: var(--error-red);
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.0625rem;
+  }
+
+  /* =========================
+   Rejection Reason Indicator
+   ========================= */
+
+  .rejection-indicator {
+    margin-left: var(--space-sm);
+    font-size: 0.875rem; /* 14px */
+    cursor: help;
+    filter: drop-shadow(0 0.0625rem 0.125rem rgba(0, 0, 0, 0.1));
+    transition: transform 0.2s ease;
+  }
+
+  .rejection-indicator:hover {
+    transform: scale(1.2);
+  }
+
+  /* Artist mode rejection indicator */
+  [data-artist='true'] .rejection-indicator {
+    transform: rotate(var(--artist-rotate-small));
+    filter: drop-shadow(0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.2));
+  }
+
+  [data-artist='true'] .rejection-indicator:hover {
+    transform: rotate(var(--artist-rotate-small)) scale(1.3);
+  }
+
+  /* Enhanced tooltip for rejection reasons */
+  .row-rejected:hover {
+    position: relative;
+  }
+
+  /* Dark theme rejection indicator */
+  [data-theme='dark'] .rejection-indicator {
+    filter: drop-shadow(0 0.0625rem 0.125rem rgba(255, 255, 255, 0.1));
+  }
+
   /* =========================
    Footer
    ========================= */

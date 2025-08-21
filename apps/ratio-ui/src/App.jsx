@@ -65,16 +65,18 @@ function App() {
     setArtistMode((prev) => !prev);
   };
 
-  function confirmReject() {
-    if (pendingReject) {
-      // Update the item status to rejected
+  function confirmReject(rejectionReason) {
+    if (pendingReject && rejectionReason) {
+      // Update the item status to rejected with reason
       setReviewData((prevData) =>
         prevData.map((item) =>
-          item.id === pendingReject.id ? { ...item, status: 'rejected' } : item,
+          item.id === pendingReject.id
+            ? { ...item, status: 'rejected', rejectionReason: rejectionReason }
+            : item,
         ),
       );
-      // TODO: Send reject status to backend API
-      // console.log('Rejected:', pendingReject)
+      // TODO: Send reject status and reason to backend API
+      // console.log('Rejected:', pendingReject, 'Reason:', rejectionReason)
     }
     closeRejectModal();
   }
@@ -380,8 +382,27 @@ function App() {
                     </thead>
                     <tbody>
                       {(shouldUsePagination ? currentItems : filteredData).map((item) => (
-                        <tr key={item.id} className={`row-${item.status}`}>
-                          <td>{item.testName}</td>
+                        <tr
+                          key={item.id}
+                          className={`row-${item.status}`}
+                          title={
+                            item.status === 'rejected' && item.rejectionReason
+                              ? `Rejected: ${item.rejectionReason}`
+                              : undefined
+                          }
+                        >
+                          <td>
+                            {item.testName}
+                            {item.status === 'rejected' && item.rejectionReason && (
+                              <span
+                                className="rejection-indicator"
+                                title={`Rejection reason: ${item.rejectionReason}`}
+                                aria-label={`Rejection reason: ${item.rejectionReason}`}
+                              >
+                                💬
+                              </span>
+                            )}
+                          </td>
                           <td>{item.ratio}</td>
                           <td>{item.reasoning}</td>
                           <td className="actions">
@@ -390,7 +411,7 @@ function App() {
                               className={`btn circular reject ${item.status === 'rejected' ? 'active' : ''}`}
                               onClick={() => openRejectModal({ name: item.testName, id: item.id })}
                               aria-label={`Reject ${item.testName}`}
-                              title="Reject"
+                              title={item.status === 'rejected' ? 'Already rejected' : 'Reject'}
                               disabled={item.status === 'approved'}
                             >
                               ✕
@@ -400,7 +421,7 @@ function App() {
                               className={`btn circular approve ${item.status === 'approved' ? 'active' : ''}`}
                               onClick={() => handleApprove(item)}
                               aria-label={`Approve ${item.testName}`}
-                              title="Approve"
+                              title={item.status === 'approved' ? 'Already approved' : 'Approve'}
                               disabled={item.status === 'rejected'}
                             >
                               ✓
