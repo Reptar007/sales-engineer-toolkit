@@ -13,6 +13,13 @@ function App() {
   const [theme, setTheme] = useState('light');
   const [artistMode, setArtistMode] = useState(false);
 
+  // Review data and pagination state
+  const [reviewData, setReviewData] = useState([]);
+  const [filteredData, setFilteredData] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(25);
+
   // Sample prompt data
   const prompt = "This is the current prompt we're using to generate the test ratio estimation:";
 
@@ -76,6 +83,9 @@ function App() {
       setShowReview(false);
       setShowReviewData(false);
       setIsLoading(false);
+      setReviewData([]);
+      setSearchTerm('');
+      setCurrentPage(1);
       return;
     }
     if (!isCsvByName(file)) {
@@ -85,6 +95,9 @@ function App() {
       setShowReview(false);
       setShowReviewData(false);
       setIsLoading(false);
+      setReviewData([]);
+      setSearchTerm('');
+      setCurrentPage(1);
       return;
     }
     setErrorMessage('');
@@ -92,7 +105,59 @@ function App() {
     setShowReview(true); // ✅ show Review Section immediately
     setShowReviewData(false); // but don't show data until submit
     setIsLoading(false); // reset loading state
+    setReviewData([]); // clear previous data
+    setSearchTerm(''); // reset search
+    setCurrentPage(1); // reset pagination
   };
+
+  // Generate mock data based on file size (simulate API response)
+  const generateMockData = () => {
+    // Simulate variable data sizes based on random selection
+    const sizes = [20, 50, 100, 200];
+    const randomSize = sizes[Math.floor(Math.random() * sizes.length)];
+
+    const mockData = [];
+    for (let i = 1; i <= randomSize; i++) {
+      mockData.push({
+        id: i,
+        testName: `Test ${i}`,
+        ratio: `${Math.floor(Math.random() * 10) + 1}:${Math.floor(Math.random() * 10) + 1}`,
+        reasoning: `Analysis for test ${i}: ${['High priority test case', 'Standard validation', 'Edge case scenario', 'Critical path test', 'Performance validation'][Math.floor(Math.random() * 5)]}`,
+        status: 'pending',
+      });
+    }
+    return mockData;
+  };
+
+  // Search and filter logic
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredData(reviewData);
+    } else {
+      const filtered = reviewData.filter(
+        (item) =>
+          item.testName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.reasoning.toLowerCase().includes(searchTerm.toLowerCase()),
+      );
+      setFilteredData(filtered);
+    }
+    setCurrentPage(1); // Reset to first page when filtering
+  }, [reviewData, searchTerm]);
+
+  // Handle search input
+  const handleSearch = (event) => {
+    setSearchTerm(event.target.value);
+  };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = filteredData.slice(startIndex, endIndex);
+
+  // Determine display strategy based on data size
+  const shouldUsePagination = filteredData.length > 30;
+  const shouldUseScrollableContainer = filteredData.length > 10 && filteredData.length <= 30;
 
   const handleSubmit = (event) => {
     event?.preventDefault?.();
@@ -117,6 +182,8 @@ function App() {
 
     // Show loading for 5 seconds, then reveal data
     setTimeout(() => {
+      const mockData = generateMockData();
+      setReviewData(mockData);
       setIsLoading(false);
       setShowReviewData(true); // ✅ now show the actual data
     }, 5000);
@@ -236,50 +303,111 @@ function App() {
               </div>
             ) : showReviewData ? (
               <>
-                <div className="search-container">
-                  <input
-                    type="text"
-                    placeholder="Search"
-                    className="search-input"
-                    aria-label="Search tests"
-                  />
+                <div className="review-header">
+                  <div className="search-container">
+                    <input
+                      type="text"
+                      placeholder="Search tests..."
+                      className="search-input"
+                      aria-label="Search tests"
+                      value={searchTerm}
+                      onChange={handleSearch}
+                    />
+                  </div>
+                  <div className="review-stats">
+                    <span className="results-count">
+                      {filteredData.length} {filteredData.length === 1 ? 'test' : 'tests'} found
+                      {searchTerm && ` for "${searchTerm}"`}
+                    </span>
+                    {shouldUsePagination && (
+                      <span className="page-info">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <table className="review-table">
-                  <thead>
-                    <tr>
-                      <th>Test Name</th>
-                      <th>Ratio</th>
-                      <th>Reasoning</th>
-                      <th>Approval</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Test 1</td>
-                      <td>1:1</td>
-                      <td>Test reasoning example</td>
-                      <td className="actions">
-                        <button
-                          type="button"
-                          className="btn circular reject"
-                          onClick={() => openRejectModal({ name: 'Test 1' })}
-                          aria-label="Reject Test 1"
-                          title="Reject"
-                        >
-                          ✕
-                        </button>
-                        <button
-                          type="button"
-                          className="btn circular approve"
-                          aria-label="Approve Test 1"
-                          title="Approve"
-                        >
-                          ✓
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+
+                <div
+                  className={`table-wrapper ${shouldUseScrollableContainer ? 'scrollable' : ''}`}
+                >
+                  <table className="review-table">
+                    <thead>
+                      <tr>
+                        <th>Test Name</th>
+                        <th>Ratio</th>
+                        <th>Reasoning</th>
+                        <th>Approval</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(shouldUsePagination ? currentItems : filteredData).map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.testName}</td>
+                          <td>{item.ratio}</td>
+                          <td>{item.reasoning}</td>
+                          <td className="actions">
+                            <button
+                              type="button"
+                              className="btn circular reject"
+                              onClick={() => openRejectModal({ name: item.testName, id: item.id })}
+                              aria-label={`Reject ${item.testName}`}
+                              title="Reject"
+                            >
+                              ✕
+                            </button>
+                            <button
+                              type="button"
+                              className="btn circular approve"
+                              aria-label={`Approve ${item.testName}`}
+                              title="Approve"
+                            >
+                              ✓
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {shouldUsePagination && totalPages > 1 && (
+                  <div className="pagination">
+                    <button
+                      className="btn pagination-btn"
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      aria-label="Previous page"
+                    >
+                      ← Previous
+                    </button>
+
+                    <div className="page-numbers">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const pageNum = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
+                        if (pageNum > totalPages) return null;
+                        return (
+                          <button
+                            key={pageNum}
+                            className={`btn pagination-number ${pageNum === currentPage ? 'active' : ''}`}
+                            onClick={() => setCurrentPage(pageNum)}
+                            aria-label={`Go to page ${pageNum}`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      className="btn pagination-btn"
+                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      aria-label="Next page"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <div className="empty-review-state">
