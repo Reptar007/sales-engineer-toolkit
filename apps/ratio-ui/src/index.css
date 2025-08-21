@@ -2,69 +2,116 @@
    Reset and Base Styles
    ========================= */
 
-/* Reset default margins, paddings, and box-sizing */
-*,
-*::before,
-*::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* CSS Layers for organized cascade */
+@layer reset, base;
+
+@layer reset {
+  /* Reset default margins, paddings, and box-sizing */
+  *,
+  *::before,
+  *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  /* Remove default list styles */
+  ul,
+  ol {
+    list-style: none;
+  }
+
+  /* Reset form elements */
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* Remove default button styles */
+  button {
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* Reset table styles */
+  table {
+    border-collapse: collapse;
+    border-spacing: 0;
+  }
+
+  /* Reset link styles */
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* Ensure images are responsive */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
-/* Remove default list styles */
-ul,
-ol {
-  list-style: none;
-}
+@layer base {
+  /* Set root font size for rem calculations with user preference support */
+  html {
+    font-size: 16px; /* 1rem = 16px */
 
-/* Reset form elements */
-input,
-button,
-textarea,
-select {
-  font: inherit;
-  color: inherit;
-}
+    /* Respect user's font size preferences */
+    @media (prefers-reduced-data: reduce) {
+      font-size: 14px; /* Smaller base for reduced data usage */
+    }
 
-/* Remove default button styles */
-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-}
+    /* Support for user zoom preferences */
+    @supports (font-size: 1cap) {
+      font-size: max(16px, 1cap);
+    }
+  }
 
-/* Reset table styles */
-table {
-  border-collapse: collapse;
-  border-spacing: 0;
-}
+  /* Basic body styling - everything else comes from App.css */
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-/* Reset link styles */
-a {
-  color: inherit;
-  text-decoration: none;
-}
+  /* Root element with modern viewport units */
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height for mobile */
 
-/* Ensure images are responsive */
-img {
-  max-width: 100%;
-  height: auto;
-}
+    /* Container query context */
+    container-type: inline-size;
+    container-name: root;
+  }
 
-/* Set root font size for rem calculations */
-html {
-  font-size: 16px; /* 1rem = 16px */
-}
+  /* Modern CSS features and optimizations */
+  @supports (color: color(display-p3 1 0 0)) {
+    html {
+      color-scheme: light dark;
+    }
+  }
 
-/* Basic body styling - everything else comes from App.css */
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  /* Improved scrolling behavior */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
 
-/* Root element */
-#root {
-  min-height: 100vh;
-}
+  /* Better focus management */
+  :focus-visible {
+    outline: 0.125rem solid currentColor;
+    outline-offset: 0.125rem;
+  }
+
+  /* Remove focus outline for mouse users */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+} /* End @layer base */

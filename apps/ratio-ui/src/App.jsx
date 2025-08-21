@@ -206,7 +206,7 @@ function App() {
                   <td className="actions">
                     <button
                       type="button"
-                      className="btn reject"
+                      className="btn circular reject"
                       onClick={() => openRejectModal({ name: 'Test 1' })}
                       aria-label="Reject Test 1"
                       title="Reject"
@@ -215,7 +215,7 @@ function App() {
                     </button>
                     <button
                       type="button"
-                      className="btn approve"
+                      className="btn circular approve"
                       aria-label="Approve Test 1"
                       title="Approve"
                     >
