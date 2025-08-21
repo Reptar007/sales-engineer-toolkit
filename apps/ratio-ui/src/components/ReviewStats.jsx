@@ -56,16 +56,18 @@ const ReviewStats = React.memo(
               Resubmit Rejected
             </button>
           )}
-          {statusCounts.pending === 0 && statusCounts.rejected === 0 && statusCounts.approved > 0 && (
-            <button
-              type="button"
-              className="btn download-estimate"
-              onClick={onDownloadEstimate}
-              title="Download CSV of approved test estimates"
-            >
-              Download Estimate
-            </button>
-          )}
+          {statusCounts.pending === 0 &&
+            statusCounts.rejected === 0 &&
+            statusCounts.approved > 0 && (
+              <button
+                type="button"
+                className="btn download-estimate"
+                onClick={onDownloadEstimate}
+                title="Download CSV of approved test estimates"
+              >
+                Download Estimate
+              </button>
+            )}
           {shouldUsePagination && (
             <span className="page-info">
               Page {currentPage} of {totalPages}

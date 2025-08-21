@@ -46,10 +46,17 @@ export const useReviewData = () => {
     // TODO: Send approve status to backend API
   };
 
-  const updateItemStatus = (id, status, rejectionReason = null) => {
+  const updateItemStatus = (id, status, rejectionReason = null, estimatedRatio = null) => {
     setReviewData((prevData) =>
       prevData.map((item) =>
-        item.id === id ? { ...item, status, ...(rejectionReason && { rejectionReason }) } : item,
+        item.id === id
+          ? {
+              ...item,
+              status,
+              ...(rejectionReason && { rejectionReason }),
+              ...(estimatedRatio && { estimatedRatio }),
+            }
+          : item,
       ),
     );
   };

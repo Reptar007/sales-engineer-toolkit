@@ -4,6 +4,7 @@ function RejectModal({ row, onClose, onConfirm }) {
   const dialogRef = useRef(null);
   const reasonInputRef = useRef(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [estimatedRatio, setEstimatedRatio] = useState('');
 
   // Focus rejection reason input on open
   useEffect(() => {
@@ -29,10 +30,19 @@ function RejectModal({ row, onClose, onConfirm }) {
     setRejectionReason(e.target.value);
   }
 
+  // Handle estimated ratio change
+  function handleEstimatedRatioChange(e) {
+    const value = e.target.value;
+    // Allow empty string, numbers, decimal points, and colon notation (e.g., 3:5 or 3.5)
+    if (value === '' || /^[\d.:]*$/.test(value)) {
+      setEstimatedRatio(value);
+    }
+  }
+
   // Handle form submission
   function handleConfirm() {
     if (rejectionReason.trim()) {
-      onConfirm(rejectionReason.trim());
+      onConfirm(rejectionReason.trim(), estimatedRatio.trim());
     }
   }
 
@@ -89,6 +99,24 @@ function RejectModal({ row, onClose, onConfirm }) {
               : rejectionReason.length < 3
                 ? `${3 - rejectionReason.length} more characters required`
                 : `${rejectionReason.length} characters • Press Ctrl+Enter to submit`}
+          </small>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="estimated-ratio" className="form-label">
+            Estimated Ratio <span className="optional">(optional)</span>
+          </label>
+          <input
+            type="text"
+            id="estimated-ratio"
+            className="form-input ratio-input"
+            placeholder="e.g., 3:5"
+            value={estimatedRatio}
+            onChange={handleEstimatedRatioChange}
+            aria-describedby="ratio-hint"
+          />
+          <small id="ratio-hint" className="form-hint">
+            Your estimated ratio for this test (e.g., 3:5 or 2.5)
           </small>
         </div>
 

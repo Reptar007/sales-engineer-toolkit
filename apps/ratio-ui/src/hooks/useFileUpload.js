@@ -33,6 +33,10 @@ export const useFileUpload = () => {
     setIsLoading(false);
   };
 
+  const setErrorMessage_external = (message) => {
+    setErrorMessage(message);
+  };
+
   return {
     selectedFile,
     errorMessage,
@@ -41,5 +45,6 @@ export const useFileUpload = () => {
     handleFileChange,
     resetFile,
     isCsvByName,
+    setErrorMessage: setErrorMessage_external,
   };
 };

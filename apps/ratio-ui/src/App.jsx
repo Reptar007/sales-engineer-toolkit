@@ -10,7 +10,7 @@ import { useTheme } from './hooks/useTheme';
 import { useFileUpload } from './hooks/useFileUpload';
 import { useReviewData } from './hooks/useReviewData';
 import { usePagination } from './hooks/usePagination';
-import { generateMockData } from './utils/mockDataGenerator';
+import { parseCSVFile } from './utils/csvParser';
 import { setupTooltipListeners } from './utils/tooltipPositioning';
 
 function App() {
@@ -19,8 +19,15 @@ function App() {
 
   // Custom hooks for state management
   const { theme, artistMode, toggleTheme, toggleArtistMode } = useTheme();
-  const { selectedFile, errorMessage, isLoading, setIsLoading, handleFileChange, isCsvByName } =
-    useFileUpload();
+  const {
+    selectedFile,
+    errorMessage,
+    isLoading,
+    setIsLoading,
+    handleFileChange,
+    isCsvByName,
+    setErrorMessage,
+  } = useFileUpload();
   const {
     reviewData,
     setReviewData,
@@ -64,10 +71,10 @@ function App() {
   }, []);
 
   const confirmReject = useCallback(
-    (rejectionReason) => {
+    (rejectionReason, estimatedRatio) => {
       if (pendingReject && rejectionReason) {
-        updateItemStatus(pendingReject.id, 'rejected', rejectionReason);
-        // TODO: Send reject status and reason to backend API
+        updateItemStatus(pendingReject.id, 'rejected', rejectionReason, estimatedRatio);
+        // TODO: Send reject status, reason, and estimated ratio to backend API
       }
       closeRejectModal();
     },
@@ -112,7 +119,7 @@ function App() {
   // Download approved tests as CSV estimate
   const handleDownloadEstimate = useCallback(() => {
     const approvedTests = reviewData.filter((item) => item.status === 'approved');
-    
+
     if (approvedTests.length === 0) {
       console.warn('No approved tests to download');
       return;
@@ -126,24 +133,21 @@ function App() {
       `"${test.reasoning.replace(/"/g, '""')}"`, // Escape quotes in CSV
     ]);
 
-    const csvContent = [
-      csvHeaders.join(','),
-      ...csvRows.map((row) => row.join(',')),
-    ].join('\n');
+    const csvContent = [csvHeaders.join(','), ...csvRows.map((row) => row.join(','))].join('\n');
 
     // Create and download the file
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    
+
     link.setAttribute('href', url);
     link.setAttribute('download', `test-estimates-${new Date().toISOString().slice(0, 10)}.csv`);
     link.style.visibility = 'hidden';
-    
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     console.log(`Downloaded CSV with ${approvedTests.length} approved test estimates`);
   }, [reviewData]);
 
@@ -183,7 +187,7 @@ function App() {
 
   // Enhanced submit handler
   const handleSubmit = useCallback(
-    (event) => {
+    async (event) => {
       event?.preventDefault?.();
 
       if (!selectedFile) {
@@ -203,15 +207,35 @@ function App() {
       setIsLoading(true);
       setShowReviewData(false);
 
-      // Simulate API call with 5-second delay
-      setTimeout(() => {
-        const mockData = generateMockData();
-        setReviewData(mockData);
+      try {
+        // Parse the uploaded CSV file
+        const csvData = await parseCSVFile(selectedFile);
+
+        // Add minimum loading time for better UX (3-5 seconds)
+        const minLoadingTime = 3000 + Math.random() * 2000; // 3-5 seconds
+        await new Promise((resolve) => setTimeout(resolve, minLoadingTime));
+
+        setReviewData(csvData);
         setIsLoading(false);
         setShowReviewData(true);
-      }, 5000);
+        setErrorMessage(''); // Clear any previous errors
+      } catch (error) {
+        console.error('CSV parsing failed:', error);
+        setIsLoading(false);
+        setShowReview(false);
+        setShowReviewData(false);
+        setErrorMessage(`Failed to parse CSV file: ${error.message}`);
+      }
     },
-    [selectedFile, isCsvByName, setShowReview, setIsLoading, setShowReviewData, setReviewData],
+    [
+      selectedFile,
+      isCsvByName,
+      setShowReview,
+      setIsLoading,
+      setShowReviewData,
+      setReviewData,
+      setErrorMessage,
+    ],
   );
 
   return (
