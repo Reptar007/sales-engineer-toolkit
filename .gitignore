@@ -26,3 +26,7 @@ Thumbs.db
 dist/
 build/
 *.xlsx
+
+# Compiled CSS files (LESS generates these automatically)
+src/**/*.css
+apps/ratio-ui/src/**/*.css

@@ -1,0 +1,118 @@
+// =========================
+// Color Design Tokens - LESS Variables
+// =========================
+
+// Base Colors
+@white: #ffffff;
+@canvas-light: #f6f4ea; // Light Beige (Figma spec)
+@canvas-dark: #333333; // Dark Gray
+
+// Primary Green
+@primary-green: #2e7d32;
+@primary-green-hover: #1b5e20;
+
+// Pine Colors (Figma Design System)
+@pine-900: #0b3d2e;
+
+// Success Green
+@success-green: #388e3c;
+@success-green-hover: #2e7d32;
+
+// Dark Gray Palette
+@dark-gray: #333333;
+@dark-gray-light: #555555;
+@dark-gray-lighter: #666666;
+
+// Soft Gray Palette
+@soft-gray: #e0e0e0;
+@soft-gray-dark: #cccccc;
+
+// Error Red
+@error-red: #d32f2f;
+@error-red-hover: #b71c1c;
+
+// Text Colors - Light Theme
+@text-primary-light: #333333;
+@text-secondary-light: #666666;
+@text-muted-light: #999999;
+
+// Text Colors - Dark Theme
+@text-primary-dark: #ffffff;
+@text-secondary-dark: #cccccc;
+@text-muted-dark: #aaaaaa;
+
+// Background Colors
+@bg-card-light: #ffffff;
+@bg-card-dark: #555555;
+@bg-hover-light: #f5f5f5;
+@bg-hover-dark: #666666;
+
+// Table Colors
+@table-header-bg-light: #f8f9fa;
+@table-header-bg-dark: #666666;
+@table-border-light: @soft-gray;
+@table-border-dark: @dark-gray-lighter;
+
+// Alpha Colors
+@error-bg: rgba(211, 47, 47, 0.1);
+@modal-backdrop: rgba(0, 0, 0, 0.5);
+@drop-shadow-light: rgba(0, 0, 0, 0.1);
+@drop-shadow-dark: rgba(0, 0, 0, 0.3);
+
+// Artist Mode Colors
+@artist-canvas-light: #f0f8ff;
+@artist-canvas-dark: #1a1f2e;
+@artist-primary: #4a90e2;
+@artist-border-color: #2c3e50;
+@artist-shadow-color: rgba(44, 62, 80, 0.2);
+@artist-shadow-color-strong: rgba(44, 62, 80, 0.4);
+
+// Success Green Variations
+@success-green-alt: #4caf50;
+@success-green-shadow: rgba(56, 142, 60, 0.4);
+
+// Error Red Variations
+@error-red-alt: #f44336;
+@error-red-shadow: rgba(211, 47, 47, 0.4);
+
+// Status Badge Alpha Backgrounds
+@status-pending-bg: rgba(156, 163, 175, 0.1);
+@status-pending-bg-dark: rgba(156, 163, 175, 0.15);
+@status-approved-bg: rgba(56, 142, 60, 0.05);
+@status-approved-bg-dark: rgba(56, 142, 60, 0.15);
+@status-rejected-bg: rgba(211, 47, 47, 0.05);
+@status-rejected-bg-dark: rgba(211, 47, 47, 0.15);
+
+// Table Header Gradients
+@table-header-gradient-light: linear-gradient(
+  180deg,
+  #a3d2ff 0%,
+  #baddff 33%,
+  #d1e7ff 66%,
+  #e8f2ff 100%
+);
+@table-header-gradient-dark: linear-gradient(
+  180deg,
+  #2f4157 0%,
+  #2d3e52 33%,
+  #2b3a4e 66%,
+  #293649 100%
+);
+
+// Button Gradients
+@btn-gradient-success: linear-gradient(135deg, @success-green, @success-green-alt);
+@btn-gradient-error: linear-gradient(135deg, @error-red, @error-red-alt);
+@btn-gradient-artist: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+
+// Status Badge Text Colors
+@status-pending-text: #6b7280;
+@status-pending-text-dark: #9ca3af;
+@status-approved-text-dark: #4caf50;
+@status-rejected-text-dark: #f44336;
+
+// Modern Color Space Support (for browsers that support it)
+.modern-colors() when (@supports-oklch = true) {
+  --primary-green: oklch(0.45 0.15 140);
+  --success-green: oklch(0.5 0.15 140);
+  --error-red: oklch(0.55 0.2 25);
+}

@@ -197,36 +197,24 @@ npm run test:ui
 ### 1. Accessibility Violations
 
 \`\`\`bash
-
-# Run with detailed output
-
 npm run test:a11y -- --verbose
 \`\`\`
 
 ### 2. Visual Differences
 
 \`\`\`bash
-
-# Generate updated screenshots
-
 npm run test:visual -- --update-snapshots
 \`\`\`
 
 ### 3. Component Issues
 
 \`\`\`bash
-
-# Run specific test file
-
 npm test -- components.test.jsx
 \`\`\`
 
 ### 4. Browser-Specific Issues
 
 \`\`\`bash
-
-# Run specific browser
-
 npx playwright test --project=firefox
 \`\`\`
 
@@ -266,9 +254,6 @@ This test suite ensures compliance with:
 
 For continuous integration, run:
 \`\`\`bash
-
-# In CI environment
-
 npm run test:all
 \`\`\`
 

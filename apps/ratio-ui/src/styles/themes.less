@@ -1,0 +1,16 @@
+// =========================
+// Ratio Estimator - Theme Styles (LESS)
+// Main file for all theme-related CSS converted to LESS
+// =========================
+
+// Import design tokens (variables, mixins)
+@import 'tokens/_index.less';
+
+// Import all themes
+@import 'themes/_index.less';
+
+// CSS Layers for better cascade management
+@layer reset, tokens, base, components, utilities, themes, animations;
+
+// CSS Layers are preserved for existing CSS structure
+// LESS provides organization benefits within layers

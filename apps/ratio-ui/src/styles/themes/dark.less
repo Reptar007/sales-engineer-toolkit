@@ -1,0 +1,116 @@
+// =========================
+// Dark Theme - LESS with Nesting
+// =========================
+
+@import '../tokens/_index.less';
+
+// Dark theme variables
+[data-theme='dark'] {
+  --canvas: @canvas-dark;
+  --text-primary: @text-primary-dark;
+  --text-secondary: @text-secondary-dark;
+  --text-muted: @text-muted-dark;
+  --bg-card: @bg-card-dark;
+  --bg-hover: @dark-gray-lighter;
+  --border-color: @dark-gray-lighter;
+  --table-header-bg: @dark-gray-lighter;
+  --table-border: @dark-gray-lighter;
+  --current-shadow-sm: @shadow-sm-dark;
+  --current-shadow-md: @shadow-md-dark;
+
+  // Dark theme specific component styling
+  .status-badge {
+    &.pending {
+      background: @status-pending-bg-dark;
+      color: @status-pending-text-dark;
+    }
+
+    &.approved {
+      background: @status-approved-bg-dark;
+      color: @status-approved-text-dark;
+    }
+
+    &.rejected {
+      background: @status-rejected-bg-dark;
+      color: @status-rejected-text-dark;
+    }
+  }
+
+  // Button states in dark theme
+  .btn {
+    &.ghost {
+      border-color: @dark-gray-light;
+      color: @text-primary-dark;
+
+      &:hover {
+        background-color: @dark-gray-light;
+      }
+    }
+
+    &.circular {
+      &.approve.active {
+        background: @success-green-alt;
+        border-color: @success-green-alt;
+        box-shadow: @btn-shadow-active-success;
+      }
+
+      &.reject.active {
+        background: @error-red-alt;
+        border-color: @error-red-alt;
+        box-shadow: @btn-shadow-active-error;
+      }
+    }
+  }
+
+  // Row states in dark theme
+  .row-approved {
+    background: @status-approved-bg-dark !important;
+    border-left-color: @success-green-alt;
+  }
+
+  .row-rejected {
+    background: @status-rejected-bg-dark !important;
+    border-left-color: @error-red-alt;
+  }
+
+  // Form elements in dark theme
+  .form-textarea {
+    background: @bg-card-dark;
+    border-color: @dark-gray-lighter;
+    color: @text-primary-dark;
+
+    &::placeholder {
+      color: @text-secondary-dark;
+    }
+  }
+
+  .reject-modal h3 {
+    color: @error-red-alt;
+  }
+
+  // Tooltip styling in dark theme
+  .tooltip {
+    background: @bg-card-dark;
+    color: @text-primary-dark;
+    border: 0.0625rem solid @dark-gray-lighter;
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.4);
+
+    &::after {
+      border-top-color: @bg-card-dark;
+    }
+
+    strong {
+      color: @text-primary-dark;
+    }
+  }
+
+  .tooltip-below .tooltip::after {
+    border-top-color: transparent;
+    border-bottom-color: @bg-card-dark;
+  }
+
+  // Rejection indicator in dark theme
+  .rejection-indicator {
+    filter: drop-shadow(0 0.0625rem 0.125rem rgba(255, 255, 255, 0.1));
+  }
+}

@@ -1,24 +1,78 @@
-import { useEffect, useState } from 'react';
-import './App.css';
+import React, { useEffect, useState, useCallback } from 'react';
+import './styles/App.less';
+import './styles/themes.less';
 import RejectModal from './RejectModal';
+import Header from './components/Header';
+import FileUpload from './components/FileUpload';
+import ReviewSection from './components/ReviewSection';
+import ErrorBoundary from './components/ErrorBoundary';
+import { useTheme } from './hooks/useTheme';
+import { useFileUpload } from './hooks/useFileUpload';
+import { useReviewData } from './hooks/useReviewData';
+import { usePagination } from './hooks/usePagination';
+import { generateMockData } from './utils/mockDataGenerator';
+import { setupTooltipListeners } from './utils/tooltipPositioning';
 
 function App() {
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [errorMessage, setErrorMessage] = useState('');
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [pendingReject, setPendingReject] = useState(null);
-  const [showReview, setShowReview] = useState(true);
 
-  function openRejectModal(row) {
-    setPendingReject(row); // e.g., { name: 'Test 1', id: ... }
+  // Custom hooks for state management
+  const { theme, artistMode, toggleTheme, toggleArtistMode } = useTheme();
+  const { selectedFile, errorMessage, isLoading, setIsLoading, handleFileChange, isCsvByName } =
+    useFileUpload();
+  const {
+    reviewData,
+    setReviewData,
+    filteredData,
+    searchTerm,
+    showReview,
+    setShowReview,
+    showReviewData,
+    setShowReviewData,
+    statusCounts,
+    handleSearch,
+    handleApprove,
+    updateItemStatus,
+    resetReviewData,
+    resetDataOnly,
+  } = useReviewData();
+  const {
+    currentPage,
+    totalPages,
+    currentItems,
+    shouldUsePagination,
+    shouldUseScrollableContainer,
+    resetPage,
+    handlePageChange,
+  } = usePagination(filteredData);
+
+  // Sample prompt data
+  const prompt = "This is the current prompt we're using to generate the test ratio estimation:";
+
+  // Memoized event handlers to prevent unnecessary re-renders
+  const openRejectModal = useCallback((row) => {
+    setPendingReject(row);
     setRejectModalOpen(true);
-  }
+  }, []);
 
-  function closeRejectModal() {
+  const closeRejectModal = useCallback(() => {
     setRejectModalOpen(false);
     setPendingReject(null);
-  }
+  }, []);
 
+  const confirmReject = useCallback(
+    (rejectionReason) => {
+      if (pendingReject && rejectionReason) {
+        updateItemStatus(pendingReject.id, 'rejected', rejectionReason);
+        // TODO: Send reject status and reason to backend API
+      }
+      closeRejectModal();
+    },
+    [pendingReject, updateItemStatus, closeRejectModal],
+  );
+
+  // Handle modal body overflow
   useEffect(() => {
     if (rejectModalOpen) {
       const prev = document.body.style.overflow;
@@ -29,158 +83,133 @@ function App() {
     }
   }, [rejectModalOpen]);
 
-  function confirmReject() {
-    // TODO: do whatever you need (e.g., mark row rejected, call API)
-    // console.log('Rejected:', pendingReject)
-    closeRejectModal();
-  }
-
-  const isCsvByName = (file) => {
-    if (!file || !file.name) return false;
-    return /\.csv$/i.test(file.name);
-  };
-
-  const handleFileChange = (event) => {
-    const file = event?.target?.files?.[0];
-    if (!file) {
-      setSelectedFile(null);
-      setShowReview(false);
-      return;
+  // Setup tooltip positioning when review data changes
+  useEffect(() => {
+    if (reviewData.length > 0) {
+      return setupTooltipListeners();
     }
-    if (!isCsvByName(file)) {
-      setErrorMessage('Please upload a .csv file');
-      setSelectedFile(null);
-      if (event?.target) event.target.value = '';
-      setShowReview(false);
-      return;
-    }
-    setErrorMessage('');
-    setSelectedFile(file);
-    setShowReview(false); // require re-submit for new file
-  };
+  }, [reviewData]);
 
-  const handleSubmit = (event) => {
-    event?.preventDefault?.();
+  // Enhanced file change handler that integrates with custom hooks
+  const handleFileChangeWithReset = useCallback(
+    (event) => {
+      handleFileChange(event);
 
-    if (!selectedFile) {
-      setErrorMessage('Please select a .csv file before submitting');
-      setShowReview(false);
-      return;
-    }
-    if (!isCsvByName(selectedFile)) {
-      setErrorMessage('Only .csv files are allowed');
-      setShowReview(false);
-      return;
-    }
+      const file = event?.target?.files?.[0];
+      if (!file) {
+        resetReviewData();
+        resetPage();
+        return;
+      }
+      if (!isCsvByName(file)) {
+        resetReviewData();
+        resetPage();
+        return;
+      }
 
-    setErrorMessage('');
-    setShowReview(true); // ✅ reveal Review Section
-  };
+      // Reset only data and search, then show review section with fun message
+      resetDataOnly();
+      resetPage();
+      setShowReview(true);
+      setShowReviewData(false);
+    },
+    [
+      handleFileChange,
+      resetReviewData,
+      resetDataOnly,
+      resetPage,
+      isCsvByName,
+      setShowReview,
+      setShowReviewData,
+    ],
+  );
+
+  // Enhanced submit handler
+  const handleSubmit = useCallback(
+    (event) => {
+      event?.preventDefault?.();
+
+      if (!selectedFile) {
+        // Error handling is managed by useFileUpload hook
+        setShowReview(false);
+        setShowReviewData(false);
+        return;
+      }
+      if (!isCsvByName(selectedFile)) {
+        // Error handling is managed by useFileUpload hook
+        setShowReview(false);
+        setShowReviewData(false);
+        return;
+      }
+
+      setShowReview(true);
+      setIsLoading(true);
+      setShowReviewData(false);
+
+      // Simulate API call with 5-second delay
+      setTimeout(() => {
+        const mockData = generateMockData();
+        setReviewData(mockData);
+        setIsLoading(false);
+        setShowReviewData(true);
+      }, 5000);
+    },
+    [selectedFile, isCsvByName, setShowReview, setIsLoading, setShowReviewData, setReviewData],
+  );
 
   return (
-    <>
-      <header>
-        <h1>Ratio Estimator</h1>
-      </header>
-      <main>
-        <h2>Current Prompt</h2>
-        <div className="prompt">
-          <h3>This is the current prompt we're using to generate the test ratio estimation: </h3>
-          <p>{prompt}</p>
-        </div>
-        <form
-          onSubmit={handleSubmit}
-          className="upload-form"
-          noValidate
-          aria-describedby="upload-hint upload-error"
-        >
-          <h2>Upload a .csv file</h2>
+    <ErrorBoundary>
+      <div className="app">
+        <Header
+          theme={theme}
+          toggleTheme={toggleTheme}
+          artistMode={artistMode}
+          toggleArtistMode={toggleArtistMode}
+        />
 
-          {/* The ONLY file input (hidden but accessible) */}
-          <input
-            id="file-upload"
-            type="file"
-            accept=".csv,text/csv"
-            onChange={handleFileChange}
-            onClick={(e) => {
-              e.currentTarget.value = '';
-            }} // allow re-select same file
-            className="visually-hidden"
+        <main>
+          {/* Current Prompt Section */}
+          <section className="section">
+            <h2 className="section-title">Current Prompt</h2>
+            <p className="prompt-text">{prompt}</p>
+          </section>
+
+          <FileUpload
+            selectedFile={selectedFile}
+            errorMessage={errorMessage}
+            isLoading={isLoading}
+            onFileChange={handleFileChangeWithReset}
+            onSubmit={handleSubmit}
           />
 
-          <div className="file-row">
-            <label htmlFor="file-upload" className="btn file-btn">
-              Choose CSV
-            </label>
+          <ReviewSection
+            showReview={showReview}
+            isLoading={isLoading}
+            showReviewData={showReviewData}
+            searchTerm={searchTerm}
+            onSearch={handleSearch}
+            filteredData={filteredData}
+            statusCounts={statusCounts}
+            shouldUsePagination={shouldUsePagination}
+            shouldUseScrollableContainer={shouldUseScrollableContainer}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            currentItems={currentItems}
+            onPageChange={handlePageChange}
+            onApprove={handleApprove}
+            onReject={openRejectModal}
+          />
+        </main>
 
-            <span className="file-name" aria-live="polite">
-              {selectedFile ? selectedFile.name : 'No file chosen'}
-            </span>
+        <footer>
+          <p>Footer</p>
+        </footer>
 
-            <button type="submit" className="btn primary" disabled={!selectedFile}>
-              Submit
-            </button>
-          </div>
-
-          <small id="upload-hint" className="hint">
-            Only .csv files are allowed.
-          </small>
-
-          {errorMessage ? (
-            <div id="upload-error" role="alert" className="error">
-              {errorMessage}
-            </div>
-          ) : null}
-        </form>
-        {showReview && (
-          <>
-            <h2>Review Section</h2>
-            <table className="review">
-              <thead>
-                <tr>
-                  <th>Test Name</th>
-                  <th>Test Ratio</th>
-                  <th>Test Reasoning</th>
-                  <th>Test Approval</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Test 1</td>
-                  <td>1:1</td>
-                  <td>Test 1</td>
-                  <td className="actions">
-                    <button
-                      type="button"
-                      className="btn reject"
-                      onClick={() => openRejectModal({ name: 'Test 1' })}
-                      aria-label="Reject test"
-                      title="Reject"
-                    >
-                      ✕
-                    </button>
-                    <button
-                      type="button"
-                      className="btn approve"
-                      aria-label="Approve test"
-                      title="Approve"
-                    >
-                      ✓
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </>
-        )}
         {rejectModalOpen && (
           <RejectModal row={pendingReject} onClose={closeRejectModal} onConfirm={confirmReject} />
         )}
-      </main>
-      <footer>
-        <p>Footer</p>
-      </footer>
-    </>
+      </div>
+    </ErrorBoundary>
   );
 }
 
