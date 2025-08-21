@@ -92,6 +92,23 @@ function App() {
     }
   }, [reviewData]);
 
+  // Resubmit all rejected tests handler
+  const handleResubmitRejected = useCallback(() => {
+    const rejectedTests = reviewData.filter(item => item.status === 'rejected');
+    
+    // Reset all rejected tests to pending status
+    setReviewData(prevData =>
+      prevData.map(item =>
+        item.status === 'rejected' 
+          ? { ...item, status: 'pending', rejectionReason: undefined }
+          : item
+      )
+    );
+
+    // TODO: Send resubmission request to backend API
+    console.log(`Resubmitting ${rejectedTests.length} rejected tests`);
+  }, [reviewData, setReviewData]);
+
   // Enhanced file change handler that integrates with custom hooks
   const handleFileChangeWithReset = useCallback(
     (event) => {
@@ -202,6 +219,7 @@ function App() {
             onPageChange={handlePageChange}
             onApprove={handleApprove}
             onReject={openRejectModal}
+            onResubmitRejected={handleResubmitRejected}
           />
         </main>
 

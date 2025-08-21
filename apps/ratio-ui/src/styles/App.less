@@ -781,6 +781,49 @@
   }
 
   // =========================
+  // Review Actions
+  // =========================
+
+  .review-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: @space-md;
+    margin-top: @space-sm;
+
+    .resubmit-rejected {
+      background: @success-green;
+      color: white;
+      border: none;
+      padding: @space-sm @space-md;
+      border-radius: @radius-md;
+      font-weight: @font-weight-medium;
+      font-size: @font-size-body;
+      cursor: pointer;
+      .transition();
+
+      &:hover {
+        background: @success-green-hover;
+        transform: translateY(-0.0625rem);
+        box-shadow: @shadow-sm;
+      }
+
+      &:focus {
+        outline: 0.125rem solid @success-green;
+        outline-offset: 0.125rem;
+      }
+
+      [data-theme='dark'] & {
+        background: @success-green-alt;
+        
+        &:hover {
+          background: lighten(@success-green-alt, 10%);
+        }
+      }
+    }
+  }
+
+  // =========================
   // Table Wrapper & Scrolling
   // =========================
 

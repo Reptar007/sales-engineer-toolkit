@@ -25,6 +25,7 @@ const ReviewSection = React.memo(
     onPageChange,
     onApprove,
     onReject,
+    onResubmitRejected,
   }) => {
     if (!showReview) return null;
 
@@ -47,6 +48,7 @@ const ReviewSection = React.memo(
                 shouldUsePagination={shouldUsePagination}
                 currentPage={currentPage}
                 totalPages={totalPages}
+                onResubmitRejected={onResubmitRejected}
               />
             </div>
 

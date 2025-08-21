@@ -10,12 +10,13 @@ const ReviewStats = React.memo(
     totalPages,
     statusFilter,
     onStatusFilter,
+    onResubmitRejected,
   }) => {
     return (
       <div className="review-stats">
         <div className="results-info">
           <span className="results-count">
-            {filteredDataLength} {filteredDataLength === 1 ? 'test' : 'tests'} 
+            {filteredDataLength} {filteredDataLength === 1 ? 'test' : 'tests'}
             {statusFilter !== 'all' ? ` (${statusFilter})` : ''} found
             {searchTerm && ` for "${searchTerm}"`}
           </span>
@@ -43,11 +44,23 @@ const ReviewStats = React.memo(
             </button>
           </div>
         </div>
-        {shouldUsePagination && (
-          <span className="page-info">
-            Page {currentPage} of {totalPages}
-          </span>
-        )}
+        <div className="review-actions">
+          {statusCounts.pending === 0 && statusCounts.rejected > 0 && (
+            <button
+              type="button"
+              className="btn resubmit-rejected"
+              onClick={onResubmitRejected}
+              title="Resubmit all rejected tests"
+            >
+              Resubmit Rejected
+            </button>
+          )}
+          {shouldUsePagination && (
+            <span className="page-info">
+              Page {currentPage} of {totalPages}
+            </span>
+          )}
+        </div>
       </div>
     );
   },
