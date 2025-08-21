@@ -15,7 +15,8 @@ const ReviewStats = React.memo(
       <div className="review-stats">
         <div className="results-info">
           <span className="results-count">
-            {filteredDataLength} {filteredDataLength === 1 ? 'test' : 'tests'} found
+            {filteredDataLength} {filteredDataLength === 1 ? 'test' : 'tests'} 
+            {statusFilter !== 'all' ? ` (${statusFilter})` : ''} found
             {searchTerm && ` for "${searchTerm}"`}
           </span>
           <div className="status-counts">
