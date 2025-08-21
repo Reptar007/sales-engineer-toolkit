@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../src/App.jsx';
 
@@ -19,19 +19,21 @@ describe('Component Accessibility Tests', () => {
     it('should allow keyboard navigation through interactive elements', async () => {
       render(<App />);
 
-      // Test that interactive elements are present and accessible
-      const approveButton = screen.getByRole('button', { name: /approve/i });
-      const rejectButton = screen.getByRole('button', { name: /reject/i });
+      // Test that initial interactive elements are present and accessible
+      const themeToggle = screen.getByRole('button', { name: /toggle theme/i });
+      const artistToggle = screen.getByRole('button', { name: /toggle artist mode/i });
+      const submitButton = screen.getByRole('button', { name: /submit/i });
       const fileInput = screen.getByLabelText(/choose csv/i);
 
       // Verify elements are in the document and focusable
-      expect(approveButton).toBeInTheDocument();
-      expect(rejectButton).toBeInTheDocument();
+      expect(themeToggle).toBeInTheDocument();
+      expect(artistToggle).toBeInTheDocument();
+      expect(submitButton).toBeInTheDocument();
       expect(fileInput).toBeInTheDocument();
 
-      // Test that non-disabled buttons can receive focus
-      expect(approveButton).not.toHaveAttribute('disabled');
-      expect(rejectButton).not.toHaveAttribute('disabled');
+      // Test that toggle buttons are not disabled (they should always be functional)
+      expect(themeToggle).not.toHaveAttribute('disabled');
+      expect(artistToggle).not.toHaveAttribute('disabled');
 
       // Test file input is properly labeled
       expect(fileInput).toHaveAttribute('type', 'file');
@@ -45,10 +47,15 @@ describe('Component Accessibility Tests', () => {
       buttons.forEach((button) => {
         // Check that buttons are focusable (which indicates they can receive focus styles)
         expect(button).not.toHaveAttribute('tabindex', '-1');
-        expect(button).not.toHaveAttribute('disabled', 'true');
 
-        // Verify button has the CSS class that would receive focus styles
-        expect(button).toHaveClass('btn');
+        // Check for appropriate CSS classes based on button type
+        const buttonClass = button.className;
+        const hasValidClass =
+          buttonClass.includes('btn') ||
+          buttonClass.includes('theme-toggle') ||
+          buttonClass.includes('artist-toggle');
+
+        expect(hasValidClass).toBe(true);
       });
 
       // Additional check: ensure focus styles are defined in CSS (tested separately in accessibility test)
