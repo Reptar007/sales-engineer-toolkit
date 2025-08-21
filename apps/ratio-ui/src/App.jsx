@@ -57,6 +57,92 @@ function App() {
     }
   }, [artistMode]);
 
+  // Smart tooltip positioning to prevent cutoff
+  useEffect(() => {
+    const handleTooltipPositioning = (indicator) => {
+      const tooltip = indicator.querySelector('.tooltip');
+      if (!tooltip) return;
+
+      // Reset positioning classes
+      tooltip.classList.remove('tooltip-left-adjusted', 'tooltip-right-adjusted');
+
+      // Force a reflow to get accurate measurements
+      tooltip.offsetHeight;
+
+      // Get positions after reset
+      const indicatorRect = indicator.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const margin = 16; // Margin from viewport edge
+
+      // Calculate if tooltip would extend beyond edges
+      const tooltipWidth = tooltip.offsetWidth;
+      const indicatorCenter = indicatorRect.left + indicatorRect.width / 2;
+      const tooltipLeftEdge = indicatorCenter - tooltipWidth / 2;
+      const tooltipRightEdge = indicatorCenter + tooltipWidth / 2;
+
+      // Check positioning and apply classes
+      if (tooltipLeftEdge < margin) {
+        tooltip.classList.add('tooltip-left-adjusted');
+      } else if (tooltipRightEdge > viewportWidth - margin) {
+        tooltip.classList.add('tooltip-right-adjusted');
+      }
+    };
+
+    // Store event handlers for cleanup
+    const eventHandlers = new Map();
+
+    // Add event listeners with improved positioning logic
+    const rejectionIndicators = document.querySelectorAll('.rejection-indicator');
+
+    rejectionIndicators.forEach((indicator) => {
+      const handleMouseEnter = () => {
+        // Multiple attempts to ensure proper positioning
+        setTimeout(() => handleTooltipPositioning(indicator), 1);
+        setTimeout(() => handleTooltipPositioning(indicator), 50);
+        setTimeout(() => handleTooltipPositioning(indicator), 100);
+      };
+
+      const handleMouseLeave = () => {
+        const tooltip = indicator.querySelector('.tooltip');
+        if (tooltip) {
+          // Reset positioning when tooltip disappears
+          tooltip.classList.remove('tooltip-left-adjusted', 'tooltip-right-adjusted');
+        }
+      };
+
+      eventHandlers.set(indicator, { handleMouseEnter, handleMouseLeave });
+      indicator.addEventListener('mouseenter', handleMouseEnter);
+      indicator.addEventListener('mouseleave', handleMouseLeave);
+      indicator.addEventListener('focus', handleMouseEnter);
+      indicator.addEventListener('blur', handleMouseLeave);
+    });
+
+    // Also handle window resize
+    const handleResize = () => {
+      rejectionIndicators.forEach((indicator) => {
+        if (indicator.matches(':hover') || indicator.matches(':focus')) {
+          handleTooltipPositioning(indicator);
+        }
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Cleanup event listeners
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      rejectionIndicators.forEach((indicator) => {
+        const handlers = eventHandlers.get(indicator);
+        if (handlers) {
+          indicator.removeEventListener('mouseenter', handlers.handleMouseEnter);
+          indicator.removeEventListener('mouseleave', handlers.handleMouseLeave);
+          indicator.removeEventListener('focus', handlers.handleMouseEnter);
+          indicator.removeEventListener('blur', handlers.handleMouseLeave);
+        }
+      });
+    };
+  }, [reviewData]); // Re-run when review data changes
+
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
@@ -137,15 +223,35 @@ function App() {
     const sizes = [20, 50, 100, 200];
     const randomSize = sizes[Math.floor(Math.random() * sizes.length)];
 
+    // Sample rejection reasons to demonstrate dynamic tooltip sizing
+    const sampleRejections = [
+      "Test coverage is insufficient and doesn't meet our quality standards",
+      'This test case duplicates existing functionality and should be merged',
+      'The test logic is flawed and produces false positives in edge cases',
+      'Performance impact is too high for the value provided by this test',
+      'Test dependencies are unclear and may cause maintenance issues down the line',
+      "The assertions are too broad and don't validate specific behavior effectively",
+      "This test requires external resources that aren't available in our CI environment",
+    ];
+
     const mockData = [];
     for (let i = 1; i <= randomSize; i++) {
-      mockData.push({
+      const shouldReject = Math.random() < 0.15; // 15% chance of rejection
+      const item = {
         id: i,
         testName: `Test ${i}`,
         ratio: `${Math.floor(Math.random() * 10) + 1}:${Math.floor(Math.random() * 10) + 1}`,
         reasoning: `Analysis for test ${i}: ${['High priority test case', 'Standard validation', 'Edge case scenario', 'Critical path test', 'Performance validation'][Math.floor(Math.random() * 5)]}`,
-        status: 'pending',
-      });
+        status: shouldReject ? 'rejected' : 'pending',
+      };
+
+      // Add rejection reason for rejected items
+      if (shouldReject) {
+        item.rejectionReason =
+          sampleRejections[Math.floor(Math.random() * sampleRejections.length)];
+      }
+
+      mockData.push(item);
     }
     return mockData;
   };
@@ -381,25 +487,23 @@ function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {(shouldUsePagination ? currentItems : filteredData).map((item) => (
-                        <tr
-                          key={item.id}
-                          className={`row-${item.status}`}
-                          title={
-                            item.status === 'rejected' && item.rejectionReason
-                              ? `Rejected: ${item.rejectionReason}`
-                              : undefined
-                          }
-                        >
+                      {(shouldUsePagination ? currentItems : filteredData).map((item, index) => (
+                        <tr key={item.id} className={`row-${item.status}`}>
                           <td>
                             {item.testName}
                             {item.status === 'rejected' && item.rejectionReason && (
                               <span
-                                className="rejection-indicator"
-                                title={`Rejection reason: ${item.rejectionReason}`}
+                                className={`rejection-indicator ${index < 2 ? 'tooltip-below' : ''}`}
                                 aria-label={`Rejection reason: ${item.rejectionReason}`}
+                                role="button"
+                                tabIndex="0"
                               >
                                 💬
+                                <span className="tooltip">
+                                  <strong>Rejection Reason:</strong>
+                                  <br />
+                                  {item.rejectionReason}
+                                </span>
                               </span>
                             )}
                           </td>

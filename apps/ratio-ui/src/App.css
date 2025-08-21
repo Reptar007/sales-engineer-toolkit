@@ -629,6 +629,16 @@
     padding: var(--space-md);
     text-align: left;
     border-bottom: 0.0625rem solid var(--table-border); /* 1px */
+    position: relative; /* Enable absolute positioning for child elements */
+  }
+
+  /* Allow tooltips to extend outside table cells */
+  .review-table tbody tr {
+    position: relative;
+  }
+
+  .review-table tbody tr td:first-child {
+    overflow: visible; /* Allow tooltip overflow */
   }
 
   .review-table th {
@@ -820,6 +830,8 @@
     overflow-x: auto;
     border-radius: var(--radius-md);
     border: 0.0625rem solid var(--border-color);
+    /* Allow tooltips to escape container */
+    position: relative;
   }
 
   .table-wrapper.scrollable {
@@ -1269,6 +1281,35 @@
     .btn.circular.approve.active::after {
       animation: none !important;
     }
+
+    /* Disable tooltip animations for reduced motion */
+    .tooltip,
+    .rejection-indicator,
+    .rejection-indicator:hover,
+    [data-artist='true'] .tooltip,
+    [data-artist='true'] .rejection-indicator:hover .tooltip {
+      transition: none !important;
+      transform: none !important;
+    }
+
+    .rejection-indicator:hover .tooltip {
+      opacity: 1 !important;
+      visibility: visible !important;
+      /* Maintain dynamic sizing even in reduced motion */
+      min-width: 12rem !important;
+      max-width: clamp(20rem, 40vw, 32rem) !important;
+    }
+
+    /* Maintain edge positioning even with reduced motion */
+    .tooltip-left-adjusted,
+    .tooltip-right-adjusted {
+      transform: none !important;
+    }
+
+    .tooltip-left-adjusted::after,
+    .tooltip-right-adjusted::after {
+      transform: none !important;
+    }
   }
 
   @keyframes progress-simple {
@@ -1473,10 +1514,177 @@
     cursor: help;
     filter: drop-shadow(0 0.0625rem 0.125rem rgba(0, 0, 0, 0.1));
     transition: transform 0.2s ease;
+    position: relative;
+    display: inline-block;
   }
 
   .rejection-indicator:hover {
     transform: scale(1.2);
+    z-index: 9999; /* Match tooltip z-index for proper layering */
+  }
+
+  /* Custom Tooltip Styling */
+  .tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text-primary);
+    color: var(--bg-card);
+    padding: var(--space-md) var(--space-lg); /* Increased padding for better readability */
+    border-radius: var(--radius-md);
+    font-size: 0.8125rem; /* 13px - slightly larger for better readability */
+    line-height: 1.5; /* Improved line spacing */
+    white-space: normal;
+    word-wrap: break-word;
+    /* Dynamic width based on viewport and content */
+    min-width: 12rem; /* 192px - minimum width */
+    max-width: clamp(20rem, 40vw, 32rem); /* Responsive: 320px to 40% viewport width, max 512px */
+    width: max-content; /* Expand to content width within constraints */
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.25);
+    z-index: 9999; /* Highest priority - always on top */
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    margin-bottom: 0.5rem;
+    pointer-events: none; /* Prevent tooltip from blocking mouse events */
+    /* Better text handling for long content */
+    text-align: left;
+    hyphens: auto; /* Enable hyphenation for long words */
+    overflow-wrap: break-word; /* Modern property for word breaking */
+  }
+
+  /* Smart positioning for tooltips near viewport edges */
+  .tooltip-left-adjusted {
+    left: 0 !important;
+    transform: translateX(0) !important;
+    margin-left: 1rem !important; /* Add some spacing from edge */
+  }
+
+  .tooltip-right-adjusted {
+    left: auto !important;
+    right: 0 !important;
+    transform: translateX(0) !important;
+    margin-right: 1rem !important; /* Add some spacing from edge */
+  }
+
+  /* CSS-only fallback positioning for first/last columns */
+  .review-table td:first-child .tooltip {
+    /* For items in first column, ensure tooltip doesn't go off-screen */
+    left: 0;
+    transform: translateX(0);
+    margin-left: 1rem;
+    max-width: calc(100vw - 2rem);
+  }
+
+  .review-table td:first-child .tooltip::after {
+    left: 1rem;
+    transform: translateX(0);
+  }
+
+  /* For last column, position to the left */
+  .review-table td:last-child .tooltip {
+    left: auto;
+    right: 0;
+    transform: translateX(0);
+    margin-right: 1rem;
+    max-width: calc(100vw - 2rem);
+  }
+
+  .review-table td:last-child .tooltip::after {
+    left: auto;
+    right: 1rem;
+    transform: translateX(0);
+  }
+
+  /* Override for middle columns to maintain center positioning */
+  .review-table td:nth-child(2) .tooltip,
+  .review-table td:nth-child(3) .tooltip {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .review-table td:nth-child(2) .tooltip::after,
+  .review-table td:nth-child(3) .tooltip::after {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+
+  .tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 0.375rem solid transparent;
+    border-top-color: var(--text-primary);
+  }
+
+  /* Arrow adjustments for repositioned tooltips */
+  .tooltip-left-adjusted::after {
+    left: 1rem !important; /* Position arrow near left edge when tooltip is left-aligned */
+    transform: translateX(0) !important;
+  }
+
+  .tooltip-right-adjusted::after {
+    left: auto !important;
+    right: 1rem !important; /* Position arrow near right edge when tooltip is right-aligned */
+    transform: translateX(0) !important;
+  }
+
+  /* Tooltip positioning for first rows (show below instead of above) */
+  .tooltip-below .tooltip {
+    bottom: auto;
+    top: 100%;
+    margin-bottom: 0;
+    margin-top: 0.5rem;
+  }
+
+  .tooltip-below .tooltip::after {
+    top: auto;
+    bottom: 100%;
+    border-top-color: transparent;
+    border-bottom-color: var(--text-primary);
+  }
+
+  /* Arrow adjustments for repositioned tooltips when shown below */
+  .tooltip-below .tooltip-left-adjusted::after {
+    left: 1rem;
+    transform: translateX(0);
+  }
+
+  .tooltip-below .tooltip-right-adjusted::after {
+    left: auto;
+    right: 1rem;
+    transform: translateX(0);
+  }
+
+  .rejection-indicator:hover .tooltip,
+  .rejection-indicator:focus .tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(-0.25rem);
+  }
+
+  .tooltip-below.rejection-indicator:hover .tooltip,
+  .tooltip-below.rejection-indicator:focus .tooltip {
+    transform: translateX(-50%) translateY(0.25rem);
+  }
+
+  /* Keyboard focus styling for rejection indicator */
+  .rejection-indicator:focus {
+    outline: 0.125rem solid var(--primary-green);
+    outline-offset: 0.125rem;
+    border-radius: 0.25rem;
+  }
+
+  .tooltip strong {
+    font-weight: var(--font-weight-medium);
+    color: var(--bg-card);
   }
 
   /* Artist mode rejection indicator */
@@ -1489,14 +1697,142 @@
     transform: rotate(var(--artist-rotate-small)) scale(1.3);
   }
 
+  [data-artist='true'] .tooltip {
+    border: 0.125rem solid var(--error-red);
+    border-radius: 1rem;
+    transform: translateX(-50%) rotate(calc(var(--artist-rotate-small) * -0.5));
+    box-shadow: 0.25rem 0.25rem 0.75rem rgba(0, 0, 0, 0.2);
+    z-index: 9999; /* Ensure artist mode tooltip is also on top */
+    /* Inherit dynamic sizing from base tooltip */
+    min-width: 12rem; /* 192px */
+    max-width: clamp(20rem, 40vw, 32rem); /* Same responsive sizing as base */
+    font-weight: 500; /* Slightly bolder for artist mode */
+  }
+
+  [data-artist='true'] .tooltip::after {
+    border-top-color: var(--error-red);
+  }
+
+  [data-artist='true'] .tooltip-below .tooltip::after {
+    border-top-color: transparent;
+    border-bottom-color: var(--error-red);
+  }
+
+  [data-artist='true'] .rejection-indicator:hover .tooltip {
+    transform: translateX(-50%) translateY(-0.25rem) rotate(0deg) scale(1.02);
+  }
+
+  [data-artist='true'] .tooltip-below.rejection-indicator:hover .tooltip {
+    transform: translateX(-50%) translateY(0.25rem) rotate(0deg) scale(1.02);
+  }
+
   /* Enhanced tooltip for rejection reasons */
   .row-rejected:hover {
     position: relative;
   }
 
-  /* Dark theme rejection indicator */
+  /* Dark theme rejection indicator and tooltip */
   [data-theme='dark'] .rejection-indicator {
     filter: drop-shadow(0 0.0625rem 0.125rem rgba(255, 255, 255, 0.1));
+  }
+
+  [data-theme='dark'] .tooltip {
+    background: var(--bg-card-dark);
+    color: var(--text-primary-dark);
+    border: 0.0625rem solid var(--border-color);
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.4);
+    z-index: 9999; /* Ensure dark mode tooltip is also on top */
+  }
+
+  [data-theme='dark'] .tooltip::after {
+    border-top-color: var(--bg-card-dark);
+  }
+
+  [data-theme='dark'] .tooltip-below .tooltip::after {
+    border-top-color: transparent;
+    border-bottom-color: var(--bg-card-dark);
+  }
+
+  /* Dark theme tooltip positioning adjustments */
+  [data-theme='dark'] .tooltip-left-adjusted::after,
+  [data-theme='dark'] .tooltip-below .tooltip-left-adjusted::after {
+    left: 1rem;
+    transform: translateX(0);
+  }
+
+  [data-theme='dark'] .tooltip-right-adjusted::after,
+  [data-theme='dark'] .tooltip-below .tooltip-right-adjusted::after {
+    left: auto;
+    right: 1rem;
+    transform: translateX(0);
+  }
+
+  [data-theme='dark'] .tooltip strong {
+    color: var(--text-primary-dark);
+  }
+
+  /* Dark theme artist mode tooltip */
+  [data-theme='dark'][data-artist='true'] .tooltip {
+    background: var(--bg-card-dark);
+    border-color: var(--error-red);
+    color: var(--text-primary-dark);
+    z-index: 9999; /* Ensure dark mode artist tooltip is also on top */
+    /* Maintain dynamic sizing in dark mode */
+    min-width: 12rem; /* 192px */
+    max-width: clamp(20rem, 40vw, 32rem); /* Same responsive sizing */
+  }
+
+  [data-theme='dark'][data-artist='true'] .tooltip::after {
+    border-top-color: var(--error-red);
+  }
+
+  [data-theme='dark'][data-artist='true'] .tooltip-below .tooltip::after {
+    border-top-color: transparent;
+    border-bottom-color: var(--error-red);
+  }
+
+  /* Artist mode tooltip positioning adjustments */
+  [data-artist='true'] .tooltip-left-adjusted::after,
+  [data-artist='true'] .tooltip-below .tooltip-left-adjusted::after {
+    left: 1rem;
+    transform: translateX(0);
+    border-top-color: var(--error-red);
+  }
+
+  [data-artist='true'] .tooltip-right-adjusted::after,
+  [data-artist='true'] .tooltip-below .tooltip-right-adjusted::after {
+    left: auto;
+    right: 1rem;
+    transform: translateX(0);
+    border-top-color: var(--error-red);
+  }
+
+  [data-artist='true'] .tooltip-below .tooltip-left-adjusted::after,
+  [data-artist='true'] .tooltip-below .tooltip-right-adjusted::after {
+    border-top-color: transparent;
+    border-bottom-color: var(--error-red);
+  }
+
+  /* Dark theme artist mode tooltip positioning adjustments */
+  [data-theme='dark'][data-artist='true'] .tooltip-left-adjusted::after,
+  [data-theme='dark'][data-artist='true'] .tooltip-below .tooltip-left-adjusted::after {
+    left: 1rem;
+    transform: translateX(0);
+    border-top-color: var(--error-red);
+  }
+
+  [data-theme='dark'][data-artist='true'] .tooltip-right-adjusted::after,
+  [data-theme='dark'][data-artist='true'] .tooltip-below .tooltip-right-adjusted::after {
+    left: auto;
+    right: 1rem;
+    transform: translateX(0);
+    border-top-color: var(--error-red);
+  }
+
+  [data-theme='dark'][data-artist='true'] .tooltip-below .tooltip-left-adjusted::after,
+  [data-theme='dark'][data-artist='true'] .tooltip-below .tooltip-right-adjusted::after {
+    border-top-color: transparent;
+    border-bottom-color: var(--error-red);
   }
 
   /* =========================
@@ -2106,6 +2442,64 @@
   .status-badge {
     font-size: 0.6875rem; /* 11px */
     padding: 0.1875rem 0.375rem; /* 3px 6px */
+  }
+
+  /* Mobile tooltip adjustments */
+  .tooltip {
+    /* More generous mobile sizing */
+    min-width: 10rem; /* 160px - minimum on mobile */
+    max-width: clamp(16rem, 80vw, 24rem); /* Responsive: 256px to 80% viewport width, max 384px */
+    font-size: 0.75rem; /* 12px - maintain readability */
+    padding: var(--space-sm) var(--space-md); /* Better padding for touch targets */
+    line-height: 1.4; /* Slightly tighter for mobile */
+  }
+
+  .rejection-indicator {
+    font-size: 0.75rem; /* 12px - slightly smaller on mobile */
+  }
+
+  /* Mobile tooltip positioning adjustments */
+  @media (max-width: 48rem) {
+    .tooltip-left-adjusted {
+      left: 0.5rem; /* Smaller margin on mobile */
+      max-width: calc(100vw - 1rem); /* Ensure it fits within viewport */
+      margin-left: 0; /* Remove additional margin on mobile */
+    }
+
+    .tooltip-right-adjusted {
+      right: 0.5rem; /* Smaller margin on mobile */
+      max-width: calc(100vw - 1rem); /* Ensure it fits within viewport */
+      margin-right: 0; /* Remove additional margin on mobile */
+    }
+
+    .tooltip-left-adjusted::after {
+      left: 1rem; /* Adjust arrow position for mobile */
+    }
+
+    .tooltip-right-adjusted::after {
+      right: 1rem; /* Adjust arrow position for mobile */
+    }
+
+    /* Mobile-specific first/last column positioning */
+    .review-table td:first-child .tooltip {
+      left: 0.5rem;
+      margin-left: 0;
+      max-width: calc(100vw - 1rem);
+    }
+
+    .review-table td:last-child .tooltip {
+      right: 0.5rem;
+      margin-right: 0;
+      max-width: calc(100vw - 1rem);
+    }
+
+    .review-table td:first-child .tooltip::after {
+      left: 1rem;
+    }
+
+    .review-table td:last-child .tooltip::after {
+      right: 1rem;
+    }
   }
 
   /* Artist mode mobile adjustments */
