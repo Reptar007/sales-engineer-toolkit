@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   lint-and-format:
@@ -35,7 +35,7 @@ jobs:
     name: Workspace Tests
     runs-on: ubuntu-latest
     needs: lint-and-format
-    if: always()   # run even if lint job fails? change to `success()` if you prefer
+    if: always() # run even if lint job fails? change to `success()` if you prefer
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

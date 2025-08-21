@@ -5,9 +5,10 @@
 // Base Spacing Scale
 @space-xs: 0.25rem; // 4px
 @space-sm: 0.5rem; // 8px
-@space-md: 1rem; // 16px
-@space-lg: 1.5rem; // 24px
-@space-xl: 2rem; // 32px
+@space-md: 0.75rem; // 12px (Figma spec)
+@space-lg: 1rem; // 16px (adjusted proportionally)
+@space-xl: 1.5rem; // 24px (adjusted proportionally)
+@space-2xl: 2rem; // 32px
 
 // Fluid Spacing with Clamp
 @space-fluid-xs: ~'clamp(0.125rem, 0.5vw, 0.25rem)';
@@ -17,17 +18,17 @@
 @space-fluid-xl: ~'clamp(1.5rem, 4vw, 2rem)';
 
 // Border Radius
-@radius-sm: 0.25rem; // 4px
+@radius-sm: 0.1875rem; // 3px (Figma spec)
 @radius-md: 0.5rem; // 8px
 @radius-lg: 0.75rem; // 12px
-@radius-pill: 62.4375rem; // 999px
+@radius-pill: 62.5rem; // 1000px (Figma spec)
 
 // Container and Layout
 @max-width-container: 75rem; // 1200px
 
 // Button Dimensions
-@btn-size-circular: 2.25rem; // 36px
-@btn-min-height: 2.5rem; // 40px
+@btn-size-circular: 2.75rem; // 44px (accessibility compliant)
+@btn-min-height: 2.75rem; // 44px (accessibility compliant)
 @btn-padding-standard: 0.625rem 1.25rem; // 10px 20px
 @btn-padding-ghost: @space-sm @space-lg;
 @btn-padding-mobile: 0.5rem 1rem; // 8px 16px
