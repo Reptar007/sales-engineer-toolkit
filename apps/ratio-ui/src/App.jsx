@@ -66,9 +66,28 @@ function App() {
   };
 
   function confirmReject() {
-    // TODO: do whatever you need (e.g., mark row rejected, call API)
-    // console.log('Rejected:', pendingReject)
+    if (pendingReject) {
+      // Update the item status to rejected
+      setReviewData((prevData) =>
+        prevData.map((item) =>
+          item.id === pendingReject.id ? { ...item, status: 'rejected' } : item,
+        ),
+      );
+      // TODO: Send reject status to backend API
+      // console.log('Rejected:', pendingReject)
+    }
     closeRejectModal();
+  }
+
+  function handleApprove(item) {
+    // Update the item status to approved
+    setReviewData((prevData) =>
+      prevData.map((dataItem) =>
+        dataItem.id === item.id ? { ...dataItem, status: 'approved' } : dataItem,
+      ),
+    );
+    // TODO: Send approve status to backend API
+    // console.log('Approved:', item)
   }
 
   const isCsvByName = (file) => {
@@ -154,6 +173,15 @@ function App() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentItems = filteredData.slice(startIndex, endIndex);
+
+  // Status counts for progress tracking
+  const statusCounts = filteredData.reduce(
+    (counts, item) => {
+      counts[item.status] = (counts[item.status] || 0) + 1;
+      return counts;
+    },
+    { pending: 0, approved: 0, rejected: 0 },
+  );
 
   // Determine display strategy based on data size
   const shouldUsePagination = filteredData.length > 30;
@@ -315,10 +343,21 @@ function App() {
                     />
                   </div>
                   <div className="review-stats">
-                    <span className="results-count">
-                      {filteredData.length} {filteredData.length === 1 ? 'test' : 'tests'} found
-                      {searchTerm && ` for "${searchTerm}"`}
-                    </span>
+                    <div className="results-info">
+                      <span className="results-count">
+                        {filteredData.length} {filteredData.length === 1 ? 'test' : 'tests'} found
+                        {searchTerm && ` for "${searchTerm}"`}
+                      </span>
+                      <div className="status-counts">
+                        <span className="status-badge pending">{statusCounts.pending} pending</span>
+                        <span className="status-badge approved">
+                          {statusCounts.approved} approved
+                        </span>
+                        <span className="status-badge rejected">
+                          {statusCounts.rejected} rejected
+                        </span>
+                      </div>
+                    </div>
                     {shouldUsePagination && (
                       <span className="page-info">
                         Page {currentPage} of {totalPages}
@@ -341,25 +380,28 @@ function App() {
                     </thead>
                     <tbody>
                       {(shouldUsePagination ? currentItems : filteredData).map((item) => (
-                        <tr key={item.id}>
+                        <tr key={item.id} className={`row-${item.status}`}>
                           <td>{item.testName}</td>
                           <td>{item.ratio}</td>
                           <td>{item.reasoning}</td>
                           <td className="actions">
                             <button
                               type="button"
-                              className="btn circular reject"
+                              className={`btn circular reject ${item.status === 'rejected' ? 'active' : ''}`}
                               onClick={() => openRejectModal({ name: item.testName, id: item.id })}
                               aria-label={`Reject ${item.testName}`}
                               title="Reject"
+                              disabled={item.status === 'approved'}
                             >
                               ✕
                             </button>
                             <button
                               type="button"
-                              className="btn circular approve"
+                              className={`btn circular approve ${item.status === 'approved' ? 'active' : ''}`}
+                              onClick={() => handleApprove(item)}
                               aria-label={`Approve ${item.testName}`}
                               title="Approve"
+                              disabled={item.status === 'rejected'}
                             >
                               ✓
                             </button>
