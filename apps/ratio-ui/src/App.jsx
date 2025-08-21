@@ -8,6 +8,10 @@ function App() {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [pendingReject, setPendingReject] = useState(null);
   const [showReview, setShowReview] = useState(true);
+  const [theme, setTheme] = useState('light');
+
+  // Sample prompt data
+  const prompt = "This is the current prompt we're using to generate the test ratio estimation:";
 
   function openRejectModal(row) {
     setPendingReject(row); // e.g., { name: 'Test 1', id: ... }
@@ -28,6 +32,15 @@ function App() {
       };
     }
   }, [rejectModalOpen]);
+
+  // Theme management
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   function confirmReject() {
     // TODO: do whatever you need (e.g., mark row rejected, call API)
@@ -78,64 +91,74 @@ function App() {
   };
 
   return (
-    <>
+    <div className="app">
+      <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
+        {theme === 'light' ? '🌙' : '☀️'}
+      </button>
+
       <header>
         <h1>Ratio Estimator</h1>
       </header>
+
       <main>
-        <h2>Current Prompt</h2>
-        <div className="prompt">
-          <h3>This is the current prompt we're using to generate the test ratio estimation: </h3>
-          <p>{prompt}</p>
-        </div>
-        <form
-          onSubmit={handleSubmit}
-          className="upload-form"
-          noValidate
-          aria-describedby="upload-hint upload-error"
-        >
-          <h2>Upload a .csv file</h2>
+        {/* Current Prompt Section */}
+        <section className="section">
+          <h2 className="section-title">Current Prompt</h2>
+          <p className="prompt-text">{prompt}</p>
+        </section>
 
-          {/* The ONLY file input (hidden but accessible) */}
-          <input
-            id="file-upload"
-            type="file"
-            accept=".csv,text/csv"
-            onChange={handleFileChange}
-            onClick={(e) => {
-              e.currentTarget.value = '';
-            }} // allow re-select same file
-            className="visually-hidden"
-          />
+        {/* Upload CSV Section */}
+        <section className="section">
+          <h2 className="section-title">Upload a .csv file</h2>
+          <form
+            onSubmit={handleSubmit}
+            className="upload-form"
+            noValidate
+            aria-describedby="upload-hint upload-error"
+          >
+            {/* Hidden file input for accessibility */}
+            <input
+              id="file-upload"
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleFileChange}
+              onClick={(e) => {
+                e.currentTarget.value = '';
+              }}
+              className="visually-hidden"
+            />
 
-          <div className="file-row">
-            <label htmlFor="file-upload" className="btn file-btn">
-              Choose CSV
-            </label>
+            <div className="file-controls">
+              <label htmlFor="file-upload" className="btn file-btn">
+                Choose CSV
+              </label>
 
-            <span className="file-name" aria-live="polite">
-              {selectedFile ? selectedFile.name : 'No file chosen'}
-            </span>
+              <span className="file-name" aria-live="polite">
+                {selectedFile ? selectedFile.name : 'No file chosen'}
+              </span>
 
-            <button type="submit" className="btn primary" disabled={!selectedFile}>
-              Submit
-            </button>
-          </div>
-
-          <small id="upload-hint" className="hint">
-            Only .csv files are allowed.
-          </small>
-
-          {errorMessage ? (
-            <div id="upload-error" role="alert" className="error">
-              {errorMessage}
+              <button type="submit" className="btn primary" disabled={!selectedFile}>
+                Submit
+              </button>
             </div>
-          ) : null}
-        </form>
+
+            <small id="upload-hint" className="hint">
+              Only .csv files are allowed.
+            </small>
+
+            {errorMessage && (
+              <div id="upload-error" role="alert" className="error">
+                {errorMessage}
+              </div>
+            )}
+          </form>
+        </section>
+
+        {/* Review Section */}
         {showReview && (
-          <>
-            <h2>Review Section</h2>
-            <table className="review">
+          <section className="section">
+            <h2 className="section-title">Review Section</h2>
+            <table className="review-table">
               <thead>
                 <tr>
                   <th>Test Name</th>
@@ -148,13 +171,13 @@ function App() {
                 <tr>
                   <td>Test 1</td>
                   <td>1:1</td>
-                  <td>Test 1</td>
+                  <td>Test reasoning example</td>
                   <td className="actions">
                     <button
                       type="button"
                       className="btn reject"
                       onClick={() => openRejectModal({ name: 'Test 1' })}
-                      aria-label="Reject test"
+                      aria-label="Reject Test 1"
                       title="Reject"
                     >
                       ✕
@@ -162,7 +185,7 @@ function App() {
                     <button
                       type="button"
                       className="btn approve"
-                      aria-label="Approve test"
+                      aria-label="Approve Test 1"
                       title="Approve"
                     >
                       ✓
@@ -171,16 +194,18 @@ function App() {
                 </tr>
               </tbody>
             </table>
-          </>
-        )}
-        {rejectModalOpen && (
-          <RejectModal row={pendingReject} onClose={closeRejectModal} onConfirm={confirmReject} />
+          </section>
         )}
       </main>
+
       <footer>
         <p>Footer</p>
       </footer>
-    </>
+
+      {rejectModalOpen && (
+        <RejectModal row={pendingReject} onClose={closeRejectModal} onConfirm={confirmReject} />
+      )}
+    </div>
   );
 }
 
