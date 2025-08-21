@@ -11,6 +11,7 @@ const ReviewStats = React.memo(
     statusFilter,
     onStatusFilter,
     onResubmitRejected,
+    onDownloadEstimate,
   }) => {
     return (
       <div className="review-stats">
@@ -53,6 +54,16 @@ const ReviewStats = React.memo(
               title="Resubmit all rejected tests"
             >
               Resubmit Rejected
+            </button>
+          )}
+          {statusCounts.pending === 0 && statusCounts.rejected === 0 && statusCounts.approved > 0 && (
+            <button
+              type="button"
+              className="btn download-estimate"
+              onClick={onDownloadEstimate}
+              title="Download CSV of approved test estimates"
+            >
+              Download Estimate
             </button>
           )}
           {shouldUsePagination && (

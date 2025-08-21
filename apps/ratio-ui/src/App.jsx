@@ -94,20 +94,58 @@ function App() {
 
   // Resubmit all rejected tests handler
   const handleResubmitRejected = useCallback(() => {
-    const rejectedTests = reviewData.filter(item => item.status === 'rejected');
-    
+    const rejectedTests = reviewData.filter((item) => item.status === 'rejected');
+
     // Reset all rejected tests to pending status
-    setReviewData(prevData =>
-      prevData.map(item =>
-        item.status === 'rejected' 
+    setReviewData((prevData) =>
+      prevData.map((item) =>
+        item.status === 'rejected'
           ? { ...item, status: 'pending', rejectionReason: undefined }
-          : item
-      )
+          : item,
+      ),
     );
 
     // TODO: Send resubmission request to backend API
     console.log(`Resubmitting ${rejectedTests.length} rejected tests`);
   }, [reviewData, setReviewData]);
+
+  // Download approved tests as CSV estimate
+  const handleDownloadEstimate = useCallback(() => {
+    const approvedTests = reviewData.filter((item) => item.status === 'approved');
+    
+    if (approvedTests.length === 0) {
+      console.warn('No approved tests to download');
+      return;
+    }
+
+    // Generate CSV content
+    const csvHeaders = ['Test Name', 'Ratio', 'Reasoning'];
+    const csvRows = approvedTests.map((test) => [
+      `"${test.testName.replace(/"/g, '""')}"`, // Escape quotes in CSV
+      test.ratio,
+      `"${test.reasoning.replace(/"/g, '""')}"`, // Escape quotes in CSV
+    ]);
+
+    const csvContent = [
+      csvHeaders.join(','),
+      ...csvRows.map((row) => row.join(',')),
+    ].join('\n');
+
+    // Create and download the file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `test-estimates-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log(`Downloaded CSV with ${approvedTests.length} approved test estimates`);
+  }, [reviewData]);
 
   // Enhanced file change handler that integrates with custom hooks
   const handleFileChangeWithReset = useCallback(
@@ -220,6 +258,7 @@ function App() {
             onApprove={handleApprove}
             onReject={openRejectModal}
             onResubmitRejected={handleResubmitRejected}
+            onDownloadEstimate={handleDownloadEstimate}
           />
         </main>
 

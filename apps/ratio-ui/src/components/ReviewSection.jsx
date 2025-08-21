@@ -26,6 +26,7 @@ const ReviewSection = React.memo(
     onApprove,
     onReject,
     onResubmitRejected,
+    onDownloadEstimate,
   }) => {
     if (!showReview) return null;
 
@@ -49,6 +50,7 @@ const ReviewSection = React.memo(
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onResubmitRejected={onResubmitRejected}
+                onDownloadEstimate={onDownloadEstimate}
               />
             </div>
 

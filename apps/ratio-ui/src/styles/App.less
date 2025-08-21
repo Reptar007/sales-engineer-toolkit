@@ -815,9 +815,40 @@
 
       [data-theme='dark'] & {
         background: @success-green-alt;
-        
+
         &:hover {
           background: lighten(@success-green-alt, 10%);
+        }
+      }
+    }
+
+    .download-estimate {
+      background: @primary-green;
+      color: white;
+      border: none;
+      padding: @space-sm @space-md;
+      border-radius: @radius-md;
+      font-weight: @font-weight-medium;
+      font-size: @font-size-body;
+      cursor: pointer;
+      .transition();
+
+      &:hover {
+        background: @primary-green-hover;
+        transform: translateY(-0.0625rem);
+        box-shadow: @shadow-sm;
+      }
+
+      &:focus {
+        outline: 0.125rem solid @primary-green;
+        outline-offset: 0.125rem;
+      }
+
+      [data-theme='dark'] & {
+        background: @primary-green;
+
+        &:hover {
+          background: @primary-green-hover;
         }
       }
     }
