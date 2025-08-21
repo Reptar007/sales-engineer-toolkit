@@ -8,6 +8,8 @@ const ReviewStats = React.memo(
     shouldUsePagination,
     currentPage,
     totalPages,
+    statusFilter,
+    onStatusFilter,
   }) => {
     return (
       <div className="review-stats">
@@ -17,9 +19,27 @@ const ReviewStats = React.memo(
             {searchTerm && ` for "${searchTerm}"`}
           </span>
           <div className="status-counts">
-            <span className="status-badge pending">{statusCounts.pending} pending</span>
-            <span className="status-badge approved">{statusCounts.approved} approved</span>
-            <span className="status-badge rejected">{statusCounts.rejected} rejected</span>
+            <button
+              className={`status-badge pending ${statusFilter === 'pending' ? 'active' : ''}`}
+              onClick={() => onStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
+              type="button"
+            >
+              {statusCounts.pending} pending
+            </button>
+            <button
+              className={`status-badge approved ${statusFilter === 'approved' ? 'active' : ''}`}
+              onClick={() => onStatusFilter(statusFilter === 'approved' ? 'all' : 'approved')}
+              type="button"
+            >
+              {statusCounts.approved} approved
+            </button>
+            <button
+              className={`status-badge rejected ${statusFilter === 'rejected' ? 'active' : ''}`}
+              onClick={() => onStatusFilter(statusFilter === 'rejected' ? 'all' : 'rejected')}
+              type="button"
+            >
+              {statusCounts.rejected} rejected
+            </button>
           </div>
         </div>
         {shouldUsePagination && (

@@ -15,6 +15,8 @@ const ReviewSection = React.memo(
     onSearch,
     filteredData,
     statusCounts,
+    statusFilter,
+    onStatusFilter,
     shouldUsePagination,
     shouldUseScrollableContainer,
     currentPage,
@@ -40,6 +42,8 @@ const ReviewSection = React.memo(
                 filteredDataLength={filteredData.length}
                 searchTerm={searchTerm}
                 statusCounts={statusCounts}
+                statusFilter={statusFilter}
+                onStatusFilter={onStatusFilter}
                 shouldUsePagination={shouldUsePagination}
                 currentPage={currentPage}
                 totalPages={totalPages}

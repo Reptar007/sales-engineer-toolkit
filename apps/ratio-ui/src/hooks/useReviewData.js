@@ -4,25 +4,37 @@ export const useReviewData = () => {
   const [reviewData, setReviewData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'approved', 'rejected'
   const [showReview, setShowReview] = useState(false);
   const [showReviewData, setShowReviewData] = useState(false);
 
   // Search and filter logic
   useEffect(() => {
-    if (!searchTerm) {
-      setFilteredData(reviewData);
-    } else {
-      const filtered = reviewData.filter(
+    let filtered = reviewData;
+
+    // Apply status filter first
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((item) => item.status === statusFilter);
+    }
+
+    // Then apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(
         (item) =>
           item.testName.toLowerCase().includes(searchTerm.toLowerCase()) ||
           item.reasoning.toLowerCase().includes(searchTerm.toLowerCase()),
       );
-      setFilteredData(filtered);
     }
-  }, [reviewData, searchTerm]);
+
+    setFilteredData(filtered);
+  }, [reviewData, searchTerm, statusFilter]);
 
   const handleSearch = (event) => {
     setSearchTerm(event.target.value);
+  };
+
+  const handleStatusFilter = (status) => {
+    setStatusFilter(status);
   };
 
   const handleApprove = (item) => {
@@ -42,8 +54,8 @@ export const useReviewData = () => {
     );
   };
 
-  // Status counts for progress tracking
-  const statusCounts = filteredData.reduce(
+  // Status counts for progress tracking (always from original data, not filtered)
+  const statusCounts = reviewData.reduce(
     (counts, item) => {
       counts[item.status] = (counts[item.status] || 0) + 1;
       return counts;
@@ -54,6 +66,7 @@ export const useReviewData = () => {
   const resetReviewData = () => {
     setReviewData([]);
     setSearchTerm('');
+    setStatusFilter('all');
     setShowReview(false);
     setShowReviewData(false);
   };
@@ -61,6 +74,7 @@ export const useReviewData = () => {
   const resetDataOnly = () => {
     setReviewData([]);
     setSearchTerm('');
+    setStatusFilter('all');
   };
 
   return {
@@ -68,12 +82,14 @@ export const useReviewData = () => {
     setReviewData,
     filteredData,
     searchTerm,
+    statusFilter,
     showReview,
     setShowReview,
     showReviewData,
     setShowReviewData,
     statusCounts,
     handleSearch,
+    handleStatusFilter,
     handleApprove,
     updateItemStatus,
     resetReviewData,

@@ -26,12 +26,14 @@ function App() {
     setReviewData,
     filteredData,
     searchTerm,
+    statusFilter,
     showReview,
     setShowReview,
     showReviewData,
     setShowReviewData,
     statusCounts,
     handleSearch,
+    handleStatusFilter,
     handleApprove,
     updateItemStatus,
     resetReviewData,
@@ -190,6 +192,8 @@ function App() {
             onSearch={handleSearch}
             filteredData={filteredData}
             statusCounts={statusCounts}
+            statusFilter={statusFilter}
+            onStatusFilter={handleStatusFilter}
             shouldUsePagination={shouldUsePagination}
             shouldUseScrollableContainer={shouldUseScrollableContainer}
             currentPage={currentPage}

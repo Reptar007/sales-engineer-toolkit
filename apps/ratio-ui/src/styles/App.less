@@ -714,16 +714,69 @@
   }
 
   .status-badge {
+    .transition();
+    cursor: pointer;
+    background: none;
+    border: none;
+
+    &:hover {
+      transform: translateY(-0.0625rem);
+      box-shadow: @shadow-sm;
+    }
+
+    &.active {
+      transform: translateY(-0.0625rem);
+      box-shadow: @shadow-md;
+      font-weight: @font-weight-bold;
+    }
+
     &.pending {
       .status-badge(#9ca3af, #6b7280);
+
+      &:hover {
+        background: fade(#9ca3af, 15%);
+      }
+
+      &.active {
+        background: fade(#9ca3af, 20%);
+        border-color: #6b7280;
+      }
     }
 
     &.approved {
       .status-badge(@success-green, @success-green);
+
+      &:hover {
+        background: fade(@success-green, 15%);
+      }
+
+      &.active {
+        background: fade(@success-green, 20%);
+        border-color: @success-green;
+      }
     }
 
     &.rejected {
       .status-badge(@error-red, @error-red);
+
+      &:hover {
+        background: fade(@error-red, 15%);
+      }
+
+      &.active {
+        background: fade(@error-red, 20%);
+        border-color: @error-red;
+      }
+    }
+
+    [data-theme='dark'] & {
+      &:hover {
+        box-shadow: @shadow-sm-dark;
+      }
+
+      &.active {
+        box-shadow: @shadow-md-dark;
+      }
     }
   }
 
