@@ -15,6 +15,8 @@ const ReviewSection = React.memo(
     onSearch,
     filteredData,
     statusCounts,
+    statusFilter,
+    onStatusFilter,
     shouldUsePagination,
     shouldUseScrollableContainer,
     currentPage,
@@ -23,6 +25,8 @@ const ReviewSection = React.memo(
     onPageChange,
     onApprove,
     onReject,
+    onResubmitRejected,
+    onDownloadEstimate,
   }) => {
     if (!showReview) return null;
 
@@ -40,9 +44,13 @@ const ReviewSection = React.memo(
                 filteredDataLength={filteredData.length}
                 searchTerm={searchTerm}
                 statusCounts={statusCounts}
+                statusFilter={statusFilter}
+                onStatusFilter={onStatusFilter}
                 shouldUsePagination={shouldUsePagination}
                 currentPage={currentPage}
                 totalPages={totalPages}
+                onResubmitRejected={onResubmitRejected}
+                onDownloadEstimate={onDownloadEstimate}
               />
             </div>
 

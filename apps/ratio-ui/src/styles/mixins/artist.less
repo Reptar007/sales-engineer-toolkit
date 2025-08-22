@@ -183,13 +183,17 @@
 
 // Table header with icon and gradient mixin
 .table-header-with-icon(@icon: '', @gradient-light: @table-header-gradient-light, @gradient-dark: @table-header-gradient-dark) {
-  background: @gradient-light;
+  background: @gradient-light !important;
   color: #2c3e50;
   font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 0.0625rem;
   font-family: @font-family-artist;
-  padding: 1rem 0.875rem;
+  padding: 1.25rem 1rem;
+  font-size: @font-size-subheader;
+  border-radius: 0;
+  line-height: 1.2;
+  min-height: 3.5rem;
 
   [data-theme='dark'] & {
     background: @gradient-dark;

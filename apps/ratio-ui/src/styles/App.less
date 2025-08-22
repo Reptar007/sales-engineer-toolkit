@@ -714,16 +714,143 @@
   }
 
   .status-badge {
+    .transition();
+    cursor: pointer;
+    background: none;
+    border: none;
+
+    &:hover {
+      transform: translateY(-0.0625rem);
+      box-shadow: @shadow-sm;
+    }
+
+    &.active {
+      transform: translateY(-0.0625rem);
+      box-shadow: @shadow-md;
+      font-weight: @font-weight-bold;
+    }
+
     &.pending {
       .status-badge(#9ca3af, #6b7280);
+
+      &:hover {
+        background: fade(#9ca3af, 15%);
+      }
+
+      &.active {
+        background: fade(#9ca3af, 20%);
+        border-color: #6b7280;
+      }
     }
 
     &.approved {
       .status-badge(@success-green, @success-green);
+
+      &:hover {
+        background: fade(@success-green, 15%);
+      }
+
+      &.active {
+        background: fade(@success-green, 20%);
+        border-color: @success-green;
+      }
     }
 
     &.rejected {
       .status-badge(@error-red, @error-red);
+
+      &:hover {
+        background: fade(@error-red, 15%);
+      }
+
+      &.active {
+        background: fade(@error-red, 20%);
+        border-color: @error-red;
+      }
+    }
+
+    [data-theme='dark'] & {
+      &:hover {
+        box-shadow: @shadow-sm-dark;
+      }
+
+      &.active {
+        box-shadow: @shadow-md-dark;
+      }
+    }
+  }
+
+  // =========================
+  // Review Actions
+  // =========================
+
+  .review-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: @space-md;
+    margin-top: @space-sm;
+
+    .resubmit-rejected {
+      background: @success-green;
+      color: white;
+      border: none;
+      padding: @space-sm @space-md;
+      border-radius: @radius-md;
+      font-weight: @font-weight-medium;
+      font-size: @font-size-body;
+      cursor: pointer;
+      .transition();
+
+      &:hover {
+        background: @success-green-hover;
+        transform: translateY(-0.0625rem);
+        box-shadow: @shadow-sm;
+      }
+
+      &:focus {
+        outline: 0.125rem solid @success-green;
+        outline-offset: 0.125rem;
+      }
+
+      [data-theme='dark'] & {
+        background: @success-green-alt;
+
+        &:hover {
+          background: lighten(@success-green-alt, 10%);
+        }
+      }
+    }
+
+    .download-estimate {
+      background: @primary-green;
+      color: white;
+      border: none;
+      padding: @space-sm @space-md;
+      border-radius: @radius-md;
+      font-weight: @font-weight-medium;
+      font-size: @font-size-body;
+      cursor: pointer;
+      .transition();
+
+      &:hover {
+        background: @primary-green-hover;
+        transform: translateY(-0.0625rem);
+        box-shadow: @shadow-sm;
+      }
+
+      &:focus {
+        outline: 0.125rem solid @primary-green;
+        outline-offset: 0.125rem;
+      }
+
+      [data-theme='dark'] & {
+        background: @primary-green;
+
+        &:hover {
+          background: @primary-green-hover;
+        }
+      }
     }
   }
 
@@ -746,8 +873,6 @@
       overflow-y: auto;
       scrollbar-width: thin;
       scrollbar-color: @primary-green @soft-gray;
-      padding-bottom: 4rem;
-      margin-bottom: -4rem;
 
       &::-webkit-scrollbar {
         width: 0.5rem;
@@ -1176,6 +1301,59 @@
   .required {
     color: @error-red;
     margin-left: 0.125rem;
+  }
+
+  .optional {
+    color: @text-muted-light;
+    font-weight: @font-weight-regular;
+    font-style: italic;
+    margin-left: 0.125rem;
+
+    [data-theme='dark'] & {
+      color: @text-muted-dark;
+    }
+  }
+
+  .ratio-input {
+    max-width: 8rem;
+    text-align: center;
+    font-weight: @font-weight-medium;
+    letter-spacing: 0.025rem;
+    border-radius: 0.375rem;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    font-size: 0.9375rem;
+
+    &::placeholder {
+      color: @text-muted-light;
+      font-style: italic;
+      text-align: center;
+      font-family: inherit;
+    }
+
+    [data-theme='dark'] &::placeholder {
+      color: @text-muted-dark;
+    }
+
+    &:focus {
+      .focus-ring();
+      border-color: @primary-green;
+      background: rgba(46, 125, 50, 0.05);
+      transform: scale(1.02);
+      .transition(all, 0.2s);
+    }
+
+    [data-theme='dark'] &:focus {
+      background: rgba(46, 125, 50, 0.1);
+    }
+
+    &:hover {
+      border-color: lighten(@table-border-light, -10%);
+      .transition(border-color, 0.2s);
+    }
+
+    [data-theme='dark'] &:hover {
+      border-color: lighten(@table-border-dark, 10%);
+    }
   }
 
   .form-textarea {
