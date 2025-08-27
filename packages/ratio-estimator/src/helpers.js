@@ -48,6 +48,35 @@ export function validateArtifacts({ table, csv }) {
   return null; // valid
 }
 
+// Extract CSV from a text blob that may or may not include a ```csv fenced block
+export function extractCsv(text = '') {
+  const m = text.match(/```csv\s*([\s\S]*?)```/i);
+  return (m ? m[1] : text).trim();
+}
+
+// Validate the first header row of a CSV string matches the expected 4 columns.
+// Accepts quoted or unquoted headers and ignores extra spacing.
+export function validateCsvHeader(csv = '') {
+  const headerLine = (csv.split(/\r?\n/)[0] || '').trim();
+  const splitCsvCells = (line) => {
+    const parts = line.split(/,(?=(?:[^"]*"[^"]*"){0,}[^"]*$)/);
+    return parts.map((p) => {
+      let cell = p.trim();
+      if (cell.startsWith('"') && cell.endsWith('"')) {
+        cell = cell.slice(1, -1).replace(/""/g, '"');
+      }
+      return cell.trim();
+    });
+  };
+  const expected = ['Feature', 'Test Case Name', 'QAW Estimated test', 'Notes'].map((s) =>
+    s.toLowerCase(),
+  );
+  const actual = splitCsvCells(headerLine).map((s) => s.toLowerCase());
+  const headerMatches =
+    actual.length === expected.length && actual.every((v, i) => v === expected[i]);
+  return headerMatches ? null : `CSV header must be exactly: ${CSV_HEADER}`;
+}
+
 // Thin wrapper around OpenAI Chat Completions (omit temperature for models that only support defaults)
 export async function callOpenAI({ openai, model, system, user }) {
   const r = await openai.chat.completions.create({
