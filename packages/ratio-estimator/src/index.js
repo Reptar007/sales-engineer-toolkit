@@ -47,6 +47,7 @@ app.get('/healthz', (_req, res) => {
 });
 
 app.get('/', (_req, res) => {
+  console.log('✨ @qawolf/ratio-estimator is up');
   res.send('✨ @qawolf/ratio-estimator is up');
 });
 
