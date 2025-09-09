@@ -13,6 +13,9 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    allowedHosts: ['qa-sales-engineering-d254283855b0.herokuapp.com'],
+  },
   test: {
     globals: true,
     environment: 'jsdom',
