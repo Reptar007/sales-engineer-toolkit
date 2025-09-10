@@ -4,8 +4,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
-import pkg from 'serve-static';
-const { serveStatic } = pkg;
+import serveStatic from 'serve-static';
 
 // Load env from backend .env, then repo root .env, then default cwd
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -71,6 +70,8 @@ app.post('/estimate/initial', async (req, res) => {
     const { inputText, model } = req.body || {};
     if (!inputText) return res.status(400).json({ error: 'inputText is required' });
 
+    console.log('Processing CSV with ChatGPT, input preview:', inputText.substring(0, 200) + '...');
+
     const useModel = model || DEFAULT_MODEL;
     const raw = await callOpenAI({
       openai,
@@ -79,13 +80,19 @@ app.post('/estimate/initial', async (req, res) => {
       user: PRIMARY_USER_PREFIX + inputText,
     });
 
+    console.log('ChatGPT response received, length:', raw.length);
+
     const artifacts = splitArtifacts(raw);
     const err = validateArtifacts(artifacts);
-    if (err) return res.status(422).json({ error: `Output validation failed: ${err}`, raw });
+    if (err) {
+      console.error('Output validation failed:', err);
+      return res.status(422).json({ error: `Output validation failed: ${err}`, raw });
+    }
 
+    console.log('Successfully processed and validated ChatGPT output');
     res.json(artifacts);
   } catch (e) {
-    console.error(e);
+    console.error('Error in /estimate/initial:', e);
     res.status(500).json({ error: String(e?.message || e) });
   }
 });
@@ -129,7 +136,8 @@ app.post('/estimate/fix-rejections', (_req, res) => {
 });
 
 // Catch-all handler: send back React's index.html file for any non-API routes
-app.get('*', (req, res) => {
+// Note: During development, the frontend dev server handles routing, so this is mainly for production
+app.get(/^(?!\/api).*/, (req, res) => {
   const indexPath = resolve(__dirname, '../../frontend/dist/index.html');
   console.log('Serving index.html from:', indexPath);
 

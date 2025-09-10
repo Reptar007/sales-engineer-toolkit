@@ -39,7 +39,8 @@ const FileUpload = React.memo(
           </div>
 
           <small id="upload-hint" className="hint">
-            Only .csv files are allowed. Expected format: Test Name, Ratio, Reasoning
+            Only .csv files are allowed. Expected format: Feature (optional), Test Case Name,
+            Description/Steps
           </small>
 
           {errorMessage && (
