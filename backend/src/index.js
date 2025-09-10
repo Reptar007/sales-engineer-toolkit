@@ -5,10 +5,10 @@ import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
 
-// Load env from package-local .env, then repo root .env, then default cwd
+// Load env from backend .env, then repo root .env, then default cwd
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '../.env') });
-dotenv.config({ path: resolve(__dirname, '../../../.env') });
+dotenv.config({ path: resolve(__dirname, '../../.env') });
 dotenv.config();
 
 const PORT = process.env.PORT || 7071;

@@ -1,5 +1,0 @@
-{
-  "watch": ["packages"],
-  "ext": "js,json",
-  "exec": "node packages/ratio-estimator/src/index.js"
-}

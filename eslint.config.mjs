@@ -18,7 +18,7 @@ export default [
 
   // Browser-specific override for UI apps
   {
-    files: ['apps/**'],
+    files: ['frontend/**'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
