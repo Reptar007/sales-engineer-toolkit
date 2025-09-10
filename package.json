@@ -10,7 +10,7 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "start": "cd backend && npm run start",
-    "build": "cd frontend && npm run build",
+    "build": "cd frontend && npm install && npm run build",
     "preview": "cd frontend && npm run preview",
     "test": "cd frontend && npm run test",
     "test:ui": "cd frontend && npm run test:ui",
@@ -25,6 +25,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "prepare": "husky",
+    "postinstall": "npm run install:all",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
   "lint-staged": {
@@ -53,8 +54,8 @@
   "author": "",
   "license": "ISC",
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+    "node": "18.x",
+    "npm": "8.x"
   },
   "dependencies": {
     "cors": "^2.8.5",
