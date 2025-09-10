@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
+import { serveStatic } from 'serve-static';
 
 // Load env from backend .env, then repo root .env, then default cwd
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,9 @@ import {
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Serve static files from the frontend build directory
+app.use(serveStatic(resolve(__dirname, '../../frontend/dist')));
 
 // ---- tiny logger (dev-friendly) ----
 app.use((req, _res, next) => {
@@ -112,6 +116,11 @@ app.post('/estimate/postprocess', async (req, res) => {
 
 app.post('/estimate/fix-rejections', (_req, res) => {
   res.status(501).json({ error: 'Not implemented yet. This will fix rejected rows.' });
+});
+
+// Catch-all handler: send back React's index.html file for any non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(resolve(__dirname, '../../frontend/dist/index.html'));
 });
 
 // ---- start server ----
