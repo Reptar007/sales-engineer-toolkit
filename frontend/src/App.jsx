@@ -12,6 +12,7 @@ import { useReviewData } from './hooks/useReviewData';
 import { usePagination } from './hooks/usePagination';
 import { parseCSVFile } from './utils/csvParser';
 import { setupTooltipListeners } from './utils/tooltipPositioning';
+import { processCSVWithChatGPT, fixRejections } from './services/api';
 
 function App() {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -71,10 +72,23 @@ function App() {
   }, []);
 
   const confirmReject = useCallback(
-    (rejectionReason, estimatedRatio) => {
+    async (rejectionReason, estimatedRatio) => {
       if (pendingReject && rejectionReason) {
         updateItemStatus(pendingReject.id, 'rejected', rejectionReason, estimatedRatio);
-        // TODO: Send reject status, reason, and estimated ratio to backend API
+
+        try {
+          // Send rejection info to backend - for now just log it
+          // The backend doesn't have a specific rejection tracking endpoint yet
+          console.log('Item rejected:', {
+            id: pendingReject.id,
+            rejectionReason,
+            estimatedRatio,
+            originalItem: pendingReject,
+          });
+          // TODO: Implement specific rejection tracking endpoint on backend if needed
+        } catch (error) {
+          console.error('Failed to send rejection to backend:', error);
+        }
       }
       closeRejectModal();
     },
@@ -100,20 +114,76 @@ function App() {
   }, [reviewData]);
 
   // Resubmit all rejected tests handler
-  const handleResubmitRejected = useCallback(() => {
+  const handleResubmitRejected = useCallback(async () => {
     const rejectedTests = reviewData.filter((item) => item.status === 'rejected');
 
-    // Reset all rejected tests to pending status
-    setReviewData((prevData) =>
-      prevData.map((item) =>
-        item.status === 'rejected'
-          ? { ...item, status: 'pending', rejectionReason: undefined }
-          : item,
-      ),
-    );
+    if (rejectedTests.length === 0) {
+      console.log('No rejected tests to resubmit');
+      return;
+    }
 
-    // TODO: Send resubmission request to backend API
-    console.log(`Resubmitting ${rejectedTests.length} rejected tests`);
+    try {
+      console.log(`Sending ${rejectedTests.length} rejected tests to ChatGPT for re-processing...`);
+
+      // Send rejected items to backend for AI-powered fixes
+      const response = await fixRejections(rejectedTests);
+
+      if (response.csv) {
+        // Parse the updated CSV from ChatGPT
+        const csvBlob = new Blob([response.csv], { type: 'text/csv' });
+        const csvFile = new File([csvBlob], 'reprocessed.csv', { type: 'text/csv' });
+        const updatedData = await parseCSVFile(csvFile);
+
+        // Create a map of the updated estimates by test name
+        const updatedMap = new Map();
+        updatedData.forEach((item) => {
+          updatedMap.set(item.testName.toLowerCase().trim(), item);
+        });
+
+        // Update the rejected tests with new estimates from ChatGPT
+        setReviewData((prevData) =>
+          prevData.map((item) => {
+            if (item.status === 'rejected') {
+              const updated = updatedMap.get(item.testName.toLowerCase().trim());
+              if (updated) {
+                return {
+                  ...item,
+                  status: 'pending', // Reset to pending for re-review
+                  ratio: updated.ratio,
+                  reasoning: updated.reasoning,
+                  rejectionReason: undefined, // Clear rejection reason
+                  estimatedRatio: undefined, // Clear estimated ratio
+                };
+              }
+              // If no update found, just reset to pending
+              return { ...item, status: 'pending', rejectionReason: undefined };
+            }
+            return item;
+          }),
+        );
+
+        console.log('Successfully updated rejected tests with ChatGPT estimates:', response);
+      } else {
+        // Fallback: just reset to pending if no CSV returned
+        setReviewData((prevData) =>
+          prevData.map((item) =>
+            item.status === 'rejected'
+              ? { ...item, status: 'pending', rejectionReason: undefined }
+              : item,
+          ),
+        );
+      }
+    } catch (error) {
+      console.error('Failed to resubmit rejected tests:', error);
+      // Still reset locally even if backend call fails
+      setReviewData((prevData) =>
+        prevData.map((item) =>
+          item.status === 'rejected'
+            ? { ...item, status: 'pending', rejectionReason: undefined }
+            : item,
+        ),
+      );
+    }
   }, [reviewData, setReviewData]);
 
   // Download approved tests as CSV estimate
@@ -208,23 +278,33 @@ function App() {
       setShowReviewData(false);
 
       try {
-        // Parse the uploaded CSV file
-        const csvData = await parseCSVFile(selectedFile);
+        // Send CSV file to backend for processing with ChatGPT
+        console.log('Sending CSV file to backend for ChatGPT processing...');
+        const response = await processCSVWithChatGPT(selectedFile);
 
-        // Add minimum loading time for better UX (3-5 seconds)
-        const minLoadingTime = 3000 + Math.random() * 2000; // 3-5 seconds
-        await new Promise((resolve) => setTimeout(resolve, minLoadingTime));
+        // The backend returns artifacts with csv and reasoning
+        // We need to parse the CSV from the response
+        let csvData;
+        if (response.csv) {
+          // Parse the CSV content returned from ChatGPT (which now has ratios)
+          const csvBlob = new Blob([response.csv], { type: 'text/csv' });
+          const csvFile = new File([csvBlob], 'processed.csv', { type: 'text/csv' });
+          csvData = await parseCSVFile(csvFile);
+        } else {
+          throw new Error('No CSV data returned from backend');
+        }
 
         setReviewData(csvData);
         setIsLoading(false);
         setShowReviewData(true);
         setErrorMessage(''); // Clear any previous errors
+        console.log('Successfully processed CSV with ChatGPT', csvData);
       } catch (error) {
-        console.error('CSV parsing failed:', error);
+        console.error('Backend processing failed:', error);
         setIsLoading(false);
         setShowReview(false);
         setShowReviewData(false);
-        setErrorMessage(`Failed to parse CSV file: ${error.message}`);
+        setErrorMessage(`Failed to process CSV file: ${error.message}`);
       }
     },
     [

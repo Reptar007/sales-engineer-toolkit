@@ -37,13 +37,28 @@ export const useReviewData = () => {
     setStatusFilter(status);
   };
 
-  const handleApprove = (item) => {
+  const handleApprove = async (item) => {
+    // Update local state immediately for better UX
     setReviewData((prevData) =>
       prevData.map((dataItem) =>
         dataItem.id === item.id ? { ...dataItem, status: 'approved' } : dataItem,
       ),
     );
-    // TODO: Send approve status to backend API
+
+    try {
+      // Send approval to backend - for now just log it
+      // The backend doesn't have a specific approval endpoint yet
+      console.log('Item approved:', item);
+      // TODO: Implement specific approval endpoint on backend if needed
+    } catch (error) {
+      console.error('Failed to send approval to backend:', error);
+      // Revert local state if backend call fails
+      setReviewData((prevData) =>
+        prevData.map((dataItem) =>
+          dataItem.id === item.id ? { ...dataItem, status: 'pending' } : dataItem,
+        ),
+      );
+    }
   };
 
   const updateItemStatus = (id, status, rejectionReason = null, estimatedRatio = null) => {

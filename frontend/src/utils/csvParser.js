@@ -23,10 +23,11 @@ export const parseCsvContent = (csvContent) => {
     .map((header) => header.trim().replace(/['"]/g, '').toLowerCase());
 
   // Expected headers (flexible matching)
+  // Handle both input CSV format and ChatGPT output format
   const expectedHeaders = {
-    testName: ['test name', 'testname', 'name', 'test'],
-    ratio: ['ratio', 'test ratio'],
-    reasoning: ['reasoning', 'reason', 'analysis', 'description'],
+    testName: ['test name', 'testname', 'name', 'test', 'test case name'],
+    ratio: ['ratio', 'test ratio', 'qaw estimated test', 'estimated test'],
+    reasoning: ['reasoning', 'reason', 'analysis', 'description', 'notes'],
   };
 
   // Find column indices
