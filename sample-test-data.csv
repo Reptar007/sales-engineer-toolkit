@@ -1,6 +1,0 @@
-Feature,Test Case Name,Description/Steps
-Login,User login with valid credentials,User enters correct username and password and clicks login button
-Login,User login with invalid credentials,User enters incorrect username or password and clicks login button
-Dashboard,View dashboard after login,User navigates to dashboard and sees summary widgets
-Profile,Edit user profile information,User updates profile fields and saves changes
-Search,Search for products by name,User enters product name in search box and views results
