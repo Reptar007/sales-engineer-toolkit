@@ -123,21 +123,56 @@ function App() {
     }
 
     try {
-      console.log(`Sending ${rejectedTests.length} rejected tests to backend for fixing...`);
-
+      console.log(`Sending ${rejectedTests.length} rejected tests to ChatGPT for re-processing...`);
+      
       // Send rejected items to backend for AI-powered fixes
       const response = await fixRejections(rejectedTests);
-
-      // Reset all rejected tests to pending status
-      setReviewData((prevData) =>
-        prevData.map((item) =>
-          item.status === 'rejected'
-            ? { ...item, status: 'pending', rejectionReason: undefined }
-            : item,
-        ),
-      );
-
-      console.log('Successfully resubmitted rejected tests:', response);
+      
+      if (response.csv) {
+        // Parse the updated CSV from ChatGPT
+        const csvBlob = new Blob([response.csv], { type: 'text/csv' });
+        const csvFile = new File([csvBlob], 'reprocessed.csv', { type: 'text/csv' });
+        const updatedData = await parseCSVFile(csvFile);
+        
+        // Create a map of the updated estimates by test name
+        const updatedMap = new Map();
+        updatedData.forEach(item => {
+          updatedMap.set(item.testName.toLowerCase().trim(), item);
+        });
+        
+        // Update the rejected tests with new estimates from ChatGPT
+        setReviewData((prevData) =>
+          prevData.map((item) => {
+            if (item.status === 'rejected') {
+              const updated = updatedMap.get(item.testName.toLowerCase().trim());
+              if (updated) {
+                return {
+                  ...item,
+                  status: 'pending', // Reset to pending for re-review
+                  ratio: updated.ratio,
+                  reasoning: updated.reasoning,
+                  rejectionReason: undefined, // Clear rejection reason
+                  estimatedRatio: undefined, // Clear estimated ratio
+                };
+              }
+              // If no update found, just reset to pending
+              return { ...item, status: 'pending', rejectionReason: undefined };
+            }
+            return item;
+          }),
+        );
+        
+        console.log('Successfully updated rejected tests with ChatGPT estimates:', response);
+      } else {
+        // Fallback: just reset to pending if no CSV returned
+        setReviewData((prevData) =>
+          prevData.map((item) =>
+            item.status === 'rejected'
+              ? { ...item, status: 'pending', rejectionReason: undefined }
+              : item,
+          ),
+        );
+      }
     } catch (error) {
       console.error('Failed to resubmit rejected tests:', error);
       // Still reset locally even if backend call fails

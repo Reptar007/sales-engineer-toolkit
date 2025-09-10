@@ -131,8 +131,58 @@ app.post('/estimate/postprocess', async (req, res) => {
   }
 });
 
-app.post('/estimate/fix-rejections', (_req, res) => {
-  res.status(501).json({ error: 'Not implemented yet. This will fix rejected rows.' });
+app.post('/estimate/fix-rejections', async (req, res) => {
+  try {
+    const { rejectedItems, model } = req.body || {};
+
+    if (!rejectedItems || !Array.isArray(rejectedItems) || rejectedItems.length === 0) {
+      return res.status(400).json({ error: 'rejectedItems array is required' });
+    }
+
+    console.log(`Processing ${rejectedItems.length} rejected items for ChatGPT re-review...`);
+
+    // Create a prompt for ChatGPT to fix the rejected items
+    const rejectionPrompt = `Please re-estimate these test cases based on the rejection feedback provided:
+
+${rejectedItems
+  .map(
+    (item, index) =>
+      `${index + 1}. Test: "${item.testName}"
+     Original Ratio: ${item.ratio}
+     Rejection Reason: "${item.rejectionReason}"
+     ${item.estimatedRatio ? `Suggested Ratio: ${item.estimatedRatio}` : ''}`,
+  )
+  .join('\n\n')}
+
+Please provide updated estimates in the same CSV format: Feature,Test Case Name,QAW Estimated test,Notes
+Consider the rejection feedback and provide more accurate estimates.`;
+
+    const useModel = model || DEFAULT_MODEL;
+    const raw = await callOpenAI({
+      openai,
+      model: useModel,
+      system: PRIMARY_SYSTEM,
+      user: rejectionPrompt,
+    });
+
+    console.log('ChatGPT re-processing response received, length:', raw.length);
+
+    const artifacts = splitArtifacts(raw);
+    const err = validateArtifacts(artifacts);
+    if (err) {
+      console.error('Re-processing validation failed:', err);
+      return res.status(422).json({ error: `Re-processing validation failed: ${err}`, raw });
+    }
+
+    console.log('Successfully re-processed rejected items with ChatGPT');
+    res.json({
+      ...artifacts,
+      message: `Successfully re-processed ${rejectedItems.length} rejected items`,
+    });
+  } catch (e) {
+    console.error('Error in /estimate/fix-rejections:', e);
+    res.status(500).json({ error: String(e?.message || e) });
+  }
 });
 
 // Catch-all handler: send back React's index.html file for any non-API routes
