@@ -141,8 +141,20 @@
   --status-approved-bg-dark: rgba(56, 142, 60, 0.15);
   --status-rejected-bg: rgba(211, 47, 47, 0.05);
   --status-rejected-bg-dark: rgba(211, 47, 47, 0.15);
-  --table-header-gradient-light: linear-gradient(180deg, #a3d2ff 0%, #baddff 33%, #d1e7ff 66%, #e8f2ff 100%);
-  --table-header-gradient-dark: linear-gradient(180deg, #2f4157 0%, #2d3e52 33%, #2b3a4e 66%, #293649 100%);
+  --table-header-gradient-light: linear-gradient(
+    180deg,
+    #a3d2ff 0%,
+    #baddff 33%,
+    #d1e7ff 66%,
+    #e8f2ff 100%
+  );
+  --table-header-gradient-dark: linear-gradient(
+    180deg,
+    #2f4157 0%,
+    #2d3e52 33%,
+    #2b3a4e 66%,
+    #293649 100%
+  );
   --btn-gradient-success: linear-gradient(135deg, #388e3c, #4caf50);
   --btn-gradient-error: linear-gradient(135deg, #d32f2f, #f44336);
   --btn-gradient-artist: linear-gradient(135deg, #ff6b6b, #4ecdc4);
@@ -392,7 +404,13 @@
   height: auto !important;
 }
 [data-artist='true'] .review-table th:first-child {
-  background: linear-gradient(180deg, #a3d2ff 0%, #baddff 33%, #d1e7ff 66%, #e8f2ff 100%) !important;
+  background: linear-gradient(
+    180deg,
+    #a3d2ff 0%,
+    #baddff 33%,
+    #d1e7ff 66%,
+    #e8f2ff 100%
+  ) !important;
   color: #2c3e50;
   font-weight: bold;
   text-transform: uppercase;
@@ -417,7 +435,13 @@
   filter: drop-shadow(0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.4));
 }
 [data-artist='true'] .review-table th:nth-child(2) {
-  background: linear-gradient(180deg, #a3d2ff 0%, #baddff 33%, #d1e7ff 66%, #e8f2ff 100%) !important;
+  background: linear-gradient(
+    180deg,
+    #a3d2ff 0%,
+    #baddff 33%,
+    #d1e7ff 66%,
+    #e8f2ff 100%
+  ) !important;
   color: #2c3e50;
   font-weight: bold;
   text-transform: uppercase;
@@ -442,7 +466,13 @@
   filter: drop-shadow(0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.4));
 }
 [data-artist='true'] .review-table th:nth-child(3) {
-  background: linear-gradient(180deg, #a3d2ff 0%, #baddff 33%, #d1e7ff 66%, #e8f2ff 100%) !important;
+  background: linear-gradient(
+    180deg,
+    #a3d2ff 0%,
+    #baddff 33%,
+    #d1e7ff 66%,
+    #e8f2ff 100%
+  ) !important;
   color: #2c3e50;
   font-weight: bold;
   text-transform: uppercase;
@@ -467,7 +497,13 @@
   filter: drop-shadow(0.0625rem 0.0625rem 0.125rem rgba(0, 0, 0, 0.4));
 }
 [data-artist='true'] .review-table th:nth-child(4) {
-  background: linear-gradient(180deg, #a3d2ff 0%, #baddff 33%, #d1e7ff 66%, #e8f2ff 100%) !important;
+  background: linear-gradient(
+    180deg,
+    #a3d2ff 0%,
+    #baddff 33%,
+    #d1e7ff 66%,
+    #e8f2ff 100%
+  ) !important;
   color: #2c3e50;
   font-weight: bold;
   text-transform: uppercase;
