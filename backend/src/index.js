@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
-import { serveStatic } from 'serve-static';
+import pkg from 'serve-static';
+const { serveStatic } = pkg;
 
 // Load env from backend .env, then repo root .env, then default cwd
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -16,7 +17,7 @@ const PORT = process.env.PORT || 7071;
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-5-mini';
+const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 import { PRIMARY_SYSTEM, PRIMARY_USER_PREFIX, POST_PROCESSOR } from './prompts.js';
 import {
   splitArtifacts,
@@ -30,7 +31,16 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // Serve static files from the frontend build directory
-app.use(serveStatic(resolve(__dirname, '../../frontend/dist')));
+const frontendDistPath = resolve(__dirname, '../../frontend/dist');
+console.log('Frontend dist path:', frontendDistPath);
+
+// Only serve static files if the dist directory exists
+try {
+  app.use(serveStatic(frontendDistPath));
+  console.log('Static file serving enabled');
+} catch (error) {
+  console.warn('Static file serving disabled:', error.message);
+}
 
 // ---- tiny logger (dev-friendly) ----
 app.use((req, _res, next) => {
@@ -120,7 +130,15 @@ app.post('/estimate/fix-rejections', (_req, res) => {
 
 // Catch-all handler: send back React's index.html file for any non-API routes
 app.get('*', (req, res) => {
-  res.sendFile(resolve(__dirname, '../../frontend/dist/index.html'));
+  const indexPath = resolve(__dirname, '../../frontend/dist/index.html');
+  console.log('Serving index.html from:', indexPath);
+
+  try {
+    res.sendFile(indexPath);
+  } catch (error) {
+    console.error('Error serving index.html:', error.message);
+    res.status(404).send('Frontend not built. Please run npm run build first.');
+  }
 });
 
 // ---- start server ----

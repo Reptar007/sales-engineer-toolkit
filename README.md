@@ -29,7 +29,7 @@ sales-engineer-toolkit/
 ### Prerequisites
 
 - Node.js (v18 or higher)
-- npm
+- npm (v8 or higher)
 
 ### Installation
 
@@ -37,6 +37,18 @@ sales-engineer-toolkit/
 # Install all dependencies (root, backend, and frontend)
 npm run install:all
 ```
+
+### Environment Setup
+
+Create a `.env` file in the root directory:
+
+```env
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4o-mini
+PORT=7071
+```
+
+**Note**: The app will work without an OpenAI API key, but ratio estimation features will be disabled.
 
 ### Development
 
@@ -102,6 +114,12 @@ The backend provides a REST API for ratio estimation:
 
 ### Environment Variables
 
+The backend looks for environment variables in this order:
+
+1. `backend/.env`
+2. Root `.env`
+3. System environment variables
+
 Create a `.env` file in the root directory:
 
 ```env
@@ -109,6 +127,8 @@ OPENAI_API_KEY=your_openai_api_key
 OPENAI_MODEL=gpt-4o-mini
 PORT=7071
 ```
+
+**Note**: If no OpenAI API key is provided, the app will still start but ratio estimation endpoints will return a 503 error.
 
 ## 🎨 Frontend
 
@@ -120,6 +140,41 @@ The frontend is a React application built with Vite, featuring:
 - Responsive design
 - Comprehensive testing suite
 
+## 🚀 Deployment
+
+### Heroku Deployment
+
+This project is configured for Heroku deployment:
+
+1. **Build Process**: The `build` script installs all dependencies and builds the frontend
+2. **Start Command**: Uses `npm start` to run the backend server
+3. **Static Files**: The backend serves the built frontend files from `frontend/dist`
+4. **Environment**: Set `OPENAI_API_KEY` in Heroku config vars
+
+**Deploy to Heroku:**
+
+```bash
+# Login to Heroku
+heroku login
+
+# Create a new app (if needed)
+heroku create your-app-name
+
+# Set environment variables
+heroku config:set OPENAI_API_KEY=your_key_here
+
+# Deploy
+git push heroku main
+```
+
+### Production Notes
+
+- The app uses Node.js 18+ and npm 8+
+- Frontend is built with Vite and served as static files
+- Backend uses Express.js with CORS enabled
+- All API routes are prefixed (e.g., `/estimate/initial`)
+- Non-API routes serve the React app
+
 ## 🧹 Pre-Commit Automation
 
 This project uses **Husky** + **lint-staged** to maintain code quality:
@@ -128,9 +183,36 @@ This project uses **Husky** + **lint-staged** to maintain code quality:
 - **ESLint** lints and fixes JavaScript files
 - Commits are blocked if code doesn't meet quality standards
 
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**"Application Error" on Heroku:**
+
+- Check Heroku logs: `heroku logs --app your-app-name`
+- Ensure all dependencies are installed: `npm run install:all`
+- Verify the build process: `npm run build`
+
+**Frontend not loading:**
+
+- The backend serves static files from `frontend/dist`
+- Ensure the frontend is built: `npm run build`
+- Check that the `frontend/dist` directory exists
+
+**OpenAI API errors:**
+
+- Verify your API key is set correctly
+- Check that the model name is valid (e.g., `gpt-4o-mini`)
+- The app will work without an API key but estimation features will be disabled
+
+**Build failures:**
+
+- Clear node_modules and reinstall: `rm -rf node_modules package-lock.json && npm run install:all`
+- Check Node.js version: `node --version` (should be 18+)
+
 ## 📦 Dependencies
 
-- **Backend**: Express.js, OpenAI API, CORS, Socket.io
+- **Backend**: Express.js, OpenAI API, CORS, Socket.io, serve-static
 - **Frontend**: React, Vite, Less, Testing Library, Playwright
 - **Development**: ESLint, Prettier, Husky, Concurrently
 
