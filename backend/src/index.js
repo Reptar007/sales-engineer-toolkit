@@ -4,8 +4,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
-import pkg from 'serve-static';
-const { serveStatic } = pkg;
+import serveStatic from 'serve-static';
 
 // Load env from backend .env, then repo root .env, then default cwd
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -129,7 +128,12 @@ app.post('/estimate/fix-rejections', (_req, res) => {
 });
 
 // Catch-all handler: send back React's index.html file for any non-API routes
-app.get('*', (req, res) => {
+app.use((req, res, next) => {
+  // Skip API routes
+  if (req.path.startsWith('/estimate') || req.path.startsWith('/healthz')) {
+    return next();
+  }
+
   const indexPath = resolve(__dirname, '../../frontend/dist/index.html');
   console.log('Serving index.html from:', indexPath);
 
