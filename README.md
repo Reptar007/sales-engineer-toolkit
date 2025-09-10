@@ -40,6 +40,38 @@ npm run install:all
 
 ### Environment Setup
 
+#### Option 1: Using 1Password CLI (Recommended)
+
+This project is configured to use 1Password CLI for secure environment variable management.
+
+1. **Install 1Password CLI** (if not already installed):
+
+   ```bash
+   brew install --cask 1password-cli
+   ```
+
+2. **Sign in to 1Password**:
+
+   ```bash
+   op signin
+   ```
+
+3. **Set up environment variables** (one-time setup):
+
+   ```bash
+   npm run env:setup
+   ```
+
+   Or to refresh existing environment variables:
+
+   ```bash
+   npm run env:refresh
+   ```
+
+This will automatically inject the API keys from your 1Password vault into a `.env` file.
+
+#### Option 2: Manual Setup
+
 Create a `.env` file in the root directory:
 
 ```env

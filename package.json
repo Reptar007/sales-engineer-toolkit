@@ -12,6 +12,8 @@
     "start": "cd backend && npm run start",
     "build": "npm run install:all && cd frontend && npm run build",
     "preview": "cd frontend && npm run preview",
+    "env:refresh": "op inject -i .env.example -o .env",
+    "env:setup": "./scripts/setup-env.sh",
     "test": "cd frontend && npm run test",
     "test:ui": "cd frontend && npm run test:ui",
     "test:coverage": "cd frontend && npm run test:coverage",
