@@ -185,11 +185,88 @@ Consider the rejection feedback and provide more accurate estimates.`;
   }
 });
 
+// QA Wolf workflow endpoint
+app.post('/api/workflow', async (req, res) => {
+  try {
+    console.log('QA Wolf workflow request received');
+    const { environmentId, workflowId, inputObj } = req.body;
+
+    if (!environmentId || !workflowId) {
+      return res.status(400).json({ error: 'Missing environmentId or workflowId' });
+    }
+
+    if (!inputObj) {
+      return res
+        .status(400)
+        .json({ error: 'Missing inputObj - the structured input payload is required' });
+    }
+
+    // Check if QAW_BEARER_TOKEN is available
+    if (!process.env.QAW_BEARER_TOKEN) {
+      console.error('QAW_BEARER_TOKEN not found in environment variables');
+      return res.status(500).json({
+        error: 'QAW_BEARER_TOKEN not configured on server',
+      });
+    }
+
+    console.log(`Fetching workflow data for env: ${environmentId}, workflow: ${workflowId}`);
+
+    // Use the correct QA Wolf API endpoint format you discovered
+    const query = 'workflowOnBranch.findByWorkflowIdAndEnvironment';
+    console.log(`Using QA Wolf API endpoint: ${query}`);
+    console.log('Using inputObj from frontend:', JSON.stringify(inputObj, null, 2));
+
+    const url = new URL(`https://app.qawolf.com/api/trpc/${query}`);
+
+    // Use the exact inputObj structure created by the frontend (based on your Postman script)
+    // The inputObj should already have the correct structure with environmentId and workflowId filled in
+    const encodedInput = JSON.stringify(inputObj);
+    url.searchParams.set('input', encodedInput);
+
+    console.log('Final QA Wolf URL:', url.toString());
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${process.env.QAW_BEARER_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`QA Wolf API error: ${response.status} - ${errorText}`);
+      return res.status(response.status).json({
+        error: `QA Wolf API error: ${response.status}`,
+        details: errorText,
+      });
+    }
+
+    const data = await response.json();
+    console.log('Successfully fetched workflow data');
+
+    res.json({
+      success: true,
+      data: data.result.data.json,
+    });
+  } catch (error) {
+    console.error('Error in workflow endpoint:', error);
+    res.status(500).json({
+      error: 'An error occurred while fetching workflow data',
+      details: error.message,
+    });
+  }
+});
+
 // Catch-all handler: send back React's index.html file for any non-API routes
 // Note: During development, the frontend dev server handles routing, so this is mainly for production
 app.get(/^(?!\/api).*/, (req, res) => {
   // Skip API routes
-  if (req.path.startsWith('/estimate') || req.path.startsWith('/healthz')) {
+  if (
+    req.path.startsWith('/estimate') ||
+    req.path.startsWith('/healthz') ||
+    req.path.startsWith('/api')
+  ) {
     return res.status(404).json({ error: 'API endpoint not found' });
   }
   const indexPath = resolve(__dirname, '../../frontend/dist/index.html');

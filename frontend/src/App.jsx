@@ -6,6 +6,7 @@ import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import ReviewSection from './components/ReviewSection';
 import ErrorBoundary from './components/ErrorBoundary';
+import PdfGenerator from './components/PdfGenerator';
 import { useTheme } from './hooks/useTheme';
 import { useFileUpload } from './hooks/useFileUpload';
 import { useReviewData } from './hooks/useReviewData';
@@ -364,6 +365,8 @@ function App() {
             onResubmitRejected={handleResubmitRejected}
             onDownloadEstimate={handleDownloadEstimate}
           />
+
+          <PdfGenerator />
         </main>
 
         <footer>
