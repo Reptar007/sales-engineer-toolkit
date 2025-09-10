@@ -27,9 +27,6 @@ const LoadingState = React.memo(() => {
                   <br />
                   <span className="loading-subtext">This might take a moment ⏳</span>
                 </p>
-                <div className="loading-bar">
-                  <div className="loading-progress"></div>
-                </div>
               </div>
             </td>
           </tr>
