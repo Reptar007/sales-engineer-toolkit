@@ -188,6 +188,10 @@ Consider the rejection feedback and provide more accurate estimates.`;
 // Catch-all handler: send back React's index.html file for any non-API routes
 // Note: During development, the frontend dev server handles routing, so this is mainly for production
 app.get(/^(?!\/api).*/, (req, res) => {
+  // Skip API routes
+  if (req.path.startsWith('/estimate') || req.path.startsWith('/healthz')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
   const indexPath = resolve(__dirname, '../../frontend/dist/index.html');
   console.log('Serving index.html from:', indexPath);
 
