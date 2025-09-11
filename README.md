@@ -6,22 +6,32 @@ A comprehensive toolkit for sales engineers with ratio estimation capabilities, 
 
 ```
 sales-engineer-toolkit/
-├── backend/          # Express.js API server
+├── backend/                    # Express.js API server
 │   ├── src/
-│   │   ├── index.js  # Main server file
-│   │   ├── helpers.js
-│   │   └── prompts.js
+│   │   ├── index.js           # Main server file
+│   │   ├── routes/            # API routes
+│   │   │   ├── api.js         # Main API router
+│   │   │   └── health.js      # Health check routes
+│   │   ├── services/          # Shared services
+│   │   │   └── openaiService.js
+│   │   ├── middleware/        # Custom middleware
+│   │   ├── projects/          # Project-specific modules
+│   │   │   └── ratio-estimator/
+│   │   │       └── routes/    # Project routes with business logic
+│   │   ├── helpers.js         # Utility functions
+│   │   └── prompts.js         # AI prompts
 │   └── package.json
-├── frontend/         # React application
+├── frontend/                   # React application
 │   ├── src/
 │   │   ├── components/
 │   │   ├── hooks/
 │   │   ├── styles/
 │   │   └── utils/
-│   ├── tests/
 │   └── package.json
-├── package.json      # Root dependencies and scripts
-└── test-data.csv
+├── scripts/                    # Helper scripts
+│   └── setup-env.sh           # Environment setup
+├── package.json               # Root dependencies and scripts
+└── .env.example               # Environment template
 ```
 
 ## 🚀 Quick Start
@@ -139,10 +149,17 @@ npm start
 
 The backend provides a REST API for ratio estimation:
 
-- **GET** `/healthz` – Health check endpoint
-- **POST** `/estimate/initial` – Initial ratio estimation
-- **POST** `/estimate/postprocess` – Post-process CSV data
-- **POST** `/estimate/fix-rejections` – Fix rejected rows (planned)
+### Health Check
+
+- **GET** `/api/health` – Basic health check
+- **GET** `/api/health/detailed` – Detailed health information
+
+### Ratio Estimator
+
+- **GET** `/api/ratio-estimator` – Project information
+- **POST** `/api/ratio-estimator/estimate/initial` – Initial AI estimation
+- **POST** `/api/ratio-estimator/estimate/postprocess` – Post-processing
+- **POST** `/api/ratio-estimator/estimate/fix-rejections` – Fix rejections (planned)
 
 ### Environment Variables
 
