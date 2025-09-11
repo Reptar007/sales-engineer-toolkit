@@ -11,7 +11,7 @@ const Header = React.memo(({ theme, toggleTheme, artistMode, toggleArtistMode })
         toggleArtistMode={toggleArtistMode}
       />
       <header>
-        <h1>Ratio Estimator</h1>
+        <h1>SalesWolf</h1>
       </header>
     </>
   );
