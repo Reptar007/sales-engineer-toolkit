@@ -76,8 +76,8 @@ app.use(errorHandler);
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`[sales-engineer-toolkit] Server listening on port ${PORT}`);
-  console.log(`[sales-engineer-toolkit] Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`[sales-engineer-toolkit] API available at: http://localhost:${PORT}/api`);
-  console.log(`[sales-engineer-toolkit] Frontend available at: http://localhost:${PORT}`);
+  console.log(`[SalesWolf] Server listening on port ${PORT}`);
+  console.log(`[SalesWolf] Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`[SalesWolf] API available at: http://localhost:${PORT}/api`);
+  console.log(`[SalesWolf] Frontend available at: http://localhost:${PORT}`);
 });

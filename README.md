@@ -1,4 +1,4 @@
-# Sales Engineer Toolkit
+# SalesWolf
 
 A comprehensive toolkit for sales engineers with ratio estimation capabilities, featuring a React frontend and Express.js backend.
 

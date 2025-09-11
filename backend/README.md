@@ -1,6 +1,6 @@
-# Sales Engineer Toolkit - Backend
+# SalesWolf - Backend
 
-A structured Express.js backend API for the Sales Engineer Toolkit.
+A structured Express.js backend API for SalesWolf.
 
 ## 🏗️ Architecture
 

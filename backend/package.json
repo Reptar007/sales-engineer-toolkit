@@ -1,5 +1,5 @@
 {
-  "name": "sales-engineer-toolkit-backend",
+  "name": "saleswolf-backend",
   "version": "0.1.0",
   "main": "src/index.js",
   "scripts": {
@@ -10,11 +10,12 @@
   "keywords": [
     "backend",
     "api",
-    "express"
+    "express",
+    "saleswolf"
   ],
   "author": "",
   "license": "ISC",
-  "description": "Backend API for sales engineer toolkit",
+  "description": "Backend API for SalesWolf",
   "type": "module",
   "bin": {
     "ratio-estimator": "src/index.js"
