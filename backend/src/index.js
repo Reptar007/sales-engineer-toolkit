@@ -243,11 +243,45 @@ app.post('/api/workflow', async (req, res) => {
     }
 
     const data = await response.json();
-    console.log('Successfully fetched workflow data');
+
+    // ---- Post-response formatting ----
+    // 1) read response safely
+    const res_data = data;
+    const steps = res_data?.result?.data?.json?.stepsOnBranchInWorkflowOnBranch ?? [];
+
+    // 2) map the fields you care about
+    let rows = steps.map((s) => ({
+      index: s.index,
+      name: s.stepOnBranch?.name,
+      stepId: s.stepOnBranch?.step?.id,
+      isUtility: !!s.stepOnBranch?.step?.isUtility,
+      code: s.stepOnBranch?.code ?? null,
+      codeMultiplayerTextId: s.stepOnBranch?.codeMultiplayerTextId ?? null,
+    }));
+
+    // 3) optional: ignore "Node 20 Helpers" / utility step
+    console.log(
+      'Before filtering:',
+      rows.map((r) => r.name),
+    );
+    rows = rows.filter((r) => {
+      const shouldFilter = /node\s*20\s*helpers/i.test(r.name || '');
+      if (shouldFilter) {
+        console.log('Filtering out:', r.name);
+      }
+      return !shouldFilter;
+    });
+    console.log(
+      'After filtering:',
+      rows.map((r) => r.name),
+    );
 
     res.json({
       success: true,
-      data: data.result.data.json,
+      data: {
+        ...data.result.data.json,
+        formattedSteps: rows,
+      },
     });
   } catch (error) {
     console.error('Error in workflow endpoint:', error);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
-import { useGetWorkflowQuery } from '../services/pdf';
+import { fetchWorkflowData } from '../services/api';
 
 const PdfGenerator = React.memo(() => {
   const [url, setUrl] = useState('');
@@ -66,12 +66,9 @@ const PdfGenerator = React.memo(() => {
       console.log('Parsed from URL:', { environmentId, workflowId });
       console.log('Generated inputObj:', inputObj);
 
-      // Call the workflow query with the properly structured input
-      const data = await useGetWorkflowQuery({
-        environmentId,
-        workflowId,
-        inputObj // Pass the complete input object to backend
-      });
+      // Call the workflow API with the properly structured input
+      const response = await fetchWorkflowData(environmentId, workflowId, inputObj);
+      const data = response.data;
 
       setWorkflowData(data);
       console.log('Workflow data fetched:', data);
@@ -110,7 +107,7 @@ const PdfGenerator = React.memo(() => {
               disabled={loading || !url.trim()}
               className="submit-button"
             >
-              {loading ? 'Loading...' : 'Generate PDF'}
+              {loading ? 'Loading...' : 'Search'}
             </button>
           </div>
         </form>
@@ -121,10 +118,139 @@ const PdfGenerator = React.memo(() => {
           </div>
         )}
 
-        {workflowData && (
-          <div className="workflow-data">
-            <h3>Workflow Data Retrieved</h3>
-            <pre>{JSON.stringify(workflowData, null, 2)}</pre>
+        {workflowData && workflowData.formattedSteps && (
+          <div className="workflow-visualizer">
+            <h3>Workflow Steps ({workflowData.formattedSteps.length} steps)</h3>
+            
+            {/* Workflow Table */}
+            <div style={{
+              fontFamily: 'ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif',
+              width: '100%',
+              marginTop: '20px'
+            }}>
+              <table style={{
+                borderCollapse: 'collapse',
+                width: '100%',
+                fontSize: '14px'
+              }}>
+                <thead>
+                  <tr>
+                    <th style={{
+                      borderBottom: '2px solid #333',
+                      padding: '12px 8px',
+                      verticalAlign: 'top',
+                      backgroundColor: '#f5f5f5',
+                      fontWeight: 'bold',
+                      textAlign: 'left'
+                    }}>Index</th>
+                    <th style={{
+                      borderBottom: '2px solid #333',
+                      padding: '12px 8px',
+                      verticalAlign: 'top',
+                      backgroundColor: '#f5f5f5',
+                      fontWeight: 'bold',
+                      textAlign: 'left'
+                    }}>Step Name</th>
+                    <th style={{
+                      borderBottom: '2px solid #333',
+                      padding: '12px 8px',
+                      verticalAlign: 'top',
+                      backgroundColor: '#f5f5f5',
+                      fontWeight: 'bold',
+                      textAlign: 'left'
+                    }}>Step ID</th>
+                    <th style={{
+                      borderBottom: '2px solid #333',
+                      padding: '12px 8px',
+                      verticalAlign: 'top',
+                      backgroundColor: '#f5f5f5',
+                      fontWeight: 'bold',
+                      textAlign: 'left'
+                    }}>Utility</th>
+                    <th style={{
+                      borderBottom: '2px solid #333',
+                      padding: '12px 8px',
+                      verticalAlign: 'top',
+                      backgroundColor: '#f5f5f5',
+                      fontWeight: 'bold',
+                      textAlign: 'left',
+                      width: '40%'
+                    }}>Code</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {workflowData.formattedSteps.map((row, idx) => (
+                    <tr key={row.stepId || idx}>
+                      <td style={{
+                        borderBottom: '1px solid #ddd',
+                        padding: '8px',
+                        verticalAlign: 'top'
+                      }}>{row.index}</td>
+                      <td style={{
+                        borderBottom: '1px solid #ddd',
+                        padding: '8px',
+                        verticalAlign: 'top',
+                        fontWeight: '500'
+                      }}>{row.name || 'N/A'}</td>
+                      <td style={{
+                        borderBottom: '1px solid #ddd',
+                        padding: '8px',
+                        verticalAlign: 'top',
+                        fontFamily: 'monospace',
+                        fontSize: '12px'
+                      }}>{row.stepId || 'N/A'}</td>
+                      <td style={{
+                        borderBottom: '1px solid #ddd',
+                        padding: '8px',
+                        verticalAlign: 'top'
+                      }}>{row.isUtility ? 'Yes' : 'No'}</td>
+                      <td style={{
+                        borderBottom: '1px solid #ddd',
+                        padding: '8px',
+                        verticalAlign: 'top',
+                        maxWidth: '400px'
+                      }}>
+                        {row.code ? (
+                          <pre style={{
+                            whiteSpace: 'pre-wrap',
+                            margin: 0,
+                            fontFamily: 'monospace',
+                            fontSize: '12px',
+                            backgroundColor: '#f8f8f8',
+                            padding: '8px',
+                            borderRadius: '4px',
+                            border: '1px solid #e0e0e0',
+                            overflow: 'auto',
+                            maxHeight: '300px'
+                          }}>{row.code}</pre>
+                        ) : (
+                          <span style={{ color: '#666', fontStyle: 'italic' }}>No code available</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Debug Section - Collapsible */}
+            <details style={{ marginTop: '30px', fontSize: '12px' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 'bold', color: '#666' }}>
+                Raw API Response (for debugging)
+              </summary>
+              <pre style={{
+                fontSize: '11px',
+                backgroundColor: '#f5f5f5',
+                padding: '15px',
+                borderRadius: '4px',
+                overflow: 'auto',
+                maxHeight: '400px',
+                marginTop: '10px',
+                border: '1px solid #ddd'
+              }}>
+                {JSON.stringify(workflowData, null, 2)}
+              </pre>
+            </details>
           </div>
         )}
       </div>

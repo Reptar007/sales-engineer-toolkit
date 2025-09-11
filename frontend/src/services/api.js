@@ -89,6 +89,24 @@ export async function fixRejections(rejectedItems) {
 }
 
 /**
+ * Fetch workflow data from QA Wolf
+ * @param {string} environmentId - QA Wolf environment ID
+ * @param {string} workflowId - QA Wolf workflow ID
+ * @param {Object} inputObj - Structured input payload for QA Wolf API
+ * @returns {Promise<Object>} Workflow data with formatted steps
+ */
+export async function fetchWorkflowData(environmentId, workflowId, inputObj) {
+  return apiRequest('/workflow', {
+    method: 'POST',
+    body: JSON.stringify({
+      environmentId,
+      workflowId,
+      inputObj,
+    }),
+  });
+}
+
+/**
  * Check backend health
  * @returns {Promise<Object>} Health status
  */
@@ -100,5 +118,6 @@ export default {
   processCSVWithChatGPT,
   postProcessCSV,
   fixRejections,
+  fetchWorkflowData,
   checkHealth,
 };
