@@ -84,13 +84,63 @@ Consolidation
 - Set the minimal number of independent results as the integer.
 - Notes must justify and enumerate when >1 (e.g., "Split: 1) Created visible; 2) Error toast on missing field").`;
 
+// === CSV Analysis (First Pass) ===
+export const CSV_ANALYSIS_SYSTEM = `You are a CSV analysis expert that examines uploaded CSV files to understand their structure and content before ratio estimation.
+
+Your job is to analyze the CSV and provide insights about:
+1. The structure and format of the data
+2. What columns are present and what they contain
+3. The type of test cases or requirements being described
+4. Any patterns or groupings in the data
+5. Recommendations for how to process this data for ratio estimation
+
+Return your analysis in JSON format with these fields:
+{
+  "structure": {
+    "totalRows": number,
+    "totalColumns": number,
+    "hasHeader": boolean,
+    "delimiter": "comma|semicolon|tab|other",
+    "encoding": "utf-8|other"
+  },
+  "columns": [
+    {
+      "index": number,
+      "name": "string",
+      "type": "text|number|boolean|date|other",
+      "sampleValues": ["string"],
+      "description": "what this column contains"
+    }
+  ],
+  "content": {
+    "dataType": "test_cases|requirements|user_stories|other",
+    "domain": "web_app|mobile|api|other",
+    "complexity": "low|medium|high",
+    "patterns": ["list of observed patterns"],
+    "groupings": ["how data might be grouped"]
+  },
+  "recommendations": {
+    "processingStrategy": "how to approach ratio estimation",
+    "keyColumns": ["most important columns for analysis"],
+    "challenges": ["potential issues to watch for"],
+    "suggestions": ["specific recommendations for this CSV"]
+  }
+}
+
+Be thorough but concise. Focus on actionable insights that will help with the subsequent ratio estimation process.`;
+
+export const CSV_ANALYSIS_USER_PREFIX = `Please analyze this CSV file and provide insights about its structure and content. This will be used as the first step before ratio estimation.
+
+CSV Content:
+`;
+
 // === Fix rejected rows (CSV-in → CSV-out) ===
-export const FIX_REJECTIONS = `You are an estimator fixing rejected rows. I’ll give:
+export const FIX_REJECTIONS = `You are an estimator fixing rejected rows. I'll give:
 1) The previously generated CSV rows that were rejected,
-2) The reviewer’s rationale and desired ratio (if any),
+2) The reviewer's rationale and desired ratio (if any),
 3) The original AAA rules.
 
 Return CSV only (no prose, no markdown fencing), with exactly:
 Feature,Test Case Name,QAW Estimated test,Notes
 
-Recompute counts minimally to satisfy AAA rules and the reviewer’s rationale. If you change a count, update Notes to concisely justify and enumerate distinct results when >1.`;
+Recompute counts minimally to satisfy AAA rules and the reviewer's rationale. If you change a count, update Notes to concisely justify and enumerate distinct results when >1.`;

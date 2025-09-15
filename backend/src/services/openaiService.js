@@ -1,4 +1,13 @@
 import OpenAI from 'openai';
+import dotenv from 'dotenv';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Load environment variables
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: resolve(__dirname, '../../.env') });
+dotenv.config({ path: resolve(__dirname, '../../../.env') });
+dotenv.config();
 
 // Initialize OpenAI client
 const openai = process.env.OPENAI_API_KEY
