@@ -1,7 +1,7 @@
 {
-  "name": "sales-engineer-toolkit",
+  "name": "saleswolf",
   "version": "1.0.0",
-  "description": "A toolkit for sales engineers with ratio estimation capabilities",
+  "description": "A comprehensive toolkit for sales engineers with ratio estimation capabilities",
   "main": "backend/src/index.js",
   "type": "module",
   "private": true,
@@ -47,10 +47,11 @@
   "homepage": "https://github.com/Reptar007/sales-engineer-toolkit#readme",
   "keywords": [
     "sales",
-    "engineering",
+    "wolf",
     "ratio",
     "estimation",
-    "toolkit"
+    "toolkit",
+    "qa-wolf"
   ],
   "author": "",
   "license": "ISC",
