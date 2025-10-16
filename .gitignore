@@ -30,3 +30,4 @@ build/
 # Compiled CSS files (LESS generates these automatically)
 src/**/*.css
 apps/ratio-ui/src/**/*.css
+/generated/prisma
