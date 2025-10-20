@@ -1,13 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import './SalesforceMetrics.css';
+import useSalesforceData from './hooks/useSalesforceData';
 
 const SalesforceMetrics = () => {
   // states
-  const [quarter, setQuarter] = useState({ value: 'Q4 2025', label: 'Q4 2025' });
-  const [quarterlyGoal, setQuarterlyGoal] = useState(3560000);
-  const [currentAAR, setCurrentAAR] = useState(205000);
-  const [lastQuarterAAR, setLastQuarterAAR] = useState(145000);
-  const [quarterlyIncrease, setQuarterlyIncrease] = useState(0);
+  const [quarter, setQuarter] = useState({ value: 'Q1 2025', label: 'Q1 2025' });
+  
+  // Fetch data using custom hook
+  const {
+    currentAAR,
+    quarterlyGoal,
+    quarterlyIncrease,
+    opportunities,
+    loading,
+    error,
+    refetch
+  } = useSalesforceData(quarter.value);
 
   // constants
   const quarters = [
@@ -15,20 +23,6 @@ const SalesforceMetrics = () => {
     { value: 'Q2 2025', label: 'Q2 2025' },
     { value: 'Q3 2025', label: 'Q3 2025' },
     { value: 'Q4 2025', label: 'Q4 2025' },
-  ];
-
-  const quarterlyGoals = [
-    { value: 'Q1 2025', goal: 1900000, previousGoal: 1500000 },
-    { value: 'Q2 2025', goal: 2520000, previousGoal: 1900000 },
-    { value: 'Q3 2025', goal: 2500000, previousGoal: 2520000 },
-    { value: 'Q4 2025', goal: 3560000, previousGoal: 2500000 },
-  ];
-
-  const quarterlyAARs = [
-    { value: 'Q1 2025', aar: 150000, lastQuarterAAR: 120000 },
-    { value: 'Q2 2025', aar: 180000, lastQuarterAAR: 150000 },
-    { value: 'Q3 2025', aar: 205000, lastQuarterAAR: 180000 },
-    { value: 'Q4 2025', aar: 205000, lastQuarterAAR: 205000 },
   ];
 
   // functions
@@ -42,24 +36,16 @@ const SalesforceMetrics = () => {
     const selectedQuarter = event.target.value;
     const quarterObj = quarters.find(q => q.value === selectedQuarter);
     setQuarter(quarterObj || { value: selectedQuarter, label: selectedQuarter });
-    
-    // Find the data for the selected quarter
-    const quarterData = quarterlyAARs.find(q => q.value === selectedQuarter);
-    const goalData = quarterlyGoals.find(q => q.value === selectedQuarter);
-    
-    if (quarterData && goalData) {
-      // Don't update currentAAR - it stays constant at $205K
-      setLastQuarterAAR(quarterData.lastQuarterAAR);
-      setQuarterlyGoal(goalData.goal);
-      setQuarterlyIncrease(calculateQuarterlyIncrease(goalData.goal, goalData.previousGoal));
-    }
+    // Data will automatically refetch due to useEffect dependency in the hook
   };
 
   const calculateGoalProgress = (currentAAR, quarterlyGoal) => {
+    if (!currentAAR || !quarterlyGoal) return 0;
     return (currentAAR / quarterlyGoal) * 100;
   };
 
   const formatNumber = (num) => {
+    if (!num) return '0';
     if (num >= 1000000) {
       return (num / 1000000).toFixed(2) + 'M';
     } else if (num >= 1000) {
@@ -69,33 +55,7 @@ const SalesforceMetrics = () => {
     }
   };
 
-  const calculateQuarterlyIncrease = (currentAAR, lastQuarterAAR) => {
-    if (lastQuarterAAR === 0) return 0;
-    return ((currentAAR - lastQuarterAAR) / lastQuarterAAR) * 100;
-  };
-
-  // Calculate current progress percentage based on quarter-specific AAR
-  const getCurrentQuarterAAR = () => {
-    const quarterData = quarterlyAARs.find(q => q.value === quarter.value);
-    return quarterData ? quarterData.aar : currentAAR;
-  };
-  
-  const progressPercentage = calculateGoalProgress(getCurrentQuarterAAR(), quarterlyGoal);
-
-  // Use Effects
-  useEffect(() => {
-    // Initialize with Q4 2025 data
-    const initialQuarterData = quarterlyAARs.find(q => q.value === quarter.value);
-    const initialGoalData = quarterlyGoals.find(q => q.value === quarter.value);
-    
-    if (initialQuarterData && initialGoalData) {
-      // currentAAR stays at its initial value of 205000
-      setLastQuarterAAR(initialQuarterData.lastQuarterAAR);
-      setQuarterlyGoal(initialGoalData.goal);
-      setQuarterlyIncrease(calculateQuarterlyIncrease(initialGoalData.goal, initialGoalData.previousGoal));
-    }
-  }, []);
-
+  const progressPercentage = calculateGoalProgress(currentAAR, quarterlyGoal);
 
   return (
     <div className="salesforce-metrics">
@@ -175,53 +135,42 @@ const SalesforceMetrics = () => {
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td> John Doe </td>
-            <td> Opportunity 1 </td>
-            <td> $100,000 </td>
-            <td> 2025-01-01 </td>
-            <td> 5 </td>
-          </tr>
-          <tr>
-            <td> Jane Doe </td>
-            <td> Opportunity 2 </td>
-            <td> $200,000 </td>
-            <td> 2025-02-01 </td>
-            <td> 4 </td>
-          </tr>
-          <tr>
-            <td> Jim Beam </td>
-            <td> Opportunity 3 </td>
-            <td> $300,000 </td>
-            <td> 2025-03-01 </td>
-            <td> 3 </td>
-          </tr>
-          <tr>
-            <td> John Doe </td>
-            <td> Opportunity 1 </td>
-            <td> $100,000 </td>
-            <td> 2025-01-01 </td>
-            <td> 5 </td>
-          </tr>
-          <tr>
-            <td> Jane Doe </td>
-            <td> Opportunity 2 </td>
-            <td> $200,000 </td>
-            <td> 2025-02-01 </td>
-            <td> 4 </td>
-          </tr>
-          <tr>
-            <td> Jim Beam </td>
-            <td> Opportunity 3 </td>
-            <td> $300,000 </td>
-            <td> 2025-03-01 </td>
-            <td> 3 </td>
-          </tr>
+          {loading ? (
+            <tr>
+              <td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>
+                Loading opportunities...
+              </td>
+            </tr>
+          ) : error ? (
+            <tr>
+              <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#e74c3c' }}>
+                Error loading data: {error}
+              </td>
+            </tr>
+          ) : opportunities && opportunities.length > 0 ? (
+            opportunities.map((opportunity) => (
+              <tr key={opportunity.id}>
+                <td>{opportunity.aeName}</td>
+                <td>{opportunity.opportunityName}</td>
+                <td>${formatNumber(opportunity.amount)}</td>
+                <td>{opportunity.closeDate}</td>
+                <td>{opportunity.accountScore}</td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>
+                No opportunities found for this quarter
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
       <div className="metrics-actions">
-        <button className="btn-metric btn-primary">Refresh Data</button>
+        <button className="btn-metric btn-primary" onClick={refetch} disabled={loading}>
+          {loading ? 'Refreshing...' : 'Refresh Data'}
+        </button>
         <button className="btn-metric btn-secondary">Export Report</button>
       </div>
     </div>
