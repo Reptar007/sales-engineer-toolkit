@@ -1,19 +1,17 @@
 import React from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import SalesforceMetrics from '../projects/salesforce-metrics';
 
 /**
  * Main Dashboard - Project selection and overview
  */
 function Dashboard() {
-  const { user } = useAuth();
-
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <h1>Welcome to SalesWolf, {user?.name || 'User'}!</h1>
+        <h1>Welcome to SalesWolf!</h1>
         <p>Select a project to get started</p>
       </div>
-
+      <SalesforceMetrics />
       <div className="projects-grid">
         <div className="project-card">
           <div className="project-card-header">
@@ -31,6 +29,25 @@ function Dashboard() {
           <div className="project-card-footer">
             <span className="project-version">v1.0.0</span>
             <span className="project-category">Analysis Tools</span>
+          </div>
+        </div>
+        
+        <div className="project-card">
+          <div className="project-card-header">
+            <div className="project-icon">📈</div>
+            <h3 className="project-name">Salesforce Metrics</h3>
+          </div>
+          <div className="project-card-body">
+            <p className="project-description">Salesforce performance metrics and analytics</p>
+            <div className="project-features">
+              <span className="feature-tag">Data Analysis</span>
+              <span className="feature-tag">Reporting</span>
+              <span className="feature-tag">Visualization</span>
+            </div>
+          </div>
+          <div className="project-card-footer">
+            <span className="project-version">v1.0.0</span>
+            <span className="project-category">Analytics</span>
           </div>
         </div>
       </div>

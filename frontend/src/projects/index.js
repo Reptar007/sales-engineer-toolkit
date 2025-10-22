@@ -3,23 +3,22 @@
  * Add new projects here to make them available in the app
  */
 
-// import RatioEstimator from './ratio-estimator';
+import SalesforceMetrics from './salesforce-metrics';
 
 export const projects = {
-  // Temporarily disabled while fixing import issues
-  // 'ratio-estimator': {
-  //   id: 'ratio-estimator',
-  //   name: 'Ratio Estimator',
-  //   description: 'AI-powered test ratio estimation tool',
-  //   icon: '📊',
-  //   component: RatioEstimator,
-  //   path: '/ratio-estimator',
-  //   category: 'Analysis Tools',
-  //   version: '1.0.0',
-  //   features: ['CSV Upload', 'AI Processing', 'Review & Approval', 'Export Results']
-  // }
+  'salesforce-metrics': {
+    id: 'salesforce-metrics',
+    name: 'Salesforce Metrics',
+    description: 'Track and analyze your Salesforce performance',
+    icon: '📈',
+    component: SalesforceMetrics,
+    path: '/salesforce-metrics',
+    category: 'Analytics',
+    version: '1.0.0',
+    features: ['Data Analysis', 'Reporting', 'Visualization', 'Export Results'],
+  },
   // Add more projects here as you create them
-  // 'project-template': { ... }
+  // 'ratio-estimator': { ... }
 };
 
 export const getProject = (projectId) => projects[projectId];

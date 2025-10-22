@@ -2,6 +2,7 @@ import express from 'express';
 import ratioEstimatorRoutes from '../projects/ratio-estimator/routes/index.js';
 import healthRoutes from './health.js';
 import authRoutes from './auth.js';
+import salesforceRoutes from '../projects/salesforce/index.js';
 
 const router = express.Router();
 
@@ -11,6 +12,7 @@ router.use('/auth', authRoutes);
 // Mount project-specific routes
 router.use('/ratio-estimator', ratioEstimatorRoutes);
 router.use('/health', healthRoutes);
+router.use('/salesforce', salesforceRoutes);
 
 // API root endpoint
 router.get('/', (req, res) => {

@@ -96,9 +96,28 @@ export async function checkHealth() {
   return apiRequest('/healthz');
 }
 
+/**
+ * Fetch Salesforce report data
+ * @param {string} reportId - Salesforce report ID
+ * @returns {Promise<Object>} Report data from Salesforce
+ */
+export async function fetchSalesforceReport(reportId) {
+  return apiRequest(`/salesforce/report/${reportId}`);
+}
+
+/**
+ * Check Salesforce API health
+ * @returns {Promise<Object>} Salesforce API health status
+ */
+export async function checkSalesforceHealth() {
+  return apiRequest('/salesforce/health');
+}
+
 export default {
   processCSVWithChatGPT,
   postProcessCSV,
   fixRejections,
   checkHealth,
+  fetchSalesforceReport,
+  checkSalesforceHealth,
 };
