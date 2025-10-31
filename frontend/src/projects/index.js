@@ -4,6 +4,7 @@
  */
 
 import SalesforceMetrics from './salesforce-metrics';
+import RatioEstimator from './ratio-estimator';
 
 export const projects = {
   'salesforce-metrics': {
@@ -17,8 +18,18 @@ export const projects = {
     version: '1.0.0',
     features: ['Data Analysis', 'Reporting', 'Visualization', 'Export Results'],
   },
+  'ratio-estimator': {
+    id: 'ratio-estimator',
+    name: 'Ratio Estimator',
+    description: 'Estimate and review ratios for sales opportunities',
+    icon: '📊',
+    component: RatioEstimator,
+    path: '/ratio-estimator',
+    category: 'Tools',
+    version: '1.0.0',
+    features: ['File Upload', 'AI Estimation', 'Review & Approval', 'Export Results'],
+  },
   // Add more projects here as you create them
-  // 'ratio-estimator': { ... }
 };
 
 export const getProject = (projectId) => projects[projectId];

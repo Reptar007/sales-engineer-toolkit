@@ -9,6 +9,7 @@
 
 // Import component styles
 @import 'login.less';
+@import 'sidebar.less';
 
 // CSS Layers for better cascade management
 @layer reset, tokens, base, components, utilities, themes, animations;
@@ -233,12 +234,15 @@
   }
 
   .app {
-    max-width: var(--max-width-container);
-    margin: 0 auto;
-    padding: @space-lg;
+    width: 100%;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    background-color: @canvas-light;
+    margin: 0;
+    padding: 0;
+    padding-top: 3.5rem; // Account for fixed header
+    overflow-x: hidden;
   }
 }
 
@@ -1636,11 +1640,13 @@
 
   footer {
     margin-top: @space-xl;
-    padding-top: @space-lg;
+    padding: @space-lg 2rem;
     border-top: 0.0625rem solid @table-border-light;
     text-align: center;
     color: @text-muted-light;
     font-size: 0.75rem;
+    margin-left: 16rem; // Account for fixed sidebar
+    background-color: @canvas-light;
 
     [data-theme='dark'] & {
       border-color: @table-border-dark;
@@ -2185,25 +2191,26 @@
 
 // Dashboard Styles
 .dashboard {
-  padding: @spacing-extra-large;
-  max-width: 80rem;
-  margin: 0 auto;
+  padding: 0;
+  width: 100%;
+  margin: 0;
 }
 
 .dashboard-header {
-  text-align: center;
+  text-align: left;
   margin-bottom: @spacing-extra-large;
+  padding: 0;
   
   h1 {
-    font-size: @font-size-extra-large;
+    font-size: 2.25rem;
     font-weight: @font-weight-bold;
-    color: @text-primary;
-    margin: 0 0 @spacing-medium 0;
+    color: @text-primary-light;
+    margin: 0 0 @spacing-small 0;
   }
   
   p {
-    font-size: @font-size-large;
-    color: @text-secondary;
+    font-size: @font-size-medium;
+    color: @text-secondary-light;
     margin: 0;
   }
 }

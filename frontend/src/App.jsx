@@ -4,6 +4,7 @@ import './styles/App.less';
 import './styles/themes.less';
 import { useTheme } from './hooks/useTheme';
 import Header from './components/Header';
+import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import Dashboard from './pages/Dashboard';
 import ProjectView from './pages/ProjectView';
@@ -27,13 +28,16 @@ function App() {
             toggleArtistMode={toggleArtistMode}
           />
           
-          <main>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/projects/:projectId" element={<ProjectView />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
+          <div className="app-layout">
+            <Sidebar />
+            <main className="main-content">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/projects/:projectId" element={<ProjectView />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </main>
+          </div>
 
           <footer>
             <p>SalesWolf - Sales Engineer Toolkit</p>
