@@ -1,0 +1,350 @@
+/* SalesforceMetrics Component Styles */
+
+.salesforce-metrics {
+  width: 100%;
+  max-width: 100%;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background-color: transparent;
+  color: #333333;
+  margin-bottom: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+.metrics-header {
+  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0 0 1.5rem 0;
+  margin-bottom: 2rem;
+}
+
+.metrics-header-text {
+  text-align: left;
+  flex: 1;
+}
+
+.metrics-header-text h1 {
+  font-size: 2.75rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  color: #333333;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.metrics-header-text p {
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: #666666;
+  margin: 0;
+}
+
+.metrics-header-select {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+  padding-top: 0.5rem;
+}
+
+.metrics-header-select p {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #333333;
+  margin: 0;
+}
+
+.metrics-header select {
+  padding: 0.5rem 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e0e0e0;
+  background-color: #ffffff;
+  color: #333333;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.metrics-header select:hover {
+  background-color: #f5f5f5;
+  border-color: #1e3a5f;
+}
+
+.metrics-header select:focus {
+  outline: none;
+  border-color: #1e3a5f;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(30, 58, 95, 0.1);
+}
+
+.metrics-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin: 2rem 0 0 0;
+}
+
+.btn-metric {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e0e0e0;
+  background-color: #ffffff;
+  color: #333333;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9375rem;
+}
+
+.btn-metric:hover {
+  background-color: #f5f5f5;
+  border-color: #1e3a5f;
+}
+
+.btn-metric.btn-primary {
+  background-color: #1e3a5f;
+  color: white;
+  border-color: #1e3a5f;
+}
+
+.btn-metric.btn-primary:hover {
+  background-color: #2a4a6f;
+  border-color: #2a4a6f;
+}
+
+.btn-metric:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.metrics-content {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, auto);
+  gap: 1rem;
+  width: 100%;
+  margin: 0 0 2rem 0;
+}
+
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  border: 1px solid #e0e0e0;
+  background-color: #ffffff;
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  width: 100%;
+  min-height: 10rem;
+  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.metric-card:hover {
+  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.1);
+  transform: translateY(-0.0625rem);
+}
+
+.metric-card-header h2 {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #666666;
+  margin: 0 0 0.5rem 0;
+}
+
+.metric-card-body-text{
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #333333;
+  margin: 0;
+}
+
+p.quarterly-goal-text {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: #666666;
+  margin: 0;
+  font-style: normal;
+}
+
+/* Progress Bar Styles */
+.progress-bar {
+  width: 100%;
+  height: 1rem;
+  background-color: #e0e0e0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  position: relative;
+  margin: 0.5rem 0;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a90e2, #2c3e50);
+  border-radius: 0.5rem;
+  transition: width 0.6s ease-in-out;
+  position: relative;
+  overflow: hidden;
+}
+
+
+/* Progress Bar Variants */
+.progress-bar-small {
+  height: 0.5rem;
+}
+
+.progress-bar-large {
+  height: 1.5rem;
+}
+
+.progress-bar-success .progress-bar-fill {
+  background: linear-gradient(90deg, #27ae60, #2e7d32);
+}
+
+.progress-bar-warning .progress-bar-fill {
+  background: linear-gradient(90deg, #f39c12, #e67e22);
+}
+
+.progress-bar-danger .progress-bar-fill {
+  background: linear-gradient(90deg, #e74c3c, #c0392b);
+}
+
+/* Progress-based colors */
+.progress-bar-low .progress-bar-fill {
+  background: linear-gradient(90deg, #e74c3c, #c0392b);
+}
+
+.progress-bar-medium .progress-bar-fill {
+  background: linear-gradient(90deg, #f39c12, #e67e22);
+}
+
+.progress-bar-high .progress-bar-fill {
+  background: linear-gradient(90deg, #27ae60, #2e7d32);
+}
+
+.table-separator {
+  width: 100%;
+  height: 1px;
+  background-color: #e0e0e0;
+  margin: 2rem 0;
+}
+
+/* Table Styles */
+table {
+  width: 100%;
+  margin: 0 0 2rem 0;
+  border-collapse: collapse;
+  background-color: #ffffff;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  table-layout: fixed;
+  box-sizing: border-box;
+  caption-side: top;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.06);
+}
+
+caption {
+  text-align: left;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #333333;
+  margin: 0 0 1rem 0;
+  padding: 0;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+caption .caption-subtitle {
+  font-size: 1rem;
+  font-weight: 400;
+  font-style: italic;
+  color: #666666;
+}
+
+thead {
+  background-color: #f8f9fa;
+}
+
+th {
+  padding: 1rem;
+  text-align: center;
+  font-weight: 600;
+  color: #333333;
+  border-bottom: 2px solid #e0e0e0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+td {
+  padding: 1rem;
+  text-align: center;
+  color: #333333;
+  border-bottom: 1px solid #f0f0f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table-container {
+  max-height: 22rem;
+  overflow-y: auto;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #ccc transparent; /* Firefox */
+}
+
+.table-container::-webkit-scrollbar {
+  width: 8px; /* Narrower scrollbar */
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: transparent; /* Invisible track */
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+tbody {
+  /* Remove the block display and scroll properties */
+}
+
+thead, tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+tbody tr:hover {
+  background-color: #f5f5f5;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+tbody tr:nth-child(even):hover {
+  background-color: #f0f0f0;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Column width controls */
+th:nth-child(1), td:nth-child(1) { width: 18%; } /* AE Name */
+th:nth-child(2), td:nth-child(2) { width: 30%; } /* Opportunity Name */
+th:nth-child(3), td:nth-child(3) { width: 22%; } /* Amount Closed */
+th:nth-child(4), td:nth-child(4) { width: 22%; } /* Close Date */
+th:nth-child(5), td:nth-child(5) { width: 12%; } /* Account Score */

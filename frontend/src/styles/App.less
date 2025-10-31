@@ -1,11 +1,15 @@
 // =========================
-// Ratio Estimator - Figma Design System (LESS)
+// SalesWolf - Multi-Project Design System (LESS)
 // =========================
 
 // Import design tokens and mixins
 @import 'tokens/_index.less';
 @import 'mixins/artist.less';
 @import 'mixins/responsive.less';
+
+// Import component styles
+@import 'login.less';
+@import 'sidebar.less';
 
 // CSS Layers for better cascade management
 @layer reset, tokens, base, components, utilities, themes, animations;
@@ -51,6 +55,40 @@
 
   &:focus-visible {
     .focus-ring();
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+// Primary button mixin
+.btn-primary() {
+  background-color: @primary-green;
+  color: @white;
+  border: 1px solid @primary-green;
+
+  &:hover:not(:disabled) {
+    background-color: @primary-green-hover;
+    border-color: @primary-green-hover;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+// Secondary button mixin
+.btn-secondary() {
+  background-color: transparent;
+  color: @text-primary;
+  border: 1px solid @border-default;
+
+  &:hover:not(:disabled) {
+    background-color: @background-tertiary;
+    border-color: @border-default;
   }
 
   &:disabled {
@@ -196,12 +234,15 @@
   }
 
   .app {
-    max-width: var(--max-width-container);
-    margin: 0 auto;
-    padding: @space-lg;
+    width: 100%;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    background-color: @canvas-light;
+    margin: 0;
+    padding: 0;
+    padding-top: 3.5rem; // Account for fixed header
+    overflow-x: hidden;
   }
 }
 
@@ -1599,11 +1640,13 @@
 
   footer {
     margin-top: @space-xl;
-    padding-top: @space-lg;
+    padding: @space-lg 2rem;
     border-top: 0.0625rem solid @table-border-light;
     text-align: center;
     color: @text-muted-light;
     font-size: 0.75rem;
+    margin-left: 16rem; // Account for fixed sidebar
+    background-color: @canvas-light;
 
     [data-theme='dark'] & {
       border-color: @table-border-dark;
@@ -2123,5 +2166,265 @@
     .modal {
       view-transition-name: modal;
     }
+  }
+}
+
+// =========================
+// Multi-Project Components
+// =========================
+
+// App Loading State
+.app-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: @background-primary;
+  
+  .loading-spinner {
+    font-size: @font-size-large;
+    color: @text-primary;
+  }
+}
+
+// Authentication Styles - Removed for custom styling
+
+// Dashboard Styles
+.dashboard {
+  padding: 0;
+  width: 100%;
+  margin: 0;
+}
+
+.dashboard-header {
+  text-align: left;
+  margin-bottom: @spacing-extra-large;
+  padding: 0;
+  
+  h1 {
+    font-size: 2.25rem;
+    font-weight: @font-weight-bold;
+    color: @text-primary-light;
+    margin: 0 0 @spacing-small 0;
+  }
+  
+  p {
+    font-size: @font-size-medium;
+    color: @text-secondary-light;
+    margin: 0;
+  }
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: @spacing-large;
+  margin-bottom: @spacing-extra-large;
+}
+
+.project-card {
+  background: @background-secondary;
+  border-radius: @radius-large;
+  padding: @spacing-large;
+  box-shadow: @shadow-medium;
+  border: 1px solid @border-subtle;
+  cursor: pointer;
+  .transition();
+  
+  &:hover {
+    transform: translateY(-0.125rem);
+    box-shadow: @shadow-large;
+    border-color: @primary-green;
+  }
+}
+
+.project-card-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: @spacing-medium;
+  
+  .project-icon {
+    font-size: @font-size-extra-large;
+    margin-right: @spacing-medium;
+  }
+  
+  .project-name {
+    font-size: @font-size-large;
+    font-weight: @font-weight-semibold;
+    color: @text-primary;
+    margin: 0;
+  }
+}
+
+.project-card-body {
+  margin-bottom: @spacing-medium;
+  
+  .project-description {
+    font-size: @font-size-medium;
+    color: @text-secondary;
+    margin: 0 0 @spacing-medium 0;
+    line-height: 1.5;
+  }
+  
+  .project-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: @spacing-small;
+    
+    .feature-tag {
+      background: @primary-green-light;
+      color: @primary-green-dark;
+      padding: @spacing-tiny @spacing-small;
+      border-radius: @radius-pill;
+      font-size: @font-size-tiny;
+      font-weight: @font-weight-medium;
+    }
+  }
+}
+
+.project-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: @font-size-small;
+  color: @text-tertiary;
+  
+  .project-version {
+    font-weight: @font-weight-medium;
+  }
+  
+  .project-category {
+    background: @background-tertiary;
+    padding: @spacing-tiny @spacing-small;
+    border-radius: @radius-small;
+  }
+}
+
+.dashboard-footer {
+  text-align: center;
+  padding: @spacing-large;
+  border-top: 1px solid @border-subtle;
+  
+  p {
+    font-size: @font-size-medium;
+    color: @text-tertiary;
+    margin: 0;
+  }
+}
+
+// Project View Styles
+.project-view {
+  min-height: calc(100vh - 4rem);
+}
+
+.project-header {
+  background: @background-secondary;
+  border-bottom: 1px solid @border-subtle;
+  padding: @spacing-large @spacing-extra-large;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.project-header-left {
+  display: flex;
+  align-items: center;
+  gap: @spacing-large;
+}
+
+.back-button {
+  .btn-base();
+  .btn-secondary();
+  padding: @spacing-small @spacing-medium;
+  font-size: @font-size-small;
+  
+  &:hover {
+    background: @background-tertiary;
+  }
+}
+
+.project-info {
+  display: flex;
+  align-items: center;
+  gap: @spacing-medium;
+  
+  .project-icon {
+    font-size: @font-size-large;
+  }
+  
+  .project-title {
+    font-size: @font-size-large;
+    font-weight: @font-weight-semibold;
+    color: @text-primary;
+    margin: 0;
+  }
+  
+  .project-subtitle {
+    font-size: @font-size-medium;
+    color: @text-secondary;
+    margin: 0;
+  }
+}
+
+.project-header-right {
+  .project-version {
+    background: @background-tertiary;
+    color: @text-tertiary;
+    padding: @spacing-tiny @spacing-small;
+    border-radius: @radius-small;
+    font-size: @font-size-small;
+    font-weight: @font-weight-medium;
+  }
+}
+
+.project-content {
+  padding: @spacing-extra-large;
+  max-width: 80rem;
+  margin: 0 auto;
+}
+
+.project-not-found {
+  text-align: center;
+  padding: @spacing-extra-large;
+  
+  h2 {
+    font-size: @font-size-large;
+    color: @text-primary;
+    margin: 0 0 @spacing-medium 0;
+  }
+  
+  p {
+    font-size: @font-size-medium;
+    color: @text-secondary;
+    margin: 0 0 @spacing-large 0;
+  }
+  
+  .btn-primary {
+    .btn-base();
+    .btn-primary();
+  }
+}
+
+// Ratio Estimator Project Specific
+.ratio-estimator {
+  .section {
+    margin-bottom: @spacing-extra-large;
+  }
+  
+  .section-title {
+    font-size: @font-size-large;
+    font-weight: @font-weight-semibold;
+    color: @text-primary;
+    margin: 0 0 @spacing-medium 0;
+  }
+  
+  .prompt-text {
+    font-size: @font-size-medium;
+    color: @text-secondary;
+    line-height: 1.6;
+    background: @background-tertiary;
+    padding: @spacing-medium;
+    border-radius: @radius-medium;
+    border-left: 4px solid @primary-green;
   }
 }

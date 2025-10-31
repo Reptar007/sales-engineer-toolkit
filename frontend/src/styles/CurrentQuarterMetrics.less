@@ -1,0 +1,113 @@
+// =========================
+// Current Quarter Metrics Widget Styles
+// =========================
+
+@import 'tokens/_index.less';
+
+.widget {
+  background: @white;
+  border: 1px solid @border-default;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.08);
+}
+
+.widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.widget-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.widget-link {
+  background: transparent;
+  border: 1px solid @border-default;
+  color: var(--text-primary);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.widget-link:hover {
+  background: var(--bg-hover);
+  border-color: @primary-green;
+  color: @primary-green;
+}
+
+.widget-content {
+  color: var(--text-primary);
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.metric-summary {
+  text-align: center;
+  padding: 1.25rem;
+  background: @white;
+  border-radius: 0.5rem;
+  border: 1px solid @border-default;
+  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+  
+  &:hover {
+    box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.1);
+    transform: translateY(-0.0625rem);
+  }
+}
+
+.metric-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.metric-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.metric-quarter,
+.metric-progress,
+.metric-opportunities {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.widget-content .error {
+  color: @error-red;
+  text-align: center;
+  padding: 2rem;
+}
+
+// Responsive
+@media (max-width: 1200px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
