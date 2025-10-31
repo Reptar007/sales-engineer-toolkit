@@ -11,6 +11,8 @@ function ProjectView() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const project = getProject(projectId);
+  console.log('ProjectView - projectId:', projectId);
+  console.log('ProjectView - project:', project);
 
   if (!project) {
     return (

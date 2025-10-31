@@ -21,39 +21,68 @@
   text-align: center;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 1rem 2.5rem;
+  align-items: flex-start;
+  padding: 2rem 2.5rem 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .metrics-header-text {
   text-align: left;
+  flex: 1;
 }
 
 .metrics-header-text h1 {
-  font-size: 2rem;
+  font-size: 2.75rem;
   font-weight: 700;
   margin: 0 0 0.5rem 0;
   color: white;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.metrics-header-text p {
+  font-size: 1.1rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
 }
 
 .metrics-header-select {
   display: flex;
   align-items: center;
   gap: 1rem;
-  p {
-    font-size: 1.5rem;
-    font-weight: 500;
-  }
+  flex-shrink: 0;
+  padding-top: 0.5rem;
+}
+
+.metrics-header-select p {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: white;
+  margin: 0;
 }
 
 .metrics-header select {
-  padding: 0.25rem 1.5rem;
+  padding: 0.5rem 1.5rem;
   border-radius: 0.5rem;
-  border: 1px solid white;
-  background-color: #3a4f63;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background-color: rgba(255, 255, 255, 0.1);
   color: white;
   cursor: pointer;
   transition: all 0.3s ease;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.metrics-header select:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.metrics-header select:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.6);
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
 .metrics-actions {
@@ -75,9 +104,12 @@
 }
 
 .metrics-content {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-around;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, auto);
+  gap: 1rem;
+  width: calc(100% - 5rem);
+  margin: 0 2.5rem;
 }
 
 .metric-card {
@@ -87,8 +119,8 @@
   border: 1px solid white;
   padding: 1rem;
   border-radius: 1rem;
-  width: 15rem;
-  height: 10rem;
+  width: 100%;
+  min-height: 10rem;
 }
 
 .metric-card-header h2 {
@@ -183,11 +215,12 @@ table {
 
 caption {
   text-align: left;
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 1.75rem;
+  font-weight: 600;
   color: white;
-  margin: 0;
-  padding: 0 0 1rem 0;
+  margin: 0 0 1rem 0;
+  padding: 0;
+  letter-spacing: -0.01em;
 }
 
 thead {
@@ -213,10 +246,28 @@ td {
   text-overflow: ellipsis;
 }
 
-tbody {
+.table-container {
   max-height: 22rem;
   overflow-y: auto;
-  display: block;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #ccc transparent; /* Firefox */
+}
+
+.table-container::-webkit-scrollbar {
+  width: 8px; /* Narrower scrollbar */
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: transparent; /* Invisible track */
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+tbody {
+  /* Remove the block display and scroll properties */
 }
 
 thead, tbody tr {
