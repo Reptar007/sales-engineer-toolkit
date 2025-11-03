@@ -11,7 +11,7 @@
     "dev:frontend": "cd frontend && npm run dev",
     "start": "cd backend && npm run start",
     "build": "npm run install:all && cd frontend && npm run build",
-    "heroku-postbuild": "npm install --include=optional && cd frontend && npm install --include=optional && cd ../backend && npm install --include=optional",
+    "heroku-postbuild": "npm install --include=optional && cd frontend && npm install --include=optional && npm run build && cd ../backend && npm install --include=optional",
     "preview": "cd frontend && npm run preview",
     "env:refresh": "op inject -i .env.example -o .env",
     "env:setup": "./scripts/setup-env.sh",
