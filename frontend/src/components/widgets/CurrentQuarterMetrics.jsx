@@ -123,13 +123,18 @@ function CurrentQuarterMetrics() {
   }
 
   if (error) {
+    // Don't show the widget if credentials aren't configured (common in production)
+    if (error.includes('credentials not configured') || error.includes('no username password')) {
+      return null; // Hide the widget instead of showing an error
+    }
+    
     return (
       <div className="current-quarter-metrics widget">
         <div className="widget-header">
           <h2>Current Quarter Metrics</h2>
         </div>
         <div className="widget-content">
-          <p className="error">Error loading metrics: {error}</p>
+          <p className="error">Unable to load metrics. Please check your Salesforce configuration.</p>
         </div>
       </div>
     );
