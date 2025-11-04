@@ -10,31 +10,116 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+// User Model Example
+enum Role {
+  admin
+  sales_engineer_1
+  sales_engineer_2
+  sales_engineer_lead
+}
+
 model User {
-  id                  String   @id @default(cuid())
-  email               String   @unique
-  name                String
-  team                String?
-  passwordHash        String
-  mustChangePassword  Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String?
+  lastName     String?
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
   // Relations
-  sessions            Session[]
-  
+  salesEngineer SalesEngineer?
+  userRoles     UserRole[]
+
   @@map("users")
 }
 
-model Session {
+model UserRole {
   id        String   @id @default(cuid())
   userId    String
-  token     String   @unique
-  expiresAt DateTime
+  role      Role
   createdAt DateTime @default(now())
-  
+  updatedAt DateTime @updatedAt
+
   // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@map("sessions")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([userId])
+  @@index([role])
+  @@map("user_roles")
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  salesEngineer     SalesEngineer?    // One team = one SE
+  accountExecutives AccountExecutive[]
+
+  @@map("teams")
+}
+
+model SalesEngineer {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  teamId         String   @unique
+  salesforceEmail String?
+  salesforceId   String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team            Team             @relation(fields: [teamId], references: [id])
+  teamAssignments TeamAssignment[]
+
+  @@index([userId])
+  @@index([teamId])
+  @@map("sales_engineers")
+}
+
+model AccountExecutive {
+  id            String   @id @default(cuid())
+  name          String
+  salesforceId  String   @unique
+  salesforceEmail String?
+  teamId        String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  team            Team             @relation(fields: [teamId], references: [id])
+  teamAssignments TeamAssignment[]
+
+  @@index([teamId])
+  @@index([salesforceId])
+  @@map("account_executives")
+}
+
+model TeamAssignment {
+  id                 String   @id @default(cuid())
+  salesEngineerId    String
+  accountExecutiveId String
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  salesEngineer    SalesEngineer    @relation(fields: [salesEngineerId], references: [id], onDelete: Cascade)
+  accountExecutive AccountExecutive @relation(fields: [accountExecutiveId], references: [id], onDelete: Cascade)
+
+  @@unique([salesEngineerId, accountExecutiveId])
+  @@index([salesEngineerId])
+  @@index([accountExecutiveId])
+  @@map("team_assignments")
 }
