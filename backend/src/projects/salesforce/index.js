@@ -1,5 +1,7 @@
 import express from 'express';
 import { getSalesforceConnection, getQuarterName } from './functions.js';
+import { authenticateToken } from '../../middleware/auth.js';
+import prisma from '../../lib/prisma.js';
 
 const router = express.Router();
 
@@ -40,9 +42,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get data from a specific report
-router.get('/report/:reportId', async (req, res) => {
+// Get data from a specific report (protected - requires authentication)
+router.get('/report/:reportId', authenticateToken, async (req, res) => {
   const { reportId } = req.params;
+  const user = req.user; // User from authentication middleware
 
   try {
     // Create connection for each request
@@ -50,12 +53,49 @@ router.get('/report/:reportId', async (req, res) => {
       conn = await getSalesforceConnection();
     }
 
-    console.log(`Fetching report data for report ID: ${reportId}`);
+    console.log(`Fetching report data for report ID: ${reportId} for user: ${user.email}`);
 
     // Use the Reports API to get the actual report data
     const result = await conn.analytics.report(reportId).execute({
       details: true,
     });
+
+    // Get user's allowed AE IDs based on role
+    let allowedAeIds = null; // null = all AEs (admin), array = specific AEs
+
+    // Check if user is admin - admins see all data
+    const isAdmin = user.roles && user.roles.includes('admin');
+
+    if (!isAdmin) {
+      // For non-admin users, get their team's AEs
+      const salesEngineer = await prisma.salesEngineer.findUnique({
+        where: { userId: user.id },
+        include: {
+          team: {
+            include: {
+              accountExecutives: {
+                where: { isActive: true },
+                select: {
+                  salesforceId: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (salesEngineer && salesEngineer.team) {
+        // Get list of allowed Salesforce IDs
+        allowedAeIds = salesEngineer.team.accountExecutives.map((ae) => ae.salesforceId);
+        console.log(`Filtering opportunities for ${allowedAeIds.length} AEs:`, allowedAeIds);
+      } else {
+        // User has no team assigned - no access to opportunities
+        allowedAeIds = [];
+        console.log(`User ${user.email} has no team assigned - returning empty results`);
+      }
+    } else {
+      console.log(`User ${user.email} is admin - showing all opportunities`);
+    }
 
     // Format the result to be more readable
     const quarterlyData = {};
@@ -70,6 +110,16 @@ router.get('/report/:reportId', async (req, res) => {
       quarterData.rows.forEach((row) => {
         const dataCells = row.dataCells;
 
+        // Get AE ID from the opportunity
+        const aeId = dataCells[0]?.value || '';
+
+        // Filter opportunities: if allowedAeIds is null (admin), show all; otherwise filter
+        const shouldInclude = allowedAeIds === null || allowedAeIds.includes(aeId);
+
+        if (!shouldInclude) {
+          return; // Skip this opportunity
+        }
+
         // Parse each opportunity record
         const opportunity = {
           aeName: dataCells[0]?.label || '', // AE Name
@@ -80,7 +130,7 @@ router.get('/report/:reportId', async (req, res) => {
           effectiveDate: dataCells[4]?.label || '', // Effective Date
 
           // Additional IDs for reference
-          aeId: dataCells[0]?.value || '',
+          aeId: aeId,
           opportunityId: dataCells[1]?.value || '',
 
           // Quarter info
@@ -91,11 +141,14 @@ router.get('/report/:reportId', async (req, res) => {
         allOpportunities.push(opportunity);
       });
 
+      // Recalculate totals for filtered opportunities
+      const filteredTotalARR = opportunities.reduce((sum, opp) => sum + opp.arrAmount, 0);
+
       quarterlyData[quarterName] = {
         quarter: quarterName,
-        totalARR: quarterData.aggregates[0]?.value || 0,
-        totalARRFormatted: quarterData.aggregates[0]?.label || '',
-        opportunityCount: quarterData.aggregates[1]?.value || 0,
+        totalARR: filteredTotalARR,
+        totalARRFormatted: `$${filteredTotalARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        opportunityCount: opportunities.length,
         opportunities: opportunities,
       };
     });
@@ -106,6 +159,8 @@ router.get('/report/:reportId', async (req, res) => {
       totalOpportunities: allOpportunities.length,
       quarterlyData: quarterlyData,
       allOpportunities: allOpportunities,
+      filtered: allowedAeIds !== null, // Indicates if data was filtered
+      userRole: isAdmin ? 'admin' : 'sales_engineer',
     });
   } catch (error) {
     console.error('Salesforce API error:', error.message);

@@ -3,11 +3,15 @@ import ratioEstimatorRoutes from '../projects/ratio-estimator/routes/index.js';
 import healthRoutes from './health.js';
 import authRoutes from './auth.js';
 import salesforceRoutes from '../projects/salesforce/index.js';
+import teamRoutes from './teams.js';
 
 const router = express.Router();
 
 // Mount authentication routes
 router.use('/auth', authRoutes);
+
+// Mount team routes
+router.use('/teams', teamRoutes);
 
 // Mount project-specific routes
 router.use('/ratio-estimator', ratioEstimatorRoutes);
@@ -21,6 +25,8 @@ router.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       auth: '/api/auth',
+      teams: '/api/teams',
+      salesforce: '/api/salesforce',
       'ratio-estimator': '/api/ratio-estimator',
       health: '/api/health',
     },
