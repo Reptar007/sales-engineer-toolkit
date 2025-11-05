@@ -6,15 +6,27 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 /**
  * Generic fetch wrapper with error handling
+ * Automatically includes auth token in all requests if available
  */
 async function apiRequest(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
 
+  // Get auth token from localStorage
+  const token = localStorage.getItem('authToken');
+
+  // Build headers - add auth token if available
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  // Add Authorization header if token exists
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const config = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
     ...options,
   };
 

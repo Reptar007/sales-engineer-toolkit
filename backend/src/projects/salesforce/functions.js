@@ -25,12 +25,7 @@ export async function getSalesforceConnection() {
     // Combine password and token (security token is appended to password)
     const fullPassword = password + (token || '');
 
-    console.log('Attempting Salesforce login for:', username);
-    console.log('Using login URL:', loginUrl);
-
     await conn.login(username, fullPassword);
-
-    console.log('Salesforce login successful');
     return conn;
   } catch (error) {
     console.error('Salesforce login failed:', error.message);

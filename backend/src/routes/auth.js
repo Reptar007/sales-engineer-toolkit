@@ -93,7 +93,6 @@ router.post('/change-password', authenticateToken, async (req, res) => {
     // Get user from database (need passwordHash for verification)
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      include: { userRoles: true },
       select: {
         id: true,
         email: true,

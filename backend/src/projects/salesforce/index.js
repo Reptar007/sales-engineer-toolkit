@@ -53,8 +53,6 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
       conn = await getSalesforceConnection();
     }
 
-    console.log(`Fetching report data for report ID: ${reportId} for user: ${user.email}`);
-
     // Use the Reports API to get the actual report data
     const result = await conn.analytics.report(reportId).execute({
       details: true,
@@ -87,14 +85,10 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
       if (salesEngineer && salesEngineer.team) {
         // Get list of allowed Salesforce IDs
         allowedAeIds = salesEngineer.team.accountExecutives.map((ae) => ae.salesforceId);
-        console.log(`Filtering opportunities for ${allowedAeIds.length} AEs:`, allowedAeIds);
       } else {
         // User has no team assigned - no access to opportunities
         allowedAeIds = [];
-        console.log(`User ${user.email} has no team assigned - returning empty results`);
       }
-    } else {
-      console.log(`User ${user.email} is admin - showing all opportunities`);
     }
 
     // Format the result to be more readable
@@ -106,40 +100,48 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
 
       const quarterName = getQuarterName(quarterKey, result.groupingsDown);
 
+      // Skip "Total" entry - we'll calculate it separately after processing all quarters
+      if (quarterName === 'Total') {
+        return;
+      }
+
       const opportunities = [];
-      quarterData.rows.forEach((row) => {
-        const dataCells = row.dataCells;
+      // Handle case where rows might not exist
+      if (quarterData.rows && Array.isArray(quarterData.rows)) {
+        quarterData.rows.forEach((row) => {
+          const dataCells = row.dataCells;
 
-        // Get AE ID from the opportunity
-        const aeId = dataCells[0]?.value || '';
+          // Get AE ID from the opportunity
+          const aeId = dataCells[0]?.value || '';
 
-        // Filter opportunities: if allowedAeIds is null (admin), show all; otherwise filter
-        const shouldInclude = allowedAeIds === null || allowedAeIds.includes(aeId);
+          // Filter opportunities: if allowedAeIds is null (admin), show all; otherwise filter
+          const shouldInclude = allowedAeIds === null || allowedAeIds.includes(aeId);
 
-        if (!shouldInclude) {
-          return; // Skip this opportunity
-        }
+          if (!shouldInclude) {
+            return; // Skip this opportunity
+          }
 
-        // Parse each opportunity record
-        const opportunity = {
-          aeName: dataCells[0]?.label || '', // AE Name
-          opportunityName: dataCells[1]?.label || '', // Opportunity Name
-          arrAmount: dataCells[2]?.value?.amount || 0, // ARR Amount (numeric)
-          arrAmountFormatted: dataCells[2]?.label || '', // ARR Amount (formatted)
-          salesScore: dataCells[3]?.label || '', // Sales Score (Account Score)
-          effectiveDate: dataCells[4]?.label || '', // Effective Date
+          // Parse each opportunity record
+          const opportunity = {
+            aeName: dataCells[0]?.label || '', // AE Name
+            opportunityName: dataCells[1]?.label || '', // Opportunity Name
+            arrAmount: dataCells[2]?.value?.amount || 0, // ARR Amount (numeric)
+            arrAmountFormatted: dataCells[2]?.label || '', // ARR Amount (formatted)
+            salesScore: dataCells[3]?.label || '', // Sales Score (Account Score)
+            effectiveDate: dataCells[4]?.label || '', // Effective Date
 
-          // Additional IDs for reference
-          aeId: aeId,
-          opportunityId: dataCells[1]?.value || '',
+            // Additional IDs for reference
+            aeId: aeId,
+            opportunityId: dataCells[1]?.value || '',
 
-          // Quarter info
-          quarter: quarterName,
-        };
+            // Quarter info
+            quarter: quarterName,
+          };
 
-        opportunities.push(opportunity);
-        allOpportunities.push(opportunity);
-      });
+          opportunities.push(opportunity);
+          allOpportunities.push(opportunity);
+        });
+      }
 
       // Recalculate totals for filtered opportunities
       const filteredTotalARR = opportunities.reduce((sum, opp) => sum + opp.arrAmount, 0);
@@ -152,6 +154,24 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
         opportunities: opportunities,
       };
     });
+
+    // Calculate yearly total by summing all quarters (excluding "Total" entry)
+    // This ensures accuracy after filtering
+    let yearlyTotalARR = 0;
+    Object.keys(quarterlyData).forEach((key) => {
+      if (key !== 'Total') {
+        yearlyTotalARR += quarterlyData[key].totalARR || 0;
+      }
+    });
+
+    // Update or create "Total" entry with calculated yearly total
+    quarterlyData['Total'] = {
+      quarter: 'Total',
+      totalARR: yearlyTotalARR,
+      totalARRFormatted: `$${yearlyTotalARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      opportunityCount: allOpportunities.length,
+      opportunities: [], // Total doesn't need individual opportunities
+    };
 
     res.json({
       success: true,

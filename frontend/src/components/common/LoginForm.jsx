@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import SignupForm from './SignupForm';
 
@@ -9,7 +10,23 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showSignup, setShowSignup] = useState(false);
-  const { login, error, clearError } = useAuth();
+  const { login, error, clearError, user, mustChangePassword } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Redirect after successful login
+  useEffect(() => {
+    if (user) {
+      // If user needs to change password, redirect to change-password page
+      if (mustChangePassword) {
+        navigate('/change-password', { replace: true });
+      } else {
+        // Get the original destination from location state, or default to home
+        const from = location.state?.from?.pathname || '/';
+        navigate(from, { replace: true });
+      }
+    }
+  }, [user, mustChangePassword, navigate, location]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
