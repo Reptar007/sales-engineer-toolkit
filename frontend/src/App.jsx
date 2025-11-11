@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import './styles/App.less';
 import './styles/themes.less';
-import { useTheme } from './hooks/useTheme';
 import Header from './components/Header';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -11,33 +10,34 @@ import Dashboard from './pages/Dashboard';
 import ProjectView from './pages/ProjectView';
 import LoginPage from './pages/LoginPage';
 import PasswordChangePage from './pages/PasswordChangePage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 
 /**
  * Main App Component with Routing
  * Handles authentication and protected routes
  */
 function AppContent() {
-  const { theme, artistMode, toggleTheme, toggleArtistMode } = useTheme();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const location = useLocation();
-  
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
   // Hide sidebar on authentication pages
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/change-password';
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/change-password' || location.pathname === '/forgot-password';
 
   return (
     <div className="app">
-      <Header
-        theme={theme}
-        toggleTheme={toggleTheme}
-        artistMode={artistMode}
-        toggleArtistMode={toggleArtistMode}
-      />
+      <Header toggleSidebar={toggleSidebar} />
       
       <div className="app-layout">
-        {!isAuthPage && <Sidebar />}
-        <main className="main-content">
+        {!isAuthPage && <Sidebar isSidebarOpen={isSidebarOpen} />}
+        <main className={`main-content ${isAuthPage ? 'auth-page' : ''} ${!isAuthPage && !isSidebarOpen ? 'sidebar-closed' : ''}`}>
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             
             {/* Protected routes - password change requires auth but allows mustChangePassword */}
             <Route

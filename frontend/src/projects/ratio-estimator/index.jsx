@@ -78,12 +78,6 @@ function RatioEstimator() {
 
         try {
           // Send rejection info to backend - for now just log it
-          console.log('Item rejected:', {
-            id: pendingReject.id,
-            rejectionReason,
-            estimatedRatio,
-            originalItem: pendingReject,
-          });
         } catch (error) {
           console.error('Failed to send rejection to backend:', error);
         }
@@ -116,12 +110,10 @@ function RatioEstimator() {
     const rejectedTests = reviewData.filter((item) => item.status === 'rejected');
 
     if (rejectedTests.length === 0) {
-      console.log('No rejected tests to resubmit');
       return;
     }
 
     try {
-      console.log(`Sending ${rejectedTests.length} rejected tests to ChatGPT for re-processing...`);
 
       const response = await fixRejections(rejectedTests);
 
@@ -154,8 +146,6 @@ function RatioEstimator() {
             return item;
           }),
         );
-
-        console.log('Successfully updated rejected tests with ChatGPT estimates:', response);
       } else {
         setReviewData((prevData) =>
           prevData.map((item) =>
@@ -206,8 +196,6 @@ function RatioEstimator() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
-    console.log(`Downloaded CSV with ${approvedTests.length} approved test estimates`);
   }, [reviewData]);
 
   // Enhanced file change handler
@@ -264,7 +252,6 @@ function RatioEstimator() {
       setShowReviewData(false);
 
       try {
-        console.log('Sending CSV file to backend for ChatGPT processing...');
         const response = await processCSVWithChatGPT(selectedFile);
 
         let csvData;
@@ -280,7 +267,6 @@ function RatioEstimator() {
         setIsLoading(false);
         setShowReviewData(true);
         setErrorMessage('');
-        console.log('Successfully processed CSV with ChatGPT', csvData);
       } catch (error) {
         console.error('Backend processing failed:', error);
         setIsLoading(false);

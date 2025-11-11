@@ -1,34 +1,39 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { getAllProjects } from '../../projects';
-
+import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 /**
  * Sidebar Navigation Component
  */
-function Sidebar() {
-  const location = useLocation();
+function Sidebar({ isSidebarOpen }) {
   const projects = getAllProjects();
+  const navigate = useNavigate();
 
   const navItems = [
     { path: '/', label: 'Home', icon: '🏠' },
-    ...projects.map(project => ({
+    ...projects.map((project) => ({
       path: `/projects/${project.id}`,
       label: project.name,
       icon: project.icon,
     })),
   ];
 
+  const { logout } = useAuth();
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
       <nav className="sidebar-nav">
         <ul className="nav-list">
           {navItems.map((item) => (
             <li key={item.path} className="nav-item">
               <NavLink
                 to={item.path}
-                className={({ isActive }) =>
-                  `nav-link ${isActive ? 'active' : ''}`
-                }
+                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                 end={item.path === '/'}
               >
                 <span className="nav-icon">{item.icon}</span>
@@ -37,10 +42,21 @@ function Sidebar() {
             </li>
           ))}
         </ul>
+        {/* Bottom section */}
+        <div className="sidebar-footer">
+          <div className="sidebar-divider"></div>
+          <button className="nav-link" type="button">
+            <span className="nav-icon">⚙️</span>
+            <span className="nav-label">Settings</span>
+          </button>
+          <button className="nav-link" type="button" onClick={handleLogout}>
+            <span className="nav-icon">🚪</span>
+            <span className="nav-label">Log out</span>
+          </button>
+        </div>
       </nav>
     </aside>
   );
 }
 
 export default Sidebar;
-

@@ -29,11 +29,9 @@ app.use(apiLogger);
 
 // Serve static files from the frontend build directory
 const frontendDistPath = resolve(__dirname, '../../frontend/dist');
-console.log('Frontend dist path:', frontendDistPath);
 
 try {
   app.use(serveStatic(frontendDistPath));
-  console.log('Static file serving enabled');
 } catch (error) {
   console.warn('Static file serving disabled:', error.message);
 }
@@ -60,7 +58,6 @@ app.get(/^(?!\/api).*/, (req, res) => {
   }
 
   const indexPath = resolve(__dirname, '../../frontend/dist/index.html');
-  console.log('Serving index.html from:', indexPath);
 
   try {
     res.sendFile(indexPath);
@@ -76,8 +73,5 @@ app.use(errorHandler);
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`[SalesWolf] Server listening on port ${PORT}`);
-  console.log(`[SalesWolf] Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`[SalesWolf] API available at: http://localhost:${PORT}/api`);
-  console.log(`[SalesWolf] Frontend available at: http://localhost:${PORT}`);
+  // Server started
 });

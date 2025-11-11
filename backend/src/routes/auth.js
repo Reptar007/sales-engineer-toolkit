@@ -315,6 +315,51 @@ router.post('/register', authenticateToken, requireRole('admin'), async (req, re
   }
 });
 
+// Forgot password route
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Validate input
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        isActive: true,
+      },
+    });
+
+    // Always return success message (security best practice - don't reveal if email exists)
+    // In a production environment, you would:
+    // 1. Generate a reset token
+    // 2. Store it in the database with expiration
+    // 3. Send an email with the reset link
+    // 4. Return success message regardless of whether user exists
+
+    if (user && user.isActive) {
+      // TODO: Generate reset token, store in DB, send email
+      // For now, just return success message
+      return res.status(200).json({
+        message: 'If an account exists with this email, a password reset link has been sent.',
+      });
+    }
+
+    // Return same message even if user doesn't exist (security)
+    return res.status(200).json({
+      message: 'If an account exists with this email, a password reset link has been sent.',
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get user route
 router.get('/me', authenticateToken, async (req, res) => {
   try {

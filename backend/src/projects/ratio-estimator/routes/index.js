@@ -188,8 +188,6 @@ router.post('/prepare-csv', upload.single('csvFile'), async (req, res) => {
       chunks.push(chunk.join('\n'));
     }
 
-    console.log(`Processing ${dataRows.length} rows in ${chunks.length} chunks`);
-
     // Process each chunk
     const allPreparedData = [];
     let totalDuplicatesRemoved = 0;
@@ -204,10 +202,6 @@ router.post('/prepare-csv', upload.single('csvFile'), async (req, res) => {
     };
 
     for (let i = 0; i < chunks.length; i++) {
-      console.log(
-        `Processing chunk ${i + 1}/${chunks.length} (${chunks[i].split('\n').length - 1} data rows)`,
-      );
-
       const userPrompt = CSV_PREPARATION_USER_PREFIX.replace(
         '{analysis}',
         JSON.stringify(analysis, null, 2),
@@ -245,7 +239,6 @@ router.post('/prepare-csv', upload.single('csvFile'), async (req, res) => {
 
         // Accumulate results
         if (preparation.preparedData) {
-          console.log(`Chunk ${i + 1} returned ${preparation.preparedData.length} prepared tests`);
           allPreparedData.push(...preparation.preparedData);
         }
         if (preparation.summary) {
@@ -276,10 +269,6 @@ router.post('/prepare-csv', upload.single('csvFile'), async (req, res) => {
     }
 
     // Create final response
-    console.log(
-      `Final result: ${allPreparedData.length} total prepared tests from ${dataRows.length} input rows`,
-    );
-
     const preparation = {
       preparedData: allPreparedData,
       summary: {
@@ -558,10 +547,6 @@ router.post('/convert-aaa/phase1', async (req, res) => {
     const firstQuarter = preparedData.slice(0, quarterSize);
     const testCasesForReview = firstQuarter.slice(0, reviewSize);
 
-    console.log(
-      `Phase 1: Processing ${firstQuarter.length} tests, reviewing ${testCasesForReview.length}`,
-    );
-
     // Get learning context
     const learningContext = learningService.generateLearningContext();
     const personalizedEnhancements = learningService.getPersonalizedEnhancements();
@@ -653,10 +638,6 @@ router.post('/convert-aaa/phase2', async (req, res) => {
     const secondQuarter = preparedData.slice(quarterSize, quarterSize * 2);
     const testCasesForReview = secondQuarter.slice(0, reviewSize);
 
-    console.log(
-      `Phase 2: Processing ${secondQuarter.length} tests, reviewing ${testCasesForReview.length}`,
-    );
-
     // Prepare feedback context
     const feedbackContext = phase1Feedback
       ? `Previous feedback from Phase 1:\n${JSON.stringify(phase1Feedback, null, 2)}`
@@ -736,10 +717,6 @@ router.post('/convert-aaa/phase3', async (req, res) => {
     const thirdQuarter = preparedData.slice(quarterSize * 2, quarterSize * 3);
     const testCasesForReview = thirdQuarter.slice(0, reviewSize);
 
-    console.log(
-      `Phase 3: Processing ${thirdQuarter.length} tests, reviewing ${testCasesForReview.length}`,
-    );
-
     // Prepare feedback context
     const feedbackContext = `Previous feedback from Phase 1:\n${phase1Feedback ? JSON.stringify(phase1Feedback, null, 2) : 'No feedback'}\n\nPrevious feedback from Phase 2:\n${phase2Feedback ? JSON.stringify(phase2Feedback, null, 2) : 'No feedback'}`;
 
@@ -815,10 +792,6 @@ router.post('/convert-aaa/final', async (req, res) => {
       });
     }
 
-    console.log(
-      `Final conversion: Processing ALL ${preparedData.length} tests with complete feedback`,
-    );
-
     // Validate we have the expected number of tests
     if (preparedData.length < 120) {
       console.warn(
@@ -851,24 +824,11 @@ Please apply all feedback patterns and corrections to ensure consistent, high-qu
       chunks.push(preparedData.slice(i, i + chunkSize));
     }
 
-    console.log(
-      `Processing ${preparedData.length} tests in ${chunks.length} chunks for final conversion`,
-    );
-
-    // Log chunk details for debugging
-    chunks.forEach((chunk, index) => {
-      console.log(
-        `Chunk ${index + 1}: ${chunk.length} tests (rows ${index * chunkSize + 1} to ${Math.min((index + 1) * chunkSize, preparedData.length)})`,
-      );
-    });
-
     // Process each chunk
     const allConvertedTests = [];
     const allFeatureGroups = new Set();
 
     for (let i = 0; i < chunks.length; i++) {
-      console.log(`Processing final chunk ${i + 1}/${chunks.length} (${chunks[i].length} tests)`);
-
       const userPrompt = AAA_CONVERSION_USER_PREFIX.replace(
         '{testCases}',
         JSON.stringify(chunks[i], null, 2),
@@ -897,9 +857,6 @@ Please apply all feedback patterns and corrections to ensure consistent, high-qu
 
         // Accumulate results
         if (conversion.convertedTests) {
-          console.log(
-            `Final chunk ${i + 1} returned ${conversion.convertedTests.length} converted tests`,
-          );
           allConvertedTests.push(...conversion.convertedTests);
         }
         if (conversion.summary && conversion.summary.featureGroups) {
@@ -930,20 +887,6 @@ Please apply all feedback patterns and corrections to ensure consistent, high-qu
         reasoning: `Complete conversion processed in ${chunks.length} chunks with all accumulated feedback applied for consistency`,
       },
     };
-
-    console.log(`Final conversion complete: ${allConvertedTests.length} total converted tests`);
-
-    // Validate we didn't lose any tests during conversion
-    if (allConvertedTests.length !== preparedData.length) {
-      console.error(
-        `❌ ERROR: Test count mismatch! Input: ${preparedData.length}, Output: ${allConvertedTests.length}`,
-      );
-      console.error(
-        `Missing ${preparedData.length - allConvertedTests.length} tests during conversion`,
-      );
-    } else {
-      console.log(`✅ SUCCESS: All ${preparedData.length} tests converted successfully`);
-    }
 
     res.json({
       success: true,
@@ -987,8 +930,6 @@ router.post('/convert-aaa/phase4', async (req, res) => {
 
     // Get final quarter of test cases
     const finalQuarter = preparedData.slice(quarterSize * 3);
-
-    console.log(`Phase 4: Processing final ${finalQuarter.length} tests (complete conversion)`);
 
     // Prepare feedback context
     const feedbackContext = `Previous feedback from Phase 1:\n${phase1Feedback ? JSON.stringify(phase1Feedback, null, 2) : 'No feedback'}\n\nPrevious feedback from Phase 2:\n${phase2Feedback ? JSON.stringify(phase2Feedback, null, 2) : 'No feedback'}\n\nPrevious feedback from Phase 3:\n${phase3Feedback ? JSON.stringify(phase3Feedback, null, 2) : 'No feedback'}`;

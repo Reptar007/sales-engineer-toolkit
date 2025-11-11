@@ -48,7 +48,6 @@ export const useReviewData = () => {
     try {
       // Send approval to backend - for now just log it
       // The backend doesn't have a specific approval endpoint yet
-      console.log('Item approved:', item);
       // TODO: Implement specific approval endpoint on backend if needed
     } catch (error) {
       console.error('Failed to send approval to backend:', error);

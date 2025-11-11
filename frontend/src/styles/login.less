@@ -14,6 +14,27 @@
   padding: @spacing-large;
 }
 
+// Prevent scrolling on login page - target both html and body
+html:has(.login-page),
+body:has(.login-page) {
+  overflow: hidden !important;
+  height: 100vh;
+  max-height: 100vh;
+}
+
+.login-page {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: calc(100vh - 3.5rem); // Account for header - fixed height
+  max-height: calc(100vh - 3.5rem); // Prevent exceeding viewport
+  padding: 2rem 1rem;
+  width: 100%;
+  max-width: 100%;
+  padding-top: 5rem; // Slightly above center to prevent scrolling
+  box-sizing: border-box;
+}
+
 .login-container {
   width: 100%;
   max-width: 28rem;
@@ -75,10 +96,71 @@
   backdrop-filter: blur(10px);
 }
 
-.login-form {
-  .form-group {
-    position: relative;
-    margin-bottom: 1.5rem;
+  .login-form {
+    .form-group {
+      position: relative;
+      margin-bottom: 1.5rem;
+      
+      &.password-group {
+        .password-input-wrapper {
+          position: relative;
+          width: 100%;
+          
+          // Hide autofill icons using wrapper
+          &::before {
+            content: '';
+            position: absolute;
+            right: 2.5rem;
+            top: 0;
+            bottom: 0;
+            width: 1.5rem;
+            z-index: 5;
+            pointer-events: none;
+            background: transparent;
+          }
+        }
+        
+        input {
+          padding-right: 2.5rem; // Make room for toggle button inside the field
+          width: 100%;
+          
+          // Hide browser autofill icons - aggressive approach
+          &::-webkit-credentials-auto-fill-button,
+          &::-webkit-contacts-auto-fill-button {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+            position: absolute !important;
+            right: -9999px !important;
+            opacity: 0 !important;
+            width: 0 !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          
+          // Additional approach for Firefox and other browsers
+          &:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 1000px white inset !important;
+          }
+          
+          // Hide autofill icons in all browsers
+          &::-ms-clear,
+          &::-ms-reveal {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+          }
+        }
+        
+        .password-input-wrapper .password-toggle {
+          position: absolute;
+          right: 0.75rem;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 10;
+        }
+      }
     
     label {
       position: absolute;
@@ -123,17 +205,30 @@
       transition: all 0.2s ease-in-out;
       box-sizing: border-box;
       
+      // Hide browser autofill icons globally
+      &::-webkit-credentials-auto-fill-button,
+      &::-webkit-contacts-auto-fill-button {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        position: absolute;
+        right: -9999px;
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      
       &:focus {
         outline: none;
-        border-color: #10b981;
-        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         
         + label {
           top: 0;
           left: 0.75rem;
           font-size: 0.75rem;
           font-weight: 600;
-          color: #10b981;
+          color: #2563eb;
           transform: translateY(-50%);
         }
       }
@@ -144,7 +239,7 @@
         left: 0.75rem;
         font-size: 0.75rem;
         font-weight: 600;
-        color: #10b981;
+        color: #2563eb;
         transform: translateY(-50%);
       }
       
@@ -211,8 +306,8 @@
       
       &:focus {
         outline: none;
-        border-color: #10b981;
-        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
       }
       
       &:disabled {
@@ -244,8 +339,8 @@
       
       &:focus {
         outline: none;
-        border-color: #10b981;
-        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
       }
       
       // Error state styling for select
@@ -295,6 +390,61 @@
       // Style when placeholder class is applied
       &.placeholder {
         color: #9ca3af;
+      }
+      
+      .password-toggle {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6b7280;
+        transition: all 0.2s ease-in-out;
+        z-index: 10;
+        width: auto;
+        height: auto;
+        min-width: 1.75rem;
+        min-height: 1.75rem;
+        margin: 0;
+        
+        &:hover {
+          color: #374151;
+          background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        &:active {
+          background-color: rgba(0, 0, 0, 0.1);
+        }
+        
+        &:focus {
+          outline: 2px solid #2563eb;
+          outline-offset: 2px;
+          border-radius: 0.25rem;
+        }
+        
+        svg {
+          display: block;
+        }
+        
+        // Dark mode styling
+        [data-theme="dark"] & {
+          color: #9ca3af;
+          
+          &:hover {
+            color: #d1d5db;
+            background-color: rgba(255, 255, 255, 0.1);
+          }
+          
+          &:active {
+            background-color: rgba(255, 255, 255, 0.15);
+          }
+        }
       }
     }
   }
@@ -347,9 +497,27 @@
     }
   }
   
+  .success-message {
+    background: #f0f9ff;
+    color: #0369a1;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+    border: 1px solid #bae6fd;
+    font-weight: 500;
+    
+    // Dark mode styling
+    [data-theme="dark"] & {
+      background: #1e3a5f;
+      color: #93c5fd;
+      border-color: #3b82f6;
+    }
+  }
+  
   .login-button {
     width: 100%;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
     color: white;
     border: none;
     border-radius: 0.5rem;
@@ -362,7 +530,7 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     
     &:hover:not(:disabled) {
-      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
       transform: translateY(-1px);
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     }
@@ -392,7 +560,7 @@
   .link-button {
     background: none;
     border: none;
-    color: #10b981;
+    color: #2563eb;
     text-decoration: none;
     cursor: pointer;
     font-size: 0.875rem;
@@ -401,7 +569,7 @@
     transition: color 0.2s ease-in-out;
     
     &:hover {
-      color: #059669;
+      color: #1e40af;
       text-decoration: underline;
     }
   }

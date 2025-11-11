@@ -243,6 +243,13 @@
     padding: 0;
     padding-top: 3.5rem; // Account for fixed header
     overflow-x: hidden;
+    
+    // Prevent scrolling on auth pages
+    &:has(.auth-page) {
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+    }
   }
 }
 

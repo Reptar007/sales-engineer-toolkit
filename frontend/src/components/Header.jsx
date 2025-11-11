@@ -1,23 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import ThemeToggle from './ThemeToggle';
 
-const Header = React.memo(({ theme, toggleTheme, artistMode, toggleArtistMode }) => {
+const Header = React.memo(({ toggleSidebar }) => {
   return (
-    <>
-      <ThemeToggle
-        theme={theme}
-        toggleTheme={toggleTheme}
-        artistMode={artistMode}
-        toggleArtistMode={toggleArtistMode}
-      />
-      <header className="top-header">
-        <Link to="/" className="header-logo">
-          <img src="/saleswolf-icon.png" alt="SalesWolf" className="header-logo-icon" />
-          <h1>SalesWolf</h1>
-        </Link>
-      </header>
-    </>
+    <header className="top-header">
+      <button className="hamburger-button" onClick={toggleSidebar}>☰</button>
+      <Link to="/" className="header-logo">
+        <img src="/saleswolf-icon.png" alt="SalesWolf" className="header-logo-icon" />
+        <h1>SalesWolf</h1>
+      </Link>
+    </header>
   );
 });
 

@@ -1,26 +1,12 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 
 /**
  * Project Header - Navigation and project info for individual projects
  */
 function ProjectHeader({ project }) {
-  const navigate = useNavigate();
-
-  const handleBackToDashboard = () => {
-    navigate('/');
-  };
-
   return (
     <div className="project-header">
       <div className="project-header-left">
-        <button 
-          onClick={handleBackToDashboard}
-          className="back-button"
-          aria-label="Back to Dashboard"
-        >
-          ← Back to Dashboard
-        </button>
         <div className="project-info">
           <span className="project-icon">{project.icon}</span>
           <div>

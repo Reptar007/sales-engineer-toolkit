@@ -20,11 +20,20 @@
   margin: 0;
   border-top: none;
   z-index: 10;
+  transition: transform 0.3s ease-in-out; // Smooth slide animation
+
+  &.sidebar-closed {
+    transform: translateX(-100%);
+  }
 }
 
 .sidebar-nav {
   width: 100%;
   padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
 }
 
 .nav-list {
@@ -75,6 +84,28 @@
   flex: 1;
 }
 
+// Sidebar Footer Styles
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 1rem;
+  width: 100%;
+}
+
+.sidebar-divider {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 0.5rem 0 1rem 0;
+}
+
+// Make sure buttons in footer work like nav links
+.sidebar-footer .nav-link {
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
 // App Layout Styles
 .app-layout {
   display: flex;
@@ -94,6 +125,24 @@
   background-color: #ffffff;
   min-height: calc(100vh - 3.5rem);
   margin-left: 16rem; // Account for fixed sidebar
+  transition: margin-left 0.3s ease-in-out; // Smooth transition when sidebar toggles
+  
+  // When sidebar is closed, remove the left margin
+  &.sidebar-closed {
+    margin-left: 0;
+  }
+  
+  // Remove margin and padding on auth pages (login, password change)
+  &.auth-page {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: calc(100vh - 3.5rem);
+    max-height: calc(100vh - 3.5rem);
+    overflow: hidden;
+  }
 }
 
 // Top Header Styles
@@ -152,6 +201,16 @@
 
 .dashboard-projects {
   margin-top: 3rem;
+}
+
+
+.hamburger-button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 2rem;
+  cursor: pointer;
+  margin-right: 1rem;
 }
 
 // Responsive Design
