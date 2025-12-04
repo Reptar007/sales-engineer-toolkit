@@ -168,7 +168,7 @@ async function main() {
   console.log('🌱 Starting comprehensive seed for all teams, SEs, and AEs...\n');
 
   const defaultPassword = 'password';
-  const passwordHash = await bcrypt.hash(defaultPassword, 10);
+  const passwordHash = await bcrypt.hash(defaultPassword, 12);
 
   // Step 1: Create all teams
   console.log('📦 Step 1: Creating teams...');
