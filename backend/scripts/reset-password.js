@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync } from 'node:fs';
 
 // Load environment variables
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -10,7 +10,24 @@ dotenv.config({ path: resolve(__dirname, '../../.env') });
 dotenv.config({ path: resolve(__dirname, '../../../.env') });
 dotenv.config();
 
-const prisma = new PrismaClient();
+// Try to use root Prisma client (PostgreSQL) or fall back to backend client (SQLite)
+let prisma;
+try {
+  // Try root Prisma client first (for production PostgreSQL)
+  const rootPrismaPath = resolve(__dirname, '../../../generated/prisma/index.js');
+  if (existsSync(rootPrismaPath) && process.env.DATABASE_URL?.startsWith('postgres')) {
+    const rootPrismaModule = await import(rootPrismaPath);
+    prisma = new rootPrismaModule.PrismaClient();
+    console.log('✅ Using root Prisma client (PostgreSQL)');
+  } else {
+    throw new Error('Use backend client');
+  }
+} catch {
+  // Fall back to backend Prisma client (SQLite for local)
+  const { PrismaClient } = await import('@prisma/client');
+  prisma = new PrismaClient();
+  console.log('✅ Using backend Prisma client (SQLite)');
+}
 
 async function main() {
   const email = process.argv[2];
