@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync } from 'fs';
+import { existsSync } from 'node:fs';
 
 // Load environment variables
 const __dirname = dirname(fileURLToPath(import.meta.url));
