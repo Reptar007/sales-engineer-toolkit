@@ -236,6 +236,12 @@ async function main() {
       });
       console.log(`   ✅ Created SE user: ${seData.email} (${requiredRoles.join(', ')})`);
     } else {
+      // Update password hash to ensure it's correct
+      await prisma.user.update({
+        where: { id: seUser.id },
+        data: { passwordHash },
+      });
+      console.log(`   🔄 Updated password for ${seData.email}`);
       // Ensure roles exist and remove incorrect ones
       const existingRoles = seUser.userRoles.map((ur) => ur.role);
 
