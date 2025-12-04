@@ -3,21 +3,29 @@ import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
 
-// Load environment variables (Prisma will automatically use DATABASE_URL if set)
+// Load environment variables
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '../../.env') });
 dotenv.config({ path: resolve(__dirname, '../../../.env') });
 dotenv.config();
 
-// Use DATABASE_URL from environment (for production) or default to backend SQLite
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL || 'file:./dev.db',
-    },
-  },
-});
+// Try to use root Prisma client for PostgreSQL (production), fall back to backend client (local)
+let prisma;
+try {
+  // Check if root Prisma client exists (for PostgreSQL)
+  const rootPrismaPath = resolve(__dirname, '../../../generated/prisma/index.js');
+  if (existsSync(rootPrismaPath) && process.env.DATABASE_URL?.startsWith('postgres')) {
+    const rootPrisma = await import(rootPrismaPath);
+    prisma = new rootPrisma.PrismaClient();
+  } else {
+    throw new Error('Use backend client');
+  }
+} catch {
+  // Fall back to backend Prisma client (SQLite for local dev)
+  prisma = new PrismaClient();
+}
 
 // AE Directory mapping
 const aeDirectory = {
