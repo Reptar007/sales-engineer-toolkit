@@ -10,7 +10,14 @@ dotenv.config({ path: resolve(__dirname, '../../.env') });
 dotenv.config({ path: resolve(__dirname, '../../../.env') });
 dotenv.config();
 
-const prisma = new PrismaClient();
+// Use DATABASE_URL from environment (for production) or default to backend SQLite
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL || 'file:./dev.db',
+    },
+  },
+});
 
 // AE Directory mapping
 const aeDirectory = {
