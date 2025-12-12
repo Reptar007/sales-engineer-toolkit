@@ -125,6 +125,17 @@ export async function checkSalesforceHealth() {
   return apiRequest('/salesforce/health');
 }
 
+/**
+ * Fetch users
+ * @returns {Promise<Object>} Users
+ */
+export async function fetchUsers() {
+  return apiRequest('/users');
+}
+
+// Export apiRequest for direct use
+export { apiRequest };
+
 export default {
   processCSVWithChatGPT,
   postProcessCSV,
@@ -132,4 +143,5 @@ export default {
   checkHealth,
   fetchSalesforceReport,
   checkSalesforceHealth,
+  fetchUsers,
 };

@@ -19,16 +19,25 @@ function Sidebar({ isSidebarOpen }) {
     })),
   ];
 
-  const { logout } = useAuth();
+  const { user,logout } = useAuth();
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
+  const isAdmin = user?.roles?.includes('admin');
 
   return (
     <aside className={`sidebar ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
       <nav className="sidebar-nav">
         <ul className="nav-list">
+          {isAdmin && (
+            <li className="nav-item">
+              <NavLink to="/admin" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                <span className="nav-icon">👑</span>
+                <span className="nav-label">Admin</span>
+              </NavLink>
+            </li>
+          )}
           {navItems.map((item) => (
             <li key={item.path} className="nav-item">
               <NavLink

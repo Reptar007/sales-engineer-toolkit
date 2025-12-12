@@ -1,0 +1,149 @@
+/* Admin Page Component Styles */
+
+.admin-page {
+  width: 100%;
+  max-width: 100%;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background-color: transparent;
+  color: #333333;
+  margin-bottom: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+.admin-header {
+  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0 0 1.5rem 0;
+  margin-bottom: 2rem;
+}
+
+.admin-header-text {
+  text-align: left;
+  flex: 1;
+}
+
+.admin-header-text h1 {
+  font-size: 2.75rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  color: #333333;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.admin-header-text p {
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: #666666;
+  margin: 0;
+}
+
+/* Admin Tabs Navigation */
+.admin-tabs {
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.admin-tabs-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-tab-item {
+  margin: 0;
+}
+
+.admin-tab-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #666666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  font-family: inherit;
+  margin-bottom: -1px;
+}
+
+.admin-tab-button:hover {
+  color: #333333;
+  background-color: #f5f5f5;
+}
+
+.admin-tab-button.active {
+  color: #1e3a5f;
+  border-bottom-color: #1e3a5f;
+  font-weight: 600;
+}
+
+.admin-tab-icon {
+  font-size: 1.125rem;
+}
+
+.admin-tab-label {
+  white-space: nowrap;
+}
+
+.admin-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  width: 100%;
+}
+
+/* Section styles to match other project pages */
+.section {
+  width: 100%;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333333;
+  margin: 0 0 1.5rem 0;
+}
+
+.users-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 1rem 1.5rem;
+}
+
+.users-header button {
+  background-color: #1e3a5f;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.40rem;
+  cursor: pointer;
+}
+
+.users-header button:hover {
+  opacity: 0.5;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+}
