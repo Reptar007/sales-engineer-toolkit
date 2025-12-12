@@ -11,6 +11,7 @@ import ProjectView from './pages/ProjectView';
 import LoginPage from './pages/LoginPage';
 import PasswordChangePage from './pages/PasswordChangePage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import Admin from './projects/admin';
 
 /**
  * Main App Component with Routing
@@ -25,20 +26,25 @@ function AppContent() {
   };
 
   // Hide sidebar on authentication pages
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/change-password' || location.pathname === '/forgot-password';
+  const isAuthPage =
+    location.pathname === '/login' ||
+    location.pathname === '/change-password' ||
+    location.pathname === '/forgot-password';
 
   return (
     <div className="app">
       <Header toggleSidebar={toggleSidebar} />
-      
+
       <div className="app-layout">
         {!isAuthPage && <Sidebar isSidebarOpen={isSidebarOpen} />}
-        <main className={`main-content ${isAuthPage ? 'auth-page' : ''} ${!isAuthPage && !isSidebarOpen ? 'sidebar-closed' : ''}`}>
+        <main
+          className={`main-content ${isAuthPage ? 'auth-page' : ''} ${!isAuthPage && !isSidebarOpen ? 'sidebar-closed' : ''}`}
+        >
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            
+
             {/* Protected routes - password change requires auth but allows mustChangePassword */}
             <Route
               path="/change-password"
@@ -48,7 +54,7 @@ function AppContent() {
                 </ProtectedRoute>
               }
             />
-            
+
             {/* Protected routes */}
             <Route
               path="/"
@@ -59,6 +65,15 @@ function AppContent() {
               }
             />
             <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <Admin />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
               path="/projects/:projectId"
               element={
                 <ProtectedRoute>
@@ -66,7 +81,7 @@ function AppContent() {
                 </ProtectedRoute>
               }
             />
-            
+
             {/* Catch all - redirect to home */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
