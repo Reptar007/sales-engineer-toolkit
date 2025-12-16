@@ -84,6 +84,58 @@
   flex: 1;
 }
 
+// Dropdown Styles
+.nav-link-dropdown {
+  width: 100%;
+  cursor: pointer;
+  border: none;
+  background: none;
+  text-align: left;
+  font-family: inherit;
+  position: relative;
+}
+
+.nav-chevron {
+  font-size: 0.75rem;
+  margin-left: auto;
+  transition: transform 0.2s ease;
+  opacity: 0.7;
+}
+
+.nav-submenu {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0 0;
+  padding-left: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-left: 2px solid rgba(255, 255, 255, 0.1);
+  margin-left: 0.25rem;
+}
+
+.nav-subitem {
+  margin: 0;
+}
+
+.nav-sublink {
+  padding-left: 0.5rem;
+  font-size: 0.875rem;
+  opacity: 0.85;
+  margin-left: 0;
+}
+
+.nav-sublink:hover {
+  opacity: 1;
+  background-color: @nav-hover;
+}
+
+.nav-sublink.active {
+  opacity: 1;
+  background-color: @nav-hover;
+  font-weight: 600;
+}
+
 // Sidebar Footer Styles
 .sidebar-footer {
   margin-top: auto;
