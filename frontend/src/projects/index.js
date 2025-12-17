@@ -11,7 +11,7 @@ export const projects = {
     id: 'salesforce-metrics',
     name: 'Salesforce Metrics',
     description: 'Track and analyze your Salesforce performance',
-    icon: '📈',
+    icon: '☁️',
     component: SalesforceMetrics,
     path: '/salesforce-metrics',
     category: 'Analytics',

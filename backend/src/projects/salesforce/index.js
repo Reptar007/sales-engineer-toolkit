@@ -170,9 +170,17 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
         });
       });
 
+      // Calculate totals
+      const totalOpportunities = data.length;
+      const totalARR = data.reduce((sum, opp) => sum + (opp.arrAmount || 0), 0);
+      const totalARRFormatted = `$${totalARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
       res.json({
         success: true,
         reportId: reportId,
+        totalOpportunities: totalOpportunities,
+        totalARR: totalARR,
+        totalARRFormatted: totalARRFormatted,
         data: data,
       });
     }
