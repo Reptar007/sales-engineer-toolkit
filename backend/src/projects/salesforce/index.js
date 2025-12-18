@@ -195,4 +195,166 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
   }
 });
 
+router.get(`/opportunity/search`, authenticateToken, async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    // Validation: Check if search term exists
+    if (!search) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query is required',
+        details: 'Please provide a search term in the query parameter',
+      });
+    }
+
+    // Validation: Check minimum length
+    const trimmedSearch = search.trim();
+    if (trimmedSearch.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query too short',
+        details: 'Search term must be at least 2 characters long',
+      });
+    }
+
+    // Escape single quotes to prevent SOQL injection
+    const escapedSearch = trimmedSearch.replace(/'/g, "\\'");
+
+    // Create connection for each request
+    if (!conn) {
+      conn = await getSalesforceConnection();
+    }
+
+    // Build and execute SOQL query
+    const result = await conn.query(
+      `SELECT Id, Name, StageName, Amount, CloseDate, Probability, Type, 
+         CreatedDate, LastModifiedDate,
+         Description,
+         NextStep,
+         LeadSource,
+         IsClosed,
+         IsWon,
+         LastActivityDate,
+         ForecastCategory,
+         Gross_ARR__c,
+         ARR__c,
+         AE_Detailed_Notes__c,
+         Meeting_Booked_Details__c,
+         Manager_Notes__c,
+         Manager_Notes_Forecast__c,
+         Account.Name, Account.Id, 
+         Owner.Name, Owner.Id,
+         Product__c,
+         Account_Score__c,
+         Competitor__c,
+         Current_QA_Setup__c,
+         Company_Size__c,
+         Headcount_Range__c
+      FROM Opportunity 
+      WHERE (Name LIKE '%${escapedSearch}%' OR Account.Name LIKE '%${escapedSearch}%') 
+      ORDER BY Name ASC
+      LIMIT 50`,
+    );
+
+    // Transform results: flatten nested objects
+    const transformedData = result.records.map((record) => {
+      return {
+        id: record.Id || '',
+        name: record.Name || '',
+        stage: record.StageName || '',
+        amount: record.Amount || null,
+        closeDate: record.CloseDate || null,
+        probability: record.Probability || null,
+        type: record.Type || '',
+        createdDate: record.CreatedDate || null,
+        lastModifiedDate: record.LastModifiedDate || null,
+        description: record.Description || '',
+        nextStep: record.NextStep || '',
+        leadSource: record.LeadSource || '',
+        isClosed: record.IsClosed || false,
+        isWon: record.IsWon || false,
+        lastActivityDate: record.LastActivityDate || null,
+        forecastCategory: record.ForecastCategory || '',
+        grossARR: record.Gross_ARR__c || null,
+        arr: record.ARR__c || null,
+        aeDetailedNotes: record.AE_Detailed_Notes__c || '',
+        meetingBookedDetails: record.Meeting_Booked_Details__c || '',
+        managerNotes: record.Manager_Notes__c || '',
+        managerNotesForecast: record.Manager_Notes_Forecast__c || '',
+        accountName: record.Account?.Name || '',
+        accountId: record.Account?.Id || '',
+        ownerName: record.Owner?.Name || '',
+        ownerId: record.Owner?.Id || '',
+        product: record.Product__c || '',
+        accountScore: record.Account_Score__c || '',
+        competitor: record.Competitor__c || '',
+        currentQASetup: record.Current_QA_Setup__c || '',
+        companySize: record.Company_Size__c || null,
+        headcountRange: record.Headcount_Range__c || '',
+      };
+    });
+
+    // Return success response
+    res.json({
+      success: true,
+      count: transformedData.length,
+      data: transformedData,
+    });
+  } catch (error) {
+    console.error('Salesforce search error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: 'Failed to search opportunities in Salesforce. Please try again later.',
+    });
+  }
+});
+
+// Describe Opportunity object to find field names (helper endpoint)
+router.get('/opportunity/fields', authenticateToken, async (req, res) => {
+  try {
+    // Create connection for each request
+    if (!conn) {
+      conn = await getSalesforceConnection();
+    }
+
+    // Get object metadata
+    const metadata = await conn.sobject('Opportunity').describe();
+
+    // Extract fields with name and label
+    const fields = metadata.fields.map((field) => ({
+      name: field.name,
+      label: field.label,
+      type: field.type,
+      custom: field.custom,
+    }));
+
+    // Filter for fields containing "next" or "step" (case insensitive)
+    const searchTerm = (req.query.search || '').toLowerCase();
+    const filteredFields = searchTerm
+      ? fields.filter(
+          (field) =>
+            field.name.toLowerCase().includes(searchTerm) ||
+            field.label.toLowerCase().includes(searchTerm),
+        )
+      : fields;
+
+    res.json({
+      success: true,
+      totalFields: fields.length,
+      filteredCount: filteredFields.length,
+      searchTerm: searchTerm || 'all fields',
+      fields: filteredFields,
+    });
+  } catch (error) {
+    console.error('Salesforce describe error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: 'Failed to describe Opportunity object in Salesforce.',
+    });
+  }
+});
+
 export default router;
