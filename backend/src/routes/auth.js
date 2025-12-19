@@ -4,7 +4,7 @@ import { generateJWT } from '../utlis/jwt.js';
 import validatePassword from '../utlis/passwordValidation.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireRole } from '../middleware/rbac.js';
-import prisma from '../lib/prisma.js';
+import { getPrisma } from '../lib/prisma.js';
 
 const router = express.Router();
 
@@ -19,6 +19,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Get user from DB
+    const prisma = await getPrisma();
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
@@ -99,6 +100,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
     }
 
     // Get user from database (need passwordHash for verification)
+    const prisma = await getPrisma();
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: {
@@ -223,6 +225,7 @@ router.post('/register', authenticateToken, requireRole('admin'), async (req, re
     }
 
     // Check if email is already in use
+    const prisma = await getPrisma();
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(409).json({ error: 'User with this email already exists' });
@@ -334,6 +337,7 @@ router.post('/forgot-password', async (req, res) => {
     }
 
     // Check if user exists
+    const prisma = await getPrisma();
     const user = await prisma.user.findUnique({
       where: { email },
       select: {

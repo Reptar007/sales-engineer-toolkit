@@ -47,6 +47,17 @@ if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.startsWith('postgres'
   prisma = new BackendPrismaClient();
 }
 
+// Export a getter function that ensures Prisma is initialized
+export async function getPrisma() {
+  if (!prisma && process.env.DATABASE_URL?.startsWith('postgres')) {
+    await initializePrisma();
+  }
+  if (!prisma) {
+    throw new Error('Prisma client not initialized');
+  }
+  return prisma;
+}
+
 // Export the prisma instance and initialization function
 export { initializePrisma };
 export default prisma;
