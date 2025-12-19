@@ -1,13 +1,14 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireRole } from '../middleware/rbac.js';
-import prisma from '../lib/prisma.js';
+import { getPrisma } from '../lib/prisma.js';
 
 const router = express.Router();
 
 // Get all teams
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    const prisma = await getPrisma();
     const teams = await prisma.team.findMany({
       where: {
         isActive: true,
@@ -51,6 +52,7 @@ router.get('/', authenticateToken, async (req, res) => {
 // Get a team by id
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
+    const prisma = await getPrisma();
     const { id } = req.params;
     const team = await prisma.team.findUnique({
       where: { id },
@@ -102,6 +104,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create a team (for existing SE - use register endpoint to create SE with team)
 router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
+    const prisma = await getPrisma();
     const { name, description, userId } = req.body;
 
     // Validate inputs
@@ -195,6 +198,7 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 // Add AE to team
 router.post('/:teamId/aes', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
+    const prisma = await getPrisma();
     const { teamId } = req.params;
     const { name, salesforceId, salesforceEmail } = req.body;
 

@@ -1,5 +1,5 @@
 import { verifyJWT } from '../utlis/jwt.js';
-import prisma from '../lib/prisma.js';
+import { getPrisma } from '../lib/prisma.js';
 
 export const authenticateToken = async (req, res, next) => {
   try {
@@ -21,6 +21,7 @@ export const authenticateToken = async (req, res, next) => {
     const decoded = verifyJWT(authToken);
 
     // Get user from database with roles
+    const prisma = await getPrisma();
     const user = await prisma.user.findUnique({
       where: { id: decoded.sub }, // Use sub instead of userId
       select: {

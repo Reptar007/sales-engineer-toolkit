@@ -1,13 +1,14 @@
 import express from 'express';
 import { authenticateToken } from './middleware/auth.js';
 import { requireRole } from './middleware/rbac.js';
-import prisma from './lib/prisma.js';
+import { getPrisma } from './lib/prisma.js';
 
 const router = express.Router();
 
 // Get all users
 router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
+    const prisma = await getPrisma();
     const users = await prisma.user.findMany({
       select: {
         id: true,
