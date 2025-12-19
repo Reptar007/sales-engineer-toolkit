@@ -49,12 +49,30 @@ if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.startsWith('postgres'
 
 // Export a getter function that ensures Prisma is initialized
 export async function getPrisma() {
-  if (!prisma && process.env.DATABASE_URL?.startsWith('postgres')) {
-    await initializePrisma();
+  // If prisma is already initialized, return it
+  if (prisma) {
+    return prisma;
   }
+
+  // If we're in production (PostgreSQL), initialize it
+  if (process.env.DATABASE_URL?.startsWith('postgres')) {
+    try {
+      await initializePrisma();
+      if (!prisma) {
+        throw new Error('Prisma initialization completed but prisma is still undefined');
+      }
+      return prisma;
+    } catch (error) {
+      console.error('Failed to get Prisma client:', error);
+      throw new Error(`Failed to initialize Prisma client: ${error.message}`);
+    }
+  }
+
+  // For local development, prisma should already be initialized
   if (!prisma) {
-    throw new Error('Prisma client not initialized');
+    throw new Error('Prisma client not initialized. This should not happen in local development.');
   }
+
   return prisma;
 }
 

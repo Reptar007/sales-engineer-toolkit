@@ -20,6 +20,14 @@ router.post('/login', async (req, res) => {
 
     // Get user from DB
     const prisma = await getPrisma();
+    if (!prisma) {
+      console.error('Prisma client is undefined after getPrisma() call');
+      return res.status(500).json({ error: 'Database connection error' });
+    }
+    if (!prisma.user) {
+      console.error('Prisma client does not have user model. Prisma:', prisma);
+      return res.status(500).json({ error: 'Database model error' });
+    }
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
