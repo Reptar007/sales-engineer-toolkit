@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { getAllProjects } from '../../projects';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -9,15 +9,53 @@ import { useNavigate } from 'react-router-dom';
 function Sidebar({ isSidebarOpen }) {
   const projects = getAllProjects();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [openDropdown, setOpenDropdown] = useState(false);
+
+  const toggleDropdown = () => {
+    setOpenDropdown(!openDropdown);
+  };
+
+  // Separate Home from other nav items
+  const homeItem = { path: '/', label: 'Home', icon: '🏠' };
 
   const navItems = [
-    { path: '/', label: 'Home', icon: '🏠' },
-    ...projects.map((project) => ({
+    ...projects
+      .filter((project) => project.id !== 'salesforce-metrics')
+      .map((project) => ({
       path: `/projects/${project.id}`,
       label: project.name,
       icon: project.icon,
     })),
   ];
+
+  const salesforceSubItems = [
+    { 
+      path: '/projects/salesforce-metrics', 
+      label: 'Metrics', 
+      icon: '📈' // from registry
+    },
+    { 
+      path: '/projects/salesforce/calculator', 
+      label: 'Calculator', 
+      icon: '🧮' // hardcoded for now
+    },
+    { 
+      path: '/projects/salesforce/lookup', 
+      label: 'Lookup', 
+      icon: '🔍' // hardcoded for now
+    }
+  ];
+
+  // Get Salesforce project from registry for icon/name
+  const salesforceProject = projects.find(project => project.id === 'salesforce-metrics');
+
+  // Auto-expand dropdown when on Salesforce routes
+  useEffect(() => {
+    if (location.pathname.startsWith('/projects/salesforce') || location.pathname === '/projects/salesforce-metrics') {
+      setOpenDropdown(true);
+    }
+  }, [location.pathname]);
 
   const { user,logout } = useAuth();
   const handleLogout = () => {
@@ -30,6 +68,17 @@ function Sidebar({ isSidebarOpen }) {
     <aside className={`sidebar ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
       <nav className="sidebar-nav">
         <ul className="nav-list">
+          {/* Home - Always at the top */}
+          <li className="nav-item">
+            <NavLink
+              to={homeItem.path}
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+              end={homeItem.path === '/'}
+            >
+              <span className="nav-icon">{homeItem.icon}</span>
+              <span className="nav-label">{homeItem.label}</span>
+            </NavLink>
+          </li>
           {isAdmin && (
             <li className="nav-item">
               <NavLink to="/admin" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
@@ -38,6 +87,37 @@ function Sidebar({ isSidebarOpen }) {
               </NavLink>
             </li>
           )}
+          {/* Salesforce Dropdown */}
+          <li className="nav-item">
+            <button
+              type="button"
+              className={`nav-link nav-link-dropdown ${location.pathname.startsWith('/projects/salesforce') || location.pathname === '/projects/salesforce-metrics' ? 'active' : ''}`}
+              onClick={toggleDropdown}
+            >
+              <span className="nav-icon">{salesforceProject?.icon || '📊'}</span>
+              <span className="nav-label">Salesforce</span>
+              <span className="nav-chevron">{openDropdown ? '▼' : '▶'}</span>
+            </button>
+            {openDropdown && (
+              <ul className="nav-submenu">
+                {salesforceSubItems.map((item) => (
+                  <li key={item.path} className="nav-subitem">
+                    <NavLink
+                      to={item.path}
+                      className={({ isActive }) => {
+                        // Special check for Metrics - also active on salesforce-metrics route
+                        const isMetricsActive = item.path === '/projects/salesforce-metrics' && location.pathname === '/projects/salesforce-metrics';
+                        return `nav-link nav-sublink ${isActive || isMetricsActive ? 'active' : ''}`;
+                      }}
+                    >
+                      <span className="nav-icon">{item.icon}</span>
+                      <span className="nav-label">{item.label}</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
           {navItems.map((item) => (
             <li key={item.path} className="nav-item">
               <NavLink

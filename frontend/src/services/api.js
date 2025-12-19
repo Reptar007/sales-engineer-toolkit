@@ -133,6 +133,24 @@ export async function fetchUsers() {
   return apiRequest('/users');
 }
 
+/**
+ * Search opportunities in Salesforce
+ * @param {string} search - Search term
+ * @returns {Promise<Object>} Opportunities
+ */
+export async function searchOpportunities(search) {
+  return apiRequest(`/salesforce/opportunity/search?search=${search}`);
+}
+
+/**
+ * Fetch Gong conversations for an opportunity
+ * @param {string} opportunityId - Opportunity ID
+ * @returns {Promise<Object>} Gong conversations
+ */
+export async function fetchGongConversations(opportunityId) {
+  return apiRequest(`/salesforce/opportunity/${opportunityId}/gong-conversations`);
+}
+
 // Export apiRequest for direct use
 export { apiRequest };
 
@@ -144,4 +162,6 @@ export default {
   fetchSalesforceReport,
   checkSalesforceHealth,
   fetchUsers,
+  searchOpportunities,
+  fetchGongConversations,
 };
