@@ -36,8 +36,6 @@ try {
   console.warn('Static file serving disabled:', error.message);
 }
 
-// API Routes will be added in startServer() after Prisma initialization
-
 // Health check endpoint (legacy support)
 app.get('/healthz', (req, res) => {
   res.json({
@@ -48,25 +46,7 @@ app.get('/healthz', (req, res) => {
   });
 });
 
-// Catch-all handler: send back React's index.html file for any non-API routes
-// Note: During development, the frontend dev server handles routing, so this is mainly for production
-app.get(/^(?!\/api).*/, (req, res) => {
-  // Skip API routes
-  if (req.path.startsWith('/estimate') || req.path.startsWith('/healthz')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
-  }
-
-  const indexPath = resolve(__dirname, '../../frontend/dist/index.html');
-
-  try {
-    res.sendFile(indexPath);
-  } catch (error) {
-    console.error('Error serving index.html:', error.message);
-    res.status(404).send('Frontend not built. Please run npm run build first.');
-  }
-});
-
-// Error handling middleware
+// Error handling middleware (but not catch-all yet - that comes after API routes)
 app.use(notFoundHandler);
 app.use(errorHandler);
 
@@ -86,8 +66,26 @@ async function startServer() {
   // Import routes AFTER Prisma is initialized (dynamic import)
   const { default: apiRoutes } = await import('./routes/api.js');
 
-  // API Routes
+  // API Routes - register BEFORE catch-all
   app.use('/api', apiRoutes);
+
+  // Catch-all handler: send back React's index.html file for any non-API routes
+  // This MUST be registered AFTER API routes to avoid intercepting API requests
+  app.get(/^(?!\/api).*/, (req, res) => {
+    // Skip API routes and health check
+    if (req.path.startsWith('/estimate') || req.path.startsWith('/healthz')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+
+    const indexPath = resolve(__dirname, '../../frontend/dist/index.html');
+
+    try {
+      res.sendFile(indexPath);
+    } catch (error) {
+      console.error('Error serving index.html:', error.message);
+      res.status(404).send('Frontend not built. Please run npm run build first.');
+    }
+  });
 
   // Start server
   app.listen(PORT, () => {
