@@ -60,7 +60,15 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    // In development, return more details; in production, return generic message
+    const errorMessage =
+      process.env.NODE_ENV === 'production'
+        ? 'Internal server error'
+        : error.message || 'Internal server error';
+    return res.status(500).json({
+      error: errorMessage,
+      ...(process.env.NODE_ENV !== 'production' && { details: error.stack }),
+    });
   }
 });
 

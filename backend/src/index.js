@@ -5,12 +5,12 @@ import express from 'express';
 import cors from 'cors';
 import serveStatic from 'serve-static';
 
-// Import routes
-import apiRoutes from './routes/api.js';
-
 // Import middleware
 import { requestLogger, apiLogger } from './middleware/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+
+// Initialize Prisma client for production (PostgreSQL) BEFORE importing routes
+import { initializePrisma } from './lib/prisma.js';
 
 // Load environment variables
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -36,8 +36,7 @@ try {
   console.warn('Static file serving disabled:', error.message);
 }
 
-// API Routes
-app.use('/api', apiRoutes);
+// API Routes will be added in startServer() after Prisma initialization
 
 // Health check endpoint (legacy support)
 app.get('/healthz', (req, res) => {
@@ -71,7 +70,29 @@ app.get(/^(?!\/api).*/, (req, res) => {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  // Server started
-});
+// Initialize Prisma and start server
+async function startServer() {
+  // Initialize Prisma client if in production (PostgreSQL)
+  if (process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres')) {
+    try {
+      await initializePrisma();
+      console.log('Prisma client initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Prisma client:', error);
+      process.exit(1);
+    }
+  }
+
+  // Import routes AFTER Prisma is initialized (dynamic import)
+  const { default: apiRoutes } = await import('./routes/api.js');
+
+  // API Routes
+  app.use('/api', apiRoutes);
+
+  // Start server
+  app.listen(PORT, () => {
+    console.log(`Server started on port ${PORT}`);
+  });
+}
+
+startServer();

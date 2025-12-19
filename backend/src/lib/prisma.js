@@ -6,25 +6,47 @@ import { existsSync } from 'node:fs';
 // Use root Prisma client (PostgreSQL) in production, backend client (SQLite) in local dev
 let prisma;
 
-if (process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres')) {
-  // Production: Try to use root Prisma client for PostgreSQL
-  try {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const rootPrismaPath = resolve(__dirname, '../../../generated/prisma/index.js');
-    if (existsSync(rootPrismaPath)) {
-      const rootPrismaModule = await import(rootPrismaPath);
-      prisma = new rootPrismaModule.PrismaClient();
-    } else {
-      // Fallback to backend client if root client not available
-      prisma = new BackendPrismaClient();
-    }
-  } catch {
-    // Fallback to backend client if import fails
-    prisma = new BackendPrismaClient();
+async function initializePrisma() {
+  if (prisma) {
+    return prisma;
   }
-} else {
-  // Local: Use backend Prisma client for SQLite
+
+  if (process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres')) {
+    // Production: Use root Prisma client for PostgreSQL
+    try {
+      const __dirname = dirname(fileURLToPath(import.meta.url));
+      const rootPrismaPath = resolve(__dirname, '../../../generated/prisma/index.js');
+
+      if (existsSync(rootPrismaPath)) {
+        // Import the root Prisma client (generated from root schema.prisma)
+        const rootPrismaModule = await import(rootPrismaPath);
+        prisma = new rootPrismaModule.PrismaClient();
+        console.log('Initialized root Prisma client for PostgreSQL');
+      } else {
+        console.error('Root Prisma client not found at:', rootPrismaPath);
+        throw new Error('Root Prisma client not found');
+      }
+    } catch (error) {
+      console.error('Error initializing root Prisma client:', error);
+      throw new Error(
+        'Failed to initialize Prisma client. Root Prisma client not found. ' +
+          'Ensure Prisma client is generated during build.',
+      );
+    }
+  } else {
+    // Local: Use backend Prisma client for SQLite
+    prisma = new BackendPrismaClient();
+    console.log('Initialized backend Prisma client for SQLite');
+  }
+
+  return prisma;
+}
+
+// For local development, initialize immediately
+if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.startsWith('postgres')) {
   prisma = new BackendPrismaClient();
 }
 
+// Export the prisma instance and initialization function
+export { initializePrisma };
 export default prisma;
