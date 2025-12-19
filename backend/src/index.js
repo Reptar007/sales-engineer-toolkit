@@ -30,11 +30,14 @@ app.use(apiLogger);
 // Serve static files from the frontend build directory
 const frontendDistPath = resolve(__dirname, '../../frontend/dist');
 
-try {
-  app.use(serveStatic(frontendDistPath));
-} catch (error) {
-  console.warn('Static file serving disabled:', error.message);
-}
+// Configure serve-static to not throw errors when files don't exist
+// We'll handle routing to index.html in the catch-all route
+app.use(
+  serveStatic(frontendDistPath, {
+    fallthrough: true, // Don't throw 404, let it fall through to next middleware
+    index: false, // Don't serve index.html automatically
+  }),
+);
 
 // Health check endpoint (legacy support)
 app.get('/healthz', (req, res) => {
@@ -45,9 +48,6 @@ app.get('/healthz', (req, res) => {
     environment: process.env.NODE_ENV || 'development',
   });
 });
-
-// Error handler middleware (notFoundHandler will be registered after catch-all)
-app.use(errorHandler);
 
 // Initialize Prisma and start server
 async function startServer() {
@@ -88,6 +88,9 @@ async function startServer() {
 
   // 404 handler for unmatched API routes (register after catch-all)
   app.use(notFoundHandler);
+
+  // Error handler must be registered last (after all routes)
+  app.use(errorHandler);
 
   // Start server
   app.listen(PORT, () => {

@@ -1,4 +1,4 @@
-export const errorHandler = (err, req, res) => {
+export const errorHandler = (err, req, res, next) => {
   console.error('Error:', err);
 
   // Default error
@@ -22,13 +22,22 @@ export const errorHandler = (err, req, res) => {
     message = err.message;
   }
 
-  res.status(status).json({
-    error: message,
-    status,
-    timestamp: new Date().toISOString(),
-    path: req.path,
-    method: req.method,
-  });
+  // Ensure res is a valid Express response object
+  if (res && typeof res.status === 'function') {
+    res.status(status).json({
+      error: message,
+      status,
+      timestamp: new Date().toISOString(),
+      path: req.path,
+      method: req.method,
+    });
+  } else {
+    // Fallback if res is not valid
+    console.error('Invalid response object in error handler');
+    if (next) {
+      next(err);
+    }
+  }
 };
 
 export const notFoundHandler = (req, res) => {
