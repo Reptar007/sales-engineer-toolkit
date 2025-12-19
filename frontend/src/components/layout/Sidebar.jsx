@@ -18,15 +18,15 @@ function Sidebar({ isSidebarOpen }) {
 
   // Separate Home from other nav items
   const homeItem = { path: '/', label: 'Home', icon: '🏠' };
-  
+
   const navItems = [
     ...projects
       .filter((project) => project.id !== 'salesforce-metrics')
       .map((project) => ({
-        path: `/projects/${project.id}`,
-        label: project.name,
-        icon: project.icon,
-      })),
+      path: `/projects/${project.id}`,
+      label: project.name,
+      icon: project.icon,
+    })),
   ];
 
   const salesforceSubItems = [

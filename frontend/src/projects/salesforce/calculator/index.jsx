@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { fetchSalesforceReport } from '../../../services/api';
 import './SalesforceCalculator.css';
 
-const SalesforceCalculator = () => {
+const SalesforceCalculator = () => { 
     const [data, setData] = useState(null);
     const [metricsData, setMetricsData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -188,7 +188,7 @@ const SalesforceCalculator = () => {
         <div className="salesforce-calculator">
             <div className="calculator-header">
                 <div className="calculator-header-text">
-                    <h1>Salesforce Calculator</h1>
+            <h1>Salesforce Calculator</h1>
                     <p>Calculate projected totals and compensation for {currentQuarter}</p>
                 </div>
             </div>
