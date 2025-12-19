@@ -46,8 +46,7 @@ app.get('/healthz', (req, res) => {
   });
 });
 
-// Error handling middleware (but not catch-all yet - that comes after API routes)
-app.use(notFoundHandler);
+// Error handler middleware (notFoundHandler will be registered after catch-all)
 app.use(errorHandler);
 
 // Initialize Prisma and start server
@@ -86,6 +85,9 @@ async function startServer() {
       res.status(404).send('Frontend not built. Please run npm run build first.');
     }
   });
+
+  // 404 handler for unmatched API routes (register after catch-all)
+  app.use(notFoundHandler);
 
   // Start server
   app.listen(PORT, () => {
