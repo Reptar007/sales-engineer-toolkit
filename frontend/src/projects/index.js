@@ -5,6 +5,7 @@
 
 import SalesforceMetrics from './salesforce-metrics';
 import RatioEstimator from './ratio-estimator';
+import CodeSummaryPDF from './code-summary-pdf';
 
 export const projects = {
   'salesforce-metrics': {
@@ -17,6 +18,17 @@ export const projects = {
     category: 'Analytics',
     version: '1.0.0',
     features: ['Data Analysis', 'Reporting', 'Visualization', 'Export Results'],
+  },
+  'code-summary-pdf': {
+    id: 'code-summary-pdf',
+    name: 'PDF Generator',
+    description: 'Generate summaries of test code and create PDFs',
+    icon: '📄',
+    component: CodeSummaryPDF,
+    path: '/code-summary-pdf',
+    category: 'Tools',
+    version: '1.0.0',
+    features: ['Code Analysis', 'AI Summarization', 'Google Sheets Sync', 'PDF Export'],
   },
   'ratio-estimator': {
     id: 'ratio-estimator',

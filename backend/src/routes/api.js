@@ -5,6 +5,7 @@ import authRoutes from './auth.js';
 import salesforceRoutes from '../projects/salesforce/index.js';
 import teamRoutes from './teams.js';
 import userRoutes from '../user.js';
+import codeSummaryPdfRoutes from '../projects/code-summary-pdf/routes/index.js';
 
 const router = express.Router();
 
@@ -21,6 +22,7 @@ router.use('/users', userRoutes);
 router.use('/ratio-estimator', ratioEstimatorRoutes);
 router.use('/health', healthRoutes);
 router.use('/salesforce', salesforceRoutes);
+router.use('/code-summary-pdf', codeSummaryPdfRoutes);
 
 // API root endpoint
 router.get('/', (req, res) => {
