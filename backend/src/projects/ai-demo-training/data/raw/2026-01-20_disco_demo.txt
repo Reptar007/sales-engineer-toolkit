@@ -1,0 +1,842 @@
+"DISCO + QA Wolf - AI Testing Partnership
+
+Stephen Stabile with DISCO
+Recorded on Jan 20, 2026 via Zoom, 1h 1m
+
+
+
+Participants
+
+QA Wolf
+Stephen Stabile, Commercial Account Executive
+Ian Schaefer, Sales Engineer
+
+DISCO
+Jonathan King, Engineering Manager
+Jamie Caramanica, Senior Vice President of Engineering
+
+
+
+Transcript
+
+0:00 | Stephen
+him and I talked about our traditional model at qawolf which is services and a platform. But then we're also starting to offer our platform which our in house engineers use. So I guess this conversation can go either ways. But he basically said that it seems like you wanted your teams to continue working with a tool like the developers themselves, creating the tests and executing the tests. So, long story short that's a long winded answer to say that I want to hear what your goals are with testing your current concerns and then work towards just understanding, I guess what you'd want to see from us. And then we can also do an AI platform demo for you today as well if you want to see that. Sure that'd be. 
+
+0:34 | Jonathan
+Awesome. 
+
+0:34 | Stephen
+I'm just curious first off, where are you based at? I'm just curious. 
+
+0:38 | Jonathan
+I'm personally based out of Austin. I was at the home office before we decided to do remote stuff. 
+
+0:43 | Stephen
+Nice. Yeah, we're remote first as well. I'm in Boston, Ian's in Buffalo, New York, and we're headquartered in Seattle. We have people all over the place. Yeah. I also noticed you've been at disco for like, do you guys pronounce it disco or do you say like DISC o nope. 
+
+0:57 | Jonathan
+It's disco. 
+
+0:58 | Stephen
+Okay. I had to make sure because I just questioned that too before. I was like, it's all caps and I was like, maybe that means I'm saying it wrong, but seems like you've been there a while and like worked your way up to engineering manager. I guess, have you seen like a ton of growth at disco over the last like eight years or? 
+
+1:12 | Jonathan
+Yeah, absolutely. The company's very different from the company that I joined eight years ago. 
+
+1:18 | Stephen
+Yeah. Is it through a lot of acquisitions the growth came from or in house development? 
+
+1:23 | Jonathan
+No, it's almost entirely in house. So we've bought one product but it is also a product that most of our competitors give away for free. So we have it just so that we can check the box for our clients and say that, yeah, we can do that. 
+
+1:38 | Stephen
+Classic. Yeah, classic. That's so funny. Yeah, I think a lot of people do that these days, I mean, or offer open source offerings to try to get people in the door as well. I kind of like some other options like that. But cool. Cool. I guess like overall just from your viewpoint, going into 20 26 was curious like what your like top two three goals. This doesn't have to be pertaining necessarily to QA. Like just, I guess honestly interested to hear where QA stacks up with your overall goals going into this year. Yeah. 
+
+2:06 | Jonathan
+Let me give you an even broader picture. I'll tell you kind of what our QA story is at the moment and then where we're trying to go and then why we're trying to go there. So right now, we have a lot of cypress tests and that's our end to end test. And the reason that we ended up there is because we had a QA department and the QA department was almost a full release behind in testing the software that was going out. So it effectively was we were testing in production on customers that was terrible. We tried to get them to work ahead and work with engineering, but they just weren't able to keep up with it. And the engineers weren't wanting to communicate. So we stopped that experiment. And now the front end engineers are responsible for writing the end to end tests along with the features. And so we'll groom that out as part of our big initiatives and epics and everything. And it's just work that they take on… what we're seeing right now is we have really decent coverage of our happy paths. But that doesn't give us a lot of confidence with the new AI tools that have started to take over. We're starting to see huge volumes of code come through and we're bottlenecking in places that we never bottlenecked before like code reviews. And so we're looking for ways to have higher confidence with lower oversight. In the past, we had very high trust factor because we knew all of our engineers were really good people and they knew they wanted what was best for the company. And so you could trust without a lot of verification that their code was going to be good now with it being largely AI driven, you have no trust, you have no idea if what the code's coming in is secure if it's performant. So, a lot of our reviewers are spending extra time there on top of having so much more code to review. So the second thing that we're trying to achieve this year beyond just that is we're trying to get coverage numbers. We want to start to be able to see what coverage do we have on our happy paths today? That's manually curated. We just have somebody look at the test scenarios and they're like, well, we don't cover that so that's minus one. And they do cover this. So that's plus one. And we get this like really kludgy number that's out of date as soon as you're done with it. Yeah. So we want to have higher confidence and overall, it would be nice to have a score with how much we have as far as coverage, obviously, we have unit test coverage, but that almost doesn't count because in an end to end systems world with microservices, unless you've tested all of your microservices together, you really haven't tested any of them, right? 
+
+4:31 | Stephen
+Right. So essentially like end to end tests and then do some like integration testing, have confidence in all of your releases and just, yeah, I guess like new features functionality especially like the AI or with the help of AI coding that you're doing right now and then just increase coverage across the board. It's basically overall priority. 
+
+4:48 | Jonathan
+We're trying to push left, you know, I'm sure everybody is. 
+
+4:51 | Stephen
+Yeah, essentially shift left. Yeah, that makes sense. And so on the confidence with releases side, I mean, one thing Jamie mentioned was that the like I guess way your business is run or just maybe just because you're in like the legal business that any bug could cause for like an entire like partner to like leave you or like just an entire like thing like, so have you seen bugs become an issue? And like that's kind of like where the confidence and releases are coming from or? 
+
+5:17 | Jonathan
+They haven't and that's why we have the bottlenecks forming in the places that they are, because we have such thorough human review. All of our code in our deployment process will get cut a week before we plan to do a release. And we have a ton of automated testing that will run for the full week and it runs every day, the same test over and over again. Then we have human validation that runs two to three times a week and they'll go through and run very common scenarios, happy paths, all that kind of stuff. 
+
+5:47 | Stephen
+Interesting. And so how often are you releasing right now? Is it like by every week? Every week? Okay. So then the process is you? 
+
+5:56 | Jonathan
+I guess. 
+
+5:57 | Stephen
+Sorry, how much manual testing is being done? Like when you say coverage numbers? Like what percentage is automated right now on? 
+
+6:02 | Jonathan
+That we… see those as very separate numbers. So our automated test coverage even if it was 100 percent, we would still do a lot of manual testing because we want the human factor of hey, all of a sudden, this thing that was on the left side is over here, whereas a robot's like found that QA element that's fine. It's. 
+
+6:24 | Stephen
+so true, it's funny that you actually understand this because a lot of people say we're going to get to 100 percent automation and then not have to think about manual again. But there's still a lot of manual. Especially when you shift left, it's like new feature testing. Like anything like that will still be manually tested. And then you have your like core regression suites run through the automation and then kind of like from there just switch to production at the end. So yeah, I guess like overall. So it seems that you have no bug issues. Is there a goal to increase that release velocity at all? Like from a week to faster? Or is that not necessarily in the preview… we would. 
+
+6:55 | Jonathan
+love that, but that's not being held back by testing right now. The reason that we have a weekly deployment cadence is because we have an old C sharp app that has an extremely manual release process. It takes an entire day for them to release it. The UI is along for the ride. It takes us like three button clicks and we're out, but we are waiting on them that's why we have a delayed cadence. Interesting. 
+
+7:17 | Stephen
+Okay. And then I know that to use of the front end engineers are doing the UI testing like dudes, I mean you have like back end engineers doing API testing or are they the front end engineers doing everything? We? 
+
+7:28 | Jonathan
+Have a lot of different layers to our testing. So everybody doesn't does unit tests. The integration tests are done by the system owners. In most cases, the UI will do integrations with like our graph. And then things going into the graph will have their integration tests or between key services, they'll do integration testing. And then on top of all that, we have our end to end tests for our scenario, it's very expensive for us to run these because we have to spin up a whole data. Well, more than one, we spin up probably 50 databases for every one thing we're going to test. And then it has to run through this ingest process. Our setup on a lightning fast cadence takes 40 minutes for a new thing to be spun up so that it can be tested. And then the tests themselves. They're taking about 12 hours right now to get all the way through all of them. And that's because of limitations in our auth provider, we can't go parallel more than four instances at a time or we overwhelm our auth system. 
+
+8:30 | Stephen
+So that's like a it's not like a cypress sort of issue. It's like you're no matter what you'll never go above four parallel executions on your system. 
+
+8:37 | Jonathan
+Yeah. What ends up happening is all of a sudden, all of our API calls start five hundreding, and then everything has to shut down and cool off for a second while auth catches up. And then we start over. 
+
+8:48 | Stephen
+Interesting. I guess on a weekly cadence like 12 hours isn't I mean, that's a long time. But if there's no way to increase the parallel executions, like just increasing the automation and having more kind of like looped into that obviously would help in like the tail end of things. So, and you did say that the backend engineers are doing the API testing or is it the frontend engineers are doing end to end including API tests? Just curious there. 
+
+9:10 | Jonathan
+So the way that we see this end to end exercises the UI, the exact same way that a user would. So we don't through those tests, validate API inputs or anything. There are lots of other types of integration tests that will validate to contract. But the end to end tests pretend they're just Joe schmo running around our app. 
+
+9:31 | Stephen
+Got it. And that's how you want to continue operating. I. 
+
+9:34 | Jonathan
+assume probably like we've never had a conversation about changing it. I don't know you could probably make a compelling case for it. Yeah. 
+
+9:44 | Stephen
+Yeah. I would say a lot of people do the end to end including the API testing. I think that the same goes for integration testing. If you're testing an end to end test that goes in between two different platforms and the integrations there. It can kind of test the same thing as an integration test. So there's definitely ways not around it but just different ways of organizing everything here. Cool. 
+
+10:06 | Jonathan
+I guess. 
+
+10:06 | Stephen
+The main priority is going to be increasing the coverage through or increasing your confidence through increasing coverage. And your engineers obviously own all that process. Now, do you imagine that that's where you want to continue? Is that those front end engineers continue to own all the testing in… the future? Well, I don't. 
+
+10:25 | Jonathan
+feel strongly about it. It's convenient placing because right now we're resource heavy or we're resource constrained, I should say on the back end services, we've got a lot more back end work than front end if that were to flip over and suddenly we're resource constrained on the front end, it would probably be nice to be able to shift those around. 
+
+10:44 | Stephen
+Right, right. And I know you're using cypress now. I think Jamie and I discussed you guys are looking into playwright. Is that true? So. 
+
+10:55 | Jonathan
+We have both… primarily we steer people towards using cypress just because the dashboard's easier. And right now we're using their service that will rebalance our test runners. So, we know that when we've got, you know, 15 tests running, that each of the runners is doing something… we have playwright tests, we use those extensively when we need to inspect a payload for say a downloadable object or when we need to control browser uploads or we are even using them in our dls to do snapshot testing and things. 
+
+11:31 | Stephen
+Interesting. I guess, do you know how many cypress tests you have versus playwright? 
+
+11:37 | Jonathan
+Well, as a percentage, it's probably like 80 20 cypress… to playwright. I don't know the exact number of tests off the top of my head though. Yeah, it would be in the tens of thousands, probably tens of. 
+
+11:50 | Stephen
+Thousands for the cypress or for both. 
+
+11:52 | Jonathan
+Yeah. For the cypress, we have 30 something suites that are all running with hundreds of tests. 
+
+12:03 | Stephen
+Sweets with hundreds. So then in terms of where the coverage is lacking, I know you mentioned AI tooling that you're using for development, but is it spread evenly across these suites because of the processes that you're doing now for each of these? Or is it more like some are backlogged… with QA or something of that sort? 
+
+12:23 | Jonathan
+It's going to be the classic story of whatever is newest, has the most coverage. Whatever is oldest has the least. 
+
+12:29 | Stephen
+Yeah, yeah, yeah. 
+
+12:30 | Jonathan
+Which is unfortunate because that's where we need the most to have the most confidence in these refactors. So it ends up with, when we're going to go into old code, a lot of time is spent rewriting tests to make sure that we feel confident that we've got it covered before we start the new thing. 
+
+12:46 | Stephen
+Yeah, no, and honestly, that's like pretty typical just that yeah, teams have like their old software and then they start adopting like new QA processes like midway through. And then it's impossible to catch up that like backlog essentially or. 
+
+12:57 | Jonathan
+Test atrophy and you delete them. And suddenly your coverage went down and nobody notices. And then you have a weird dev who's like I hate this test deleted goes down again. 
+
+13:07 | Stephen
+It's so true. 
+
+13:08 | Ian
+Yeah. I was gonna ask maybe why you have more recent release coverage and that kind of answers the question. Oh. 
+
+13:14 | Jonathan
+That answer's really terrible because we have a lot of backbone code still. And the most recent runner we were using for unit testing was karma. And so when we switched over to jest, a lot of those tests, yeah. But jest not by anyway, that's a different story. We did that and we lost a bunch of test coverage because a lot of those tests required the whole app to be spinning up and jest doesn't run that way. And so we deleted a lot of the tests that required the full app to be running things that would validate. Like, I don't know the redux store was modified properly and stuff like that. 
+
+13:51 | Ian
+I gotcha. Yeah, that makes sense. 
+
+13:54 | Stephen
+Yeah. No, that is interesting. And then on the testing side of AI, just because I know Jamie and I discussed that your goals are kind of to incorporate more AI, I think to make your teams more efficient with testing at the very least. Do you have any AI testing features that you're using right now? And I don't know if cypress has much playwright maybe, but if. 
+
+14:14 | Jonathan
+you consider using tools like cloud to write tests that's pretty common for us, you'll have people come in, committing different tests like unit level, some integration level with it. There have been usages of AI to refactor cypress tests, but I don't know if they're using it for whole creation steps, right? 
+
+14:40 | Stephen
+Right. They're using it for creation and then they're probably maintaining the scripts as they go from there, but the initial creation is going to be done through AI capabilities. Is that how I'm understanding it correctly? 
+
+14:51 | Jonathan
+I don't think we start with AI. I think we start with human written tests and then they're augmented or updated with AI things. 
+
+15:02 | Stephen
+Right. Okay. No, that's interesting. Cool. And I think last thing here, maybe before getting into what qawolf is, and then we can show you a demo. Sorry… I guess looked into or thought about in terms of improving the process in the coming months or this year, what do you foresee as the perfect testing process in a few months from now? If? 
+
+15:26 | Jonathan
+You could, so I'm going to back out a little bit and share the overall goal. Testing is only one small piece in what we're trying to do. What we're trying to do is ship with high confidence and have high confidence in AI written code without high investment of human time in reviewing AI code. So the assertion right now is that by having greater amounts of automation in place, we can verify the outputs of code without having to read every line of that code. So that's what we're trying to do… testing is obviously a big part of it. Other AI skills are going to be a big part of it, but we don't have specific goals around what we're trying to do with say end to end tests. 
+
+16:10 | Stephen
+That makes sense. No, I appreciate that clarification I think on that front, then do you also see as getting time back for the engineers? Currently, the ones that are managing the test cases as a priority? 
+
+16:23 | Jonathan
+It's honestly not a big time spend for them right now. In the grand scheme of their day, the amount of time they spend writing tests is less than half a day a week. 
+
+16:35 | Stephen
+Yeah. So about like 10 percent of their time spent on testing. And then you also already said that their front end or at least the front engineers have less on their plate. So it's like not like they're kind of like working overtime or anything of that sort to keep up with the tests. So then overall, the goal would be or maybe not overall but part of the goal that could be here is just like incorporating AI for the teams to be more efficient. One thing, just like from my top of mind, and like what I mentioned earlier is that we traditionally have a pairing of our platform with service offering. And Jamie did also mention that it's probably not a direction to look into, but just like for your kind of future knowledge. Especially as you mentioned if the workload flips in the future, we have like the engineers here like 120 plus QA engineers. And so if in the future, whether it be now or like later, they wanted to flip on some services like we would be able to step in and like obviously know the platform and like assist with taking like QA maintenance executions off your plate and so on. So, and creation, give. 
+
+17:33 | Jonathan
+me a high level on that. Yeah, let me do that. Where do you integrate with companies when you're doing that? Yeah. 
+
+17:39 | Stephen
+So like just from the top, like we have our platform which we'll show you in a second. But the way it would be integrated in there is, I don't know if I asked him what cicd tools do you use? 
+
+17:48 | Jonathan
+It's you use Jenkins? 
+
+17:50 | Stephen
+So what we could do is like integrate with Jenkins where a new bill, it's pushed through Jenkins. That could auto trigger. This is like one example, but this could auto trigger this test suite to run. And so maybe it's like whatever 200 tests for that specific application that we're testing. And then from there, once you get like the green light, which would essentially be like all the tests passed, you can also mark these tests by different like levels like to like blocking tests and like non blocking tests. But assuming all the blocking tests pass with green, you get like a green like check mark to go mark in your Jenkins. And then from there, you could push to production. And then if there are bugs, our team would then essentially integrate with your use Jira or like whatever ticketing system. Yes, we'd integrate with Jira and essentially push a bug report that shows like the steps where you produce the bug of video and then that would be sent through a ticket or through slack or teams, whichever is easier. Like be essentially we'd set up with you our entire engineering team or QA team. We set up into a slack channel or a teams channel with you and your developers. So then that's like where most of the communication would happen. Like the first part of what I explained is I guess like process fit in. And then I think like one last thing to point out is that the bug report side of it I guess is important because a lot of the times like flaky tests like aren't actually bugs. And so we're taking that work off your plate as well by doing the bug investigation and then taking that off your plate. So then you're really only like putting out the like real bugs and not create like fixing tests when they're just flaky test cases. So. 
+
+19:12 | Jonathan
+At what point do you write the test? Yeah. So. 
+
+19:15 | Stephen
+The way like a partnership works, I think it's easier to start there is that we would get access to whatever application you care about. It could be all of them, could be one of them. And basically at your discretion, giving us access, they're giving us credentials. We would then scope out the like a test plan on that application or all of the applications. And then we could tell you, hey, this one, we could build 500 tests, but you could say, hey, we actually only care about 200 of these. Then we would then start the creation and get you to 50 percent coverage in three months and then 80 percent coverage in four months. Then we'd keep you above 80 percent like in our contracts above 80 percent automation of that test plan for the entire annual partnership. So how do. 
+
+19:52 | Jonathan
+you handle like new feature ads? 
+
+19:57 | Stephen
+Yeah. So it can work with, I guess a couple of different ways. I would say the main way maybe would be like communicating in that slack. Do you use slack or teams? Just like that? Yeah, perfect slack's much better. So we would set up in the slack channel and you could have your developers all in there and message to our team and say, hey, we have this new feature. Maybe it's like a loom video like a video recording and you can send it in there in our platform. We have a coverage request area. We also would have like biweekly check ins. So maybe you just say like, hey, like communicate to your CSM and then maybe it's documented in excel or anything like that. So there's like a lot of flexibility on our team. We basically want to make it easy for you. So I'd say like the majority of it's just like plainly is just having open communication which our team will be there like every day to communicate. And then I think another caveat here is that everyone in your development org would have access to the platform. So if they wanted to go in, if you wanted to go in and look at like previous test runs or execute a test manually, and. 
+
+20:50 | Ian
+Not have like the whole suite run. 
+
+20:51 | Stephen
+Like anything like that. Then you have access to the platform too, but like the whole like majority of the work is just us taking it off your plate. Not like trying to make you like log into anything or it's really just going to be like seeing a lot of results and like reports in slack and then communication through slack as well. And then tickets through Jira basically. 
+
+21:07 | Ian
+Okay. Interesting. 
+
+21:10 | Stephen
+Yeah. 
+
+21:10 | Jonathan
+I can see why Jamie would not want to do that. It doesn't sound like it would be a fast enough response time like you'd have to have, I don't know a six hour SLA for him to want to be willing to do that. 
+
+21:23 | Stephen
+So, on terms of like new test creation, you mean? Yeah. 
+
+21:26 | Jonathan
+Like, yeah, I mean, I would notify you of things coming out to it's like testing. 
+
+21:31 | Stephen
+We do usually get back pretty quickly. I don't know if Ian, you can. 
+
+21:34 | Ian
+Say like you have an idea on. 
+
+21:36 | Stephen
+Like, I don't I wouldn't say like six hours if it's like at midnight type of situation, but if it's like in the morning like type of thing like by the end of the day would definitely be something that we would be able to do are? 
+
+21:46 | Jonathan
+You guys global or U. S based or we're global? 
+
+21:48 | Stephen
+Yeah, we have offices like U. S and then UK, and Australia. Okay. Interesting. 
+
+21:54 | Jonathan
+Yeah. We're in the U. S, UK and India. Nice. I guess India's not too. Oh, I guess in Kyrgyzstan. Ah, yeah. 
+
+22:02 | Stephen
+Yeah, yeah. But no, I guess India hours, can be all over the place. So, yeah, maybe it is 24 seven still… but I guess my point also explaining this is that we have opportunity to have some sort of like form of hybrid model here. And like that's why, like Jamie agreed, like to your point like that maybe like the platform is something that's worth exploring the services, not so much, but I think even more so like having some sort of hybrid like offering where like maybe we're just doing the maintenance and your team's doing the creation in our platform. Like there's a lot of options like that where it's like if you need your team to just quickly jump on and creating a test case, you could log into our platform and do that and then tell us, hey, we created this test case. Can you guys maintain that for us and execute it for us on a daily cadence like that's something that's also like I think worth exploring in the future, but, yeah. 
+
+22:46 | Jonathan
+I was curious what's onboarding offboarding like if we do have some playwright tests, do those just transfer over? And then we just have to have the playwright ones rewritten or is this more proprietary kind of an API setup and we have to rewrite them for this? I'm gonna ask. 
+
+23:01 | Stephen
+Ian, have you dealt with any migration from playwright to our platform? I know we migrate out to you. So you own all the test cases that we create in our platform. I just don't know like Ian, have you personally done any migration? Yeah, it's. 
+
+23:14 | Ian
+pretty simple because it's all playwright. We have a couple proprietary things that we do in our platform. Like the launch code is a proprietary helper that translates directly into vanilla playwright. And we also have a proprietary inboxing capabilities through our inbox that we have set up in our platform. So that's another area where we would have to transfer some stuff over. And then all of the code that we build gets transferred out as a playwright project. So it's just vanilla playwright. And then again, the inboxing capabilities you might not be able to have. So that's something that would have to be set up by an engineer on your side if you were to want to export the code. But all of the code that we build and maintain is yours to keep at the end of an engagement. And then we give that to you. But it's all vanilla playwright and pretty easy to stand up in house if that's something that you were looking for. Yeah, I. 
+
+24:08 | Stephen
+think another part to answer your question fully is that we could migrate the cypress tests into our platform. I'm sure that would come at a cost and then the playwright ones I think would be easier if you're driving the creation, then I would assume that we would help and just give you pointers on the migration and it probably wouldn't be too difficult but you would then be able to upload those playwright scripts into our playwright platform and playwright based platform and then have it all kind of organized in one place. Yeah, where? 
+
+24:36 | Jonathan
+Are you guys using AI most in your platform? Yeah, no great. 
+
+24:39 | Stephen
+Question. So, it's two parts. One is the creation just like we'll show you the demo in a second, but it's basically. 
+
+24:45 | Jamie
+Prompt based? 
+
+24:47 | Stephen
+And it's going to be creating script as well. So like a lot of times it's either like creating script or it's creating like object recognition, like in the back end, ours is creating script in playwright, and then it's going to be for the creation side. And then it's also going to be for the scoping side like test planning side, exploratory side. So those are the two main areas. I don't know if you want to just jump into the demo now, Ian, it might just make sense. 
+
+25:07 | Ian
+I mean, we have a decent amount of time, but everything that Steven was talking about, I was planning just on showing in the platform whenever you wanted to cool. So like, yeah, you've pretty much just been giving an overview and it's all been a really good explanation, so, great job there. But yeah, I can get into the demo if that's what you'd like, yeah, I. 
+
+25:25 | Stephen
+Guess, do you have any additional questions, Jonathan right now? I'm sure I'll have. 
+
+25:28 | Jonathan
+thousands, but let's jump into the demo and we'll see what we already covered. So I don't have to double tag. 
+
+25:32 | Stephen
+That's what I was thinking. One thing just while you're pulling it up. Ian is just for you Jonathan. I have a question is just how many people do help with the front end testing? I know that there's like 160 engineers total at the company. Is it like 50 people that do testing closer? 
+
+25:48 | Jonathan
+To 35? 
+
+25:50 | Stephen
+35? 
+
+25:58 | Jamie
+Can you guys see this? Yeah. 
+
+26:00 | Ian
+Cool. So, this here is the QA wolf platform. This in particular is my AI sandbox that I use to do AI exploration and creation. So on the left side here, this is where the flows of your suite are going to live. So a flow we describe like an end to end test. It's like what the user is doing on the platform. So that's kind of how we denote a test and that's using our aaa model. So that's a range act and assert which is similar to gherkin, just more drawn out of a framework for end to end modeling. So, yeah, when we are building these flows, we'll plan them out here. And then we'll start implementing them. So I can, yeah… I'll build a flow using the AI just to show you our creation tool that's one of the tools that I use the most in terms of increasing my velocity as someone building these suites. 
+
+27:00 | Ian
+And then on our platform, we also have two modes. So we have like a code mode which you'll be able to see all of the playwright code. 
+
+27:16 | Ian
+We have access to JavaScript dependencies. So we can import things like faker, datefns to help with our flows. And then we also have the support of our AI to be able to import. 
+
+27:29 | Jamie
+Those. 
+
+27:29 | Ian
+Into our test code just for ease of use. And then we also have these global tests that will help us with how helper functions that we can use throughout the entirety of the suite. So that helps for page object model oriented suites and helpers that we want to be able to use everywhere. So it makes the maintenance significantly easier and things along that line. So to demo our AI, I'm just going to do something like go to qawolf. Com. 
+
+28:24 | Ian
+You can really give our AI any prompt. 
+
+28:27 | Jamie
+That you're. 
+
+28:28 | Ian
+looking for on your application. So I gave it qawolf. Com. But realistically, you can point this to any URL and it's going to start exploring the webpage. And because I gave it that prompt, it's going to understand the context of what I'm kind of looking for here and it's going to try to identify features on the app that kind of fit that context. And then it'll explore there and just kind. 
+
+28:51 | Jamie
+Of mess. 
+
+28:52 | Ian
+Around with the app, make sure that it's orienting itself properly and just kind of go through the steps as I described. So in this example, it was a really simple set of steps and. 
+
+29:02 | Jamie
+We'll just see. 
+
+29:04 | Ian
+It work through here so it can see the entire area, the document object model, so it can see all the HTML on the front end? 
+
+29:14 | Jamie
+What it can do? 
+
+29:14 | Ian
+Is it can just iteratively go through that and use screenshots as well to kind of position itself on the page. So what we'll see here in a sec, is it's going to look for that? Anything that resembles maybe the area it wants to write this test code. So it'll probably navigate to the sign in page in a second. And then we'll be able to see how it thinks about writing this test here? 
+
+29:43 | Ian
+QA, wolf, we have pretty high code standards for how we maintain our code. So everything is commented clearly and the point of the test should be self. So that's something that we do prioritize when we're writing these tests? 
+
+30:00 | Jonathan
+These in JavaScript or typescript JavaScript. 
+
+30:04 | Ian
+So, playwright in JavaScript. 
+
+30:09 | Stephen
+Do you use JavaScript here? We're. 
+
+30:12 | Jonathan
+mostly typescript now, but there's definitely JavaScript hanging around. 
+
+30:16 | Jamie
+I got you. And, 
+
+30:17 | Ian
+it's a pretty easy translation between typescript and JavaScript. So not too. 
+
+30:22 | Jonathan
+Much overhead there. Sure. I only ask because you have a type error and it didn't do anything about that. And I was wondering if it was going to get back to it. Oh, yeah. 
+
+30:28 | Ian
+It probably will that's an interesting thing. 
+
+30:45 | Jonathan
+So this looks like it's running an agentic model. 
+
+30:48 | Ian
+What kind of. 
+
+30:50 | Jonathan
+limitations on tokens does that create when we're writing tests? 
+
+30:56 | Ian
+I don't think we have a limitation on token usage. We don't really charge based on token usage. Isn't that right? Steven? 
+
+31:07 | Stephen
+No, no, there's definitely not any charge on token usage now. 
+
+31:10 | Ian
+Yeah. It all comes down to tests under maintenance and the capability of the language model. I'm not on the agent team. So I'm not entirely sure you know what the token limitation is there. 
+
+31:23 | Jonathan
+Let me ask a question in a totally different way and see if this will make more sense. How long of a sequence of events can I give it and it be able to understand and navigate? Can I say things like land on the homepage? Click on this link, open this tab, start filling out this document, hit the processing and then wait for it to come out the other side. Yeah. 
+
+31:46 | Ian
+I would say that's not too many steps. I've never ran into an application that was too large for the model to navigate through comfortably and be able to identify those. And I think it really helps that you gave it kind of like a closed context with exactly what you're looking for. So it's not really open ended in its exploration. That really helps limit the amount of tokens needed. So, all that stuff. 
+
+32:11 | Jonathan
+I just described is really easy for like a human to just like do it really fast. What's the advantage of the AI model? Like what is this giving us that's so powerful? 
+
+32:20 | Ian
+I would say the iterative exploration that I'm about to demonstrate in a second is probably the most powerful in comparison to, you know, because I could write this flow in probably the same amount of time that it took the AI to. But what I can't do is explore an application, you know, with no stone left unturned in a matter of two hours, you know, like for a person to do that, I think that would be really, that would be a lot, but we can see here that the AI wrote this test code and it did it 100 percent perfectly. So this is just kind of a smaller example kind of to demonstrate how the AI writes test code. And then what I'll do now is I will honestly just reset this and then I'll tell it to do that exploration that I was just explaining? 
+
+33:16 | Stephen
+We're just doing the AI demo. Hey, sorry, I'm late. No worries at all. 
+
+33:20 | Ian
+Jonathan is the most important person anyways on this. 
+
+33:22 | Stephen
+Yeah, we spoke for like 25 minutes just about goals and whatnot, and then, yeah, we started the demo like five minutes ago, but essentially showing the like prompt based test creation. I think now you're going to yeah like test outlining the like two main capabilities of the AI features. Yeah. 
+
+33:37 | Ian
+I'd say that this is good for now. I think what it's going to do is it has a different goal now. So instead of looking for that test in particular, what it's going to do is it's going to navigate through all of qawolf. Com. And it's essentially going to look for whenever there's how can I describe this? The foundational element on the page? It's going to, it's going to mess around with it a little bit and it's going to see, you know, whether it would be a negative path test or if it would be a happy path test maybe. And then what it's going to do on the left side here. It's going to put those, what it's seeing into groups. And then it's going to slowly build out this test suite in terms of… each of those micro exploration steps that it went through. So like say, if there's a banner that's supposed to pop up when a particular action occurs, it would say, let's make sure that this banner pops up which are arguably, you know, could blow up the amount of tests that you're looking for. But then what we do is we go through, what it produced and we say, hey, we want these ones. We don't necessarily want this set of tests or even on an individual basis, you can go through and say like dismiss banner announcement. You're going to like maybe there's a case where you're going to want to say, we need to make sure that works when we click this button, which on a super granular level, is much more difficult for a human to come through and check all of those things. And you can point this on certain parts of the app and still have that level of granularity, in its outlining process. Do? 
+
+35:13 | Jonathan
+You guys do many, are many of your clients, web applications versus websites? Yeah, I would. 
+
+35:20 | Ian
+I would say that, you know, there there are a lot of really strongly functional web applications that rely on like more elaborate backend architectures for sure rather than just like a website where it's mostly UI based. So, yeah, I would say we do have some pretty complex web apps. How does. 
+
+35:37 | Jonathan
+it handle the combinatorial effect of all of those things? Like most web apps, you know, have a 1,000 options and that can quickly graph out into infinity. 
+
+35:50 | Ian
+You know, a lot of what our QA engineers are good at is guiding our AI tooling as well. So just kind of like avoiding those infinite case scenarios like and it's kind of hard, you know, I feel like there's not necessarily an infinite amount of things on a website. It might seem that way especially on large ones. But the context of these models especially as AI is progressing in the real world, like it's able to iterate through a very large amount of these cases without necessarily spiraling into an infinite loop. Yeah. I think one other. 
+
+36:27 | Stephen
+Thing just to add is that we still believe that there needs to be some sort of human in the loop for any AI testing and that's like where the traditional model comes from, where we have like the service, I guess like paired with the platform. Like if you were to use just the platform, like obviously your teams would still like have to be like fairly, in the loop to make sure everything's there. But it's going to speed up like the efficiency and creation and then exploit expiration and maintenance. It's like the main time savings. 
+
+36:52 | Ian
+Here, right? 
+
+36:57 | Jonathan
+I see it said building test plan a bunch of times. Where is it putting these test plans? Is that what's in the left side over here? Correct? 
+
+37:04 | Ian
+Yeah. So everything on the left side here, these are draft workflows. So, but what happens is when this completes its exploration, I would go through all of these and just kind of pick and choose what I would think would be most significant, for my goal. You know, it depends what I, as the tester am kind of looking for to get out of this. If I had said let's focus on, you know, our larger end to end flows. It would have explored a little bit like longer before coming to a conclusion. And some of these are probably going to be those larger end to end flows. It's just making sure it touches on, you know, every area, 
+
+37:44 | Jonathan
+So, it really? 
+
+37:46 | Ian
+Depends on, you know, your goal for the outline and then you would then prompt it maybe slightly differently. So I kind of gave it a really ambiguous prompt. I just said outline me a test plan. So like that could mean a lot of things. You know, you have a really robust. 
+
+38:08 | Jonathan
+Testing model. 
+
+38:09 | Ian
+In it like that, you use, you know, you have your end to end cypress tests and then you have unit testing as well. So it's really about identifying where the gaps are in that maybe and then, you know, pointing our AI tooling kind of in that direction. 
+
+38:29 | Ian
+So if you're still exploring this will honestly take a decent amount of time. I can stop it whenever you think it would be appropriate. 
+
+38:38 | Jonathan
+I'm kind of curious on some of the things that it's selected to do like it said, click and then it gave you an exact coordinate. Is it preferences selecting by clicking in an area or by selecting elements? 
+
+38:54 | Ian
+I think during exploration, it has a preference to coordinates because it's easier to do and requires less tokens to identify something on the page and click a coordinate rather than do it by its selector. But as we move into the creation phase of the AI tooling, it'll start using those selectors because it's going to want to, you know, it has, it knows that it's its end goal is to write a test. So it's going to start using the selectors, testing the selectors, making sure they're operational rather than using coordinates. 
+
+39:27 | Jonathan
+Anybody use this to write tests for any of the areas where you don't have selectable elements. Like we have a PDF viewer that's done entire entirely drawn on screen. So there aren't individual elements. And I'm just curious, we have a video player that I think is probably going to be leveraging the same thing like canvas area. Yeah. 
+
+39:49 | Ian
+Yeah, we do have a lot of customers that use canvas areas. And in situations like that, it does operate on the ability to use screenshots and use coordinates. So with playwright, we do have the ability to use coordinate clicks and then it'll end up vouching to use those, but we find those are less stable than using, you know, dom based selectors. So where possible, we don't do that, but our AI tooling is aware of that and will opt for it coordinate based selection where selectors fail. 
+
+40:25 | Jonathan
+You know, obviously the big elephant in the room. How is this better than me just pointing Claude at it and saying the same thing? Well. 
+
+40:33 | Ian
+This is built on all of our infrastructure and we use our aaa model. So we have a lot of in house expertise that went into, you know, designing this AI to be very good at playwright testing in particular, and end to end test scripting. So it's much more tailored, you know, a lot of the things that make these models very powerful is the personalization features and the ability to customize these large language models. And that's what we've done here. So we've essentially taken everything that QA wolf is and kind of plugged it into this model to make it really good at what it does in designing playwright. 
+
+41:09 | Jonathan
+Tests… I think also just like. 
+
+41:11 | Stephen
+being able to use the platform like integrate into your system, like I talked about earlier, so like you can set up those integrations yourself with Jenkins and Jira and whatnot. And then the tail end is just that we like have all these engineers in house. So with that, like comes this like white glove support where if there's something that your team's struggling to work through like anything like that, we can just remote into this platform and help out. So I would say like those main points that Ian mentioned, bless these two. Yeah another. 
+
+41:36 | Ian
+Thing to touch on is it's really hard to store the amount of context that it's producing and be able to transfer that into a new say Claude chat. So as this progresses and you start building these flows out, our AI tooling actually can see all of the test code in all of these tests. So it just kind of also is readily available for the model and it has the context of the page document, object model, all of the test code you currently have and the context that you give it in the chat. So it kind of is just like a really hyper tuned model that's built on our infrastructure and has the context of our infrastructure, which is something that I don't think Claude would be able to do unless you were able to customize it really aggressively. 
+
+42:25 | Jonathan
+I'll just add. 
+
+42:25 | Stephen
+You already called this out, but other benefits just in general, we do have large ability to do parallel executions. Obviously, it doesn't for you, but that's just from a platform point of view, we have infinite parallel executions. We can do if the platform ever is able to handle more as well. 
+
+42:42 | Jonathan
+Talk to me about the dynamic nature and security, how? 
+
+42:46 | Ian
+Do you handle if we don't have? 
+
+42:49 | Jonathan
+Usernames and passwords, for example, we don't you can't use that to do in our test environment, we have to hand you JWT in order to be able to test with. 
+
+43:00 | Ian
+Okay. In order to access the application. 
+
+43:04 | Jonathan
+Yes. Okay. Yeah. Those would get. 
+
+43:07 | Ian
+Stored as environment variables. I'm going to save this because it did a lot of work right there. 
+
+43:16 | Jonathan
+I'm going to make this more complicated every time. So, I'm going to start on the easy level. We have to pass through JWT. And we have more than one level of user and we need to switch between these most of the time to be able to exercise a feature with say basic administrative and then super tier admin. 
+
+43:33 | Ian
+Okay. Yeah. So I guess in terms of security, every variable that we have that's significant to security, we store in environment variables. So we have all of these environment variables. We use a Google cloud provider. So whenever we use an environment variable that's stored encrypted on their platform… how do we add? 
+
+43:55 | Jonathan
+Them, is the only way to add variables through this UI. Is there an API for that? 
+
+44:00 | Jamie
+I'm. 
+
+44:00 | Ian
+fairly certain that the way to do it is through this platform. So you just have, you know, the variable name. So. 
+
+44:06 | Jonathan
+We can inject them through Jenkins. 
+
+44:08 | Ian
+I think we can do that. I think we can do that because it's an API that's if the API is available, we can use it to get the data into the test code basically. 
+
+44:18 | Jamie
+Okay. 
+
+44:21 | Ian
+So, I've seen in flows apis connecting. And then since it's playwright and JavaScript, we can change these environment variables based on the API call that's in the test code. 
+
+44:33 | Jamie
+We shouldn't be able to use this in our test environment, though, right? Because it's not a, you can't access the app through the internet. So this. 
+
+44:40 | Jonathan
+Would only be able to do it in production. That was going to be next, is, how do we handle having to get behind firewalls? 
+
+44:46 | Jamie
+So we can. 
+
+44:47 | Ian
+VPN into… the platform using, sorry? 
+
+44:55 | Jonathan
+Well, that's okay. There's no way security would let us do that zero percent chance. But yeah, so. 
+
+45:02 | Ian
+It's either it's either an accessible URL or, we can tunnel in if, you know, security allows. And that those are the two, you know, common scenarios that we would use, so that we would definitely have to take that into consideration. 
+
+45:19 | Jamie
+Yeah, like we can like. 
+
+45:20 | Stephen
+whitelist, tunnel. Yeah. Another question. 
+
+45:23 | Jamie
+I have is when you're talking about the model. So, do you have your own model that you're training and tuning? 
+
+45:28 | Ian
+Yeah. So this is all a model that was built by our agents team? 
+
+45:33 | Jamie
+Okay. So when you're doing stuff for us, are you using what we're doing to help train that model that other people are using? 
+
+45:39 | Ian
+No, we don't use any data from our customers to train our model? Yeah, how are you training your model then? Well, I guess it's not our model. It's a custom model. So, a lot of this, is we use open AI API. Oh, okay. And then, and then it's a fine tuned model, so that's a better way to answer your question. 
+
+45:59 | Jamie
+Okay. Thank you. 
+
+46:00 | Ian
+Yeah, yeah. 
+
+46:03 | Stephen
+I mean, from security point of views, like we are like, 
+
+46:04 | Jamie
+soc certified. 
+
+46:06 | Stephen
+And hipaa compliant and whatever else. So, I don't know if like that's also where this is heading. But yeah, like a lot of times like security hasn't been a concern. I'd say. 
+
+46:15 | Jonathan
+Yeah, it's just, I mean that's. 
+
+46:16 | Jamie
+we use llms as well, right? And so no matter what people don't want you. 
+
+46:22 | Ian
+Know their data. 
+
+46:24 | Jamie
+In there, and then with this understanding how our application works, I wouldn't really necessarily want that to get out of like a competitor going, hey, by the way, this is how their stuff works or this is how, you know, to do the breaking or whatever, right? So it's part of it's understanding the model cause then you can ask questions from anything, right? I'm like, oh, how does this work? 
+
+46:43 | Ian
+Yeah. So the model is not trained using data from our customers. Perfect that I can say confidently. Yeah, that was like the, 
+
+46:51 | Stephen
+biggest question. I started to get like two years ago with AI tooling, it's like, so do you use our AI to train models? Like, no, totally understand. 
+
+46:59 | Ian
+But yeah. And then from here, we can select any of these tests and we can say, hey, we're looking to write this test here. We have. 
+
+47:12 | Ian
+Notes from the test from our AI model. So we could say, hey, let's go in. Let's write this test so you can see. 
+
+47:34 | Ian
+We can begin writing that test. So we would go through all of these pick and choose which ones we'd like, and, you know, the exploration varies based on the prompt, but you know, overall that's a significantly faster process than a human going through the app in that fashion, and kind of doing the same thing. So it really increases our velocity as a company. We're able to get much more things done much faster and we're able to, you know, give customers much more in depth coverage that otherwise would be really difficult. And then we do that. We can also do happy paths. So all the infrastructure that you have currently, if you did want all of your testing in one spot, we would be able to help with that also. 
+
+48:17 | Jamie
+So, how do you organize? 
+
+48:18 | Jonathan
+Big volumes of tests? Like we have thousands of tests? How do I organize that in a way that individual teams are only seeing the things that are relevant to them? 
+
+48:30 | Ian
+You know, grouping of the. 
+
+48:33 | Jamie
+Workflows, show me more of that. Is. 
+
+48:35 | Jonathan
+This a group that I'm seeing on the side, like authentication, is that a group? 
+
+48:38 | Ian
+Yeah. These are all groups. So you'd be able to separate these however you want. It could be on a much more larger scale. So authentication is kind of a small group. You can really, you know, organize that however you'd like because we do have really large clients like figma, I'm not sure if I can tell you how many tests they have under management, I can. 
+
+49:00 | Jonathan
+Imagine they're a large customer. And. 
+
+49:02 | Ian
+You know, the QA team has to organize that and they have to do so within the communication of the figma team. And that's what they do. So there's a lot of ways that you can do that and organize that. We have multi environment as well. So, I'm not sure if you test on more than staging or what that looks like in your pipeline, but we support that as well and shift left. We can do PR support testing. So you make a PR. I know you have a lot of microservices but you know, if the environment can spin up, we can go as left as PR. 
+
+49:40 | Jonathan
+So, is this same UI, what we're looking at right now the same thing that anyone at the company that logs in would see, they'd all see the same folders, the same tests. 
+
+49:49 | Ian
+Yep. Is there any? 
+
+49:51 | Jonathan
+Permissioning to control that? 
+
+49:53 | Jamie
+What was that? 
+
+49:55 | Jonathan
+Is there any permissioning to control that? Like I only want to have David look at the first folder and Simon, look at the third folder. 
+
+50:04 | Jamie
+I. 
+
+50:04 | Ian
+mean, we can pick and choose who has access to the environment on the platform, but I don't think at this time, we can say this person doesn't have access to these workflows at least in QA wolf, we have enough trust of our QA engineers to, you know, expect somebody to not go in where they're not supposed to be and start making changes. That would be definitely a problem. 
+
+50:27 | Jamie
+Yeah, mistakes happen. So it's not just no trust. It's like when you limit the, it helps kind of prevent, you know, an accident. 
+
+50:35 | Ian
+I see. Yeah, I mean, I'm sure, if I raise that to our team, it would definitely be something that they could look into. 
+
+50:41 | Jamie
+Because even like I love a read only version right? Where they can go, look at it, but they can't go modify it. So that way it. 
+
+50:48 | Ian
+Helps. 
+
+50:48 | Jamie
+Me to, 
+
+50:48 | Ian
+this, I don't think you were here when I showed this, but we, if you toggle, this is a no code version of the platform so you can go through and you can just, I guess I'll just leave without saving you'll. Be able to see information about this workflow and you'll be able to talk to the AI without changing any code. So I can just be like, 
+
+51:13 | Ian
+and it'll tell them without ever needing to be in the code and you'll be able to see run artifacts of the test. All on this page. So we'll be able to see the run history which is videos… are. 
+
+51:27 | Jonathan
+they recorded videos or are they like click through, click recordings? 
+
+51:31 | Ian
+We do both. So we have access to what's called the playwright trace, which will show you all of the actions taken step by step. And that also gives us access to what we can see in the console. So all of the network calls, API payloads and requests. We can see that also. And then you also get a video recording which is just, it doesn't necessarily show all the actions, but it does show the flow overall. 
+
+51:57 | Jamie
+It's stored in our. 
+
+51:58 | Ian
+Platform indefinitely so you can go back a year earlier and see what these runs were looking like. Maybe that won't be helpful context, but you can do that. 
+
+52:17 | Stephen
+If we have it coming. It is definitely coming. I just asked the, 
+
+52:20 | Ian
+permissions. But yeah. So this is that's just the flows page. So when the suite runs, it brings us to this runs page. I don't have any suites to run at this time. If I'd saved that one test, I would, but I say the suite runs, you'll be able to analyze all of the results, see exactly if like when and where a test failed. And then from there, we would have a QA engineer or your team in the loop depending… on if you'd like service as well. And you'd get a bug report in your bug tracker. So, if I wanted to report a bug, it would be the name of the bug. We'd give you all the steps to reproduce what we're expecting and what we're actually seeing. And then a QA engineer would come in and record a video voiceover of exactly what they're seeing for that bug. 
+
+53:13 | Stephen
+This is where things get a little interesting from the hybrid perspective. If there was ever a world where you wanted us to do the maintenance and execution or anything alike, we could do the maintenance and essentially. 
+
+53:26 | Jamie
+Send. 
+
+53:27 | Stephen
+Those bug reports through. So you'd be taking out the maintenance time and the bug investigation time as well. 
+
+53:34 | Jamie
+Right. Yeah. 
+
+53:36 | Jonathan
+On individual tests, do you do any kind of reporting around flaky tests or last success, last failure, that kind of thing? 
+
+53:45 | Jamie
+Yeah. So involved in the. 
+
+53:46 | Ian
+service is you'll be working with a customer service manager who, their main role is to bundle all of those tests up that have higher flake percentages or all that information that you would want based on the health of the suite that's what you'd be receiving and they'd be working with our QA team to present that to you on a regular cadence. So nothing goes without being shown and all of the code you own. And it makes it easier for us to maintain long term if we have that level of regularity. 
+
+54:21 | Jonathan
+So, if we were doing this just the platform, how would we see that kind of stuff? 
+
+54:29 | Jamie
+Level? 
+
+54:38 | Ian
+That's a really good point. I don't think we necessarily have that implemented at this time. Hey, something for the backlog. Yeah, no being able to easily extract the information to high level because typically, we would have a customer service manager that we would work with to get you that information. But that's a really good thing to say and have, so you mentioned. 
+
+55:01 | Jonathan
+That these are owned by us. If we pay for all this, correct? Where do those live? Do we have like a shared git repo, where we're both reading and committing to or do they stay in your system? 
+
+55:12 | Ian
+They all live in the platform? They all live in the platform, everybody who's involved in this environment. So this is my sandbox, but if this was your application, it would say disco up here and everybody involved would have access to that and all of the code. So, yeah, we would be willing to do a code export really at any point in time. Well, my use case is a. 
+
+55:37 | Jonathan
+little different. I just want like I'm writing a feature and I would like to run these tests against this against my machine. So I want to pull them down so I can run them against my personal dev environment. Is that a possibility? 
+
+55:48 | Ian
+Yeah, sure. We. 
+
+55:49 | Jamie
+can export it. 
+
+55:51 | Ian
+For you. Okay. So it, 
+
+55:52 | Jonathan
+would be, we would have to call and export it. 
+
+55:56 | Ian
+If you want a particular amount of tests deprecated because we charge tests under management or tests under maintenance, you could pull those tests and you could store them on your hard drive for long term. 
+
+56:08 | Jonathan
+Got it. And. 
+
+56:11 | Ian
+Then if you wanted those back in the suite, you know, you could throw them back in. 
+
+56:15 | Jamie
+There. 
+
+56:18 | Jonathan
+If you have customers that have toggles around their code, how do you handle things like that? Like tests for the toggle, being off tests for the toggle, being on. 
+
+56:26 | Ian
+We would just have a test for both of those scenarios and their corresponding, you know, consequences. 
+
+56:33 | Jamie
+You know. 
+
+56:33 | Ian
+With the toggle on and off, I forget what that's called, but it's essentially a break, you know, that would then be, to test testing those a B scenario. 
+
+56:44 | Jonathan
+How would you do that? 
+
+56:45 | Jamie
+Though, because you have to have a different way, different websites? 
+
+56:50 | Ian
+Different websites, meaning it's a different app? 
+
+56:52 | Jamie
+Well, I mean, it's a toggle. Right? So, how would you, I mean, the toggle is usually set at kind of a, for us, it's a for, at the app level for certain, you know, parts of the application. So I don't think, I mean, do. 
+
+57:06 | Ian
+You mean toggle at from like a user end like it's a toggle that the user can no? 
+
+57:10 | Jamie
+So, a customer has, you know, they're empowered, right? Or entitled to be able to do a certain flow, right? Okay. This is, you know, we have a new feature or capability coming out and so we call it crawl and then we only turn it on for a couple of customers. And then the other people have the have it off, right? So to be able to do that, it would have to be usually the way we do it is we have different, you know, like basically clients, right? And so one has it on, one has it off. And then we're running tests against those. 
+
+57:40 | Ian
+I got you. Yeah. So that wouldn't happen in one flow, then that would happen in two flows and we would have to provision two different users… to run those flows independently. So if you have a user that has that toggle enabled, that would have its own test. 
+
+57:57 | Jamie
+Got it. Yeah. Basically, so that can be. 
+
+58:02 | Ian
+provisioned through the UI, or via API or feature flag depending on how your dev team wants to like enable that for a particular user. 
+
+58:16 | Stephen
+I mean, we were already like 13 minutes over. So I appreciate the extra time staying here, but, I guess like top of the hours in like two minutes here. I'm curious just like any last questions and then was curious what like next steps could look like here for you guys in your eyes? 
+
+58:35 | Jamie
+I think the next steps are just, let me talk to Jonathan. The whole point is I want his opinion of this if he can envision how we could use this, if it would make sense if there's certain ways and then let us reach back out to you. So if you can give us a week, let me kind of talk to him about that, and then we can talk about next steps. And if there's something here that we should continue, cool. No, that sounds great. I. 
+
+58:58 | Stephen
+Think last point too is just like I was messaging Jon who actually couldn't make it today. Like our CEO, he said that permission stuff is like there's a team actually starting to work on it in February and it should be like fully launched in like a, I guess two months from now call it, But point being, is that like we're still rolling this out and having teams like develop this. So we're like super open to any input that you can give us whether it be like you want to continue forward or not at the end of the next week. So I appreciate any feedback, anything we can get from you. And we'll like apply this to our platform as well. We'll work alongside you if you're like continuing to work with the tooling. And then same if like you've decided to walk in a week like appreciate any feedback you can give basically. 
+
+59:34 | Jamie
+That's why we love being able to, for these things of being able to, you know, license them, pay for them because we know you have a team working to improve it all the time, right? Yeah, if we have to do it ourselves, then we have to have a team that has to improve it all the time, but usually it's deprioritized with other stuff. 
+
+59:47 | Stephen
+100 percent totally understand. And then again, like there's a lot of flexibility with like our engineers and whatnot. So, yeah, I guess I should just wait. 
+
+59:57 | Jamie
+A couple of days and then I promise, I will reach out email wise? No. 
+
+1:00:00 | Stephen
+I trust you. I trust you. I had to ask, I appreciate your time today though we're. 
+
+1:00:04 | Jamie
+in the middle of qbrs. And so it's our schedules are jacked for the next three weeks. That's why it was hard to do this. And so that's why, you know, I'll reach out email no matter what, and then we can figure out next steps. 
+
+1:00:14 | Stephen
+Perfect. I appreciate it. Nice. 
+
+1:00:16 | Ian
+Meeting both of you. Thank you. Nice to meet. 
+
+1:00:18 | Jamie
+You too. It looks awesome. Thank you. 
+
+1:00:20 | Ian
+So much. Yeah, I appreciate it. 
+
+1:00:21 | Stephen
+I appreciate it. Thanks guys. 
+
+1:00:23 | Jamie
+Bye. "
