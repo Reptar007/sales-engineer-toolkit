@@ -10,9 +10,8 @@ import { resolve1PasswordValue } from '../../../functions/resolve1Password.js';
 
 // Load environment variables
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// Try multiple .env file locations
-dotenv.config({ path: resolve(__dirname, '../../../../.env') }); // backend/.env
-dotenv.config({ path: resolve(__dirname, '../../../../../.env') }); // root .env
+// Try root .env file (backend/src/projects/code-summary-pdf/services/ -> ../../../../../ -> root)
+dotenv.config({ path: resolve(__dirname, '../../../../../.env') });
 dotenv.config(); // Also load from process.env and default .env location
 
 // Get Google Sheets configuration from environment

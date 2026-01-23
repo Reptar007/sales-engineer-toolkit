@@ -6,8 +6,8 @@ import { getPrisma } from '../src/lib/prisma.js';
 
 // Load environment variables
 const __dirname = dirname(fileURLToPath(import.meta.url));
+// Try root .env file (backend/scripts/ -> ../../ -> root)
 dotenv.config({ path: resolve(__dirname, '../../.env') });
-dotenv.config({ path: resolve(__dirname, '../../../.env') });
 dotenv.config();
 
 async function main() {
