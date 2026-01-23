@@ -64,6 +64,10 @@ async function startServer() {
 
   // Import routes AFTER Prisma is initialized (dynamic import)
   const { default: apiRoutes } = await import('./routes/api.js');
+  const { trpcMiddleware } = await import('./routes/trpc.js');
+
+  // tRPC Routes - register BEFORE regular API routes
+  app.use('/api/trpc', trpcMiddleware);
 
   // API Routes - register BEFORE catch-all
   app.use('/api', apiRoutes);

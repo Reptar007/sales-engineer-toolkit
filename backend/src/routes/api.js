@@ -1,5 +1,6 @@
 import express from 'express';
 import ratioEstimatorRoutes from '../projects/ratio-estimator/routes/index.js';
+import codeSummaryPdfRoutes from '../projects/code-summary-pdf/routes/index.js';
 import healthRoutes from './health.js';
 import authRoutes from './auth.js';
 import salesforceRoutes from '../projects/salesforce/index.js';
@@ -19,6 +20,7 @@ router.use('/users', userRoutes);
 
 // Mount project-specific routes
 router.use('/ratio-estimator', ratioEstimatorRoutes);
+router.use('/code-summary-pdf', codeSummaryPdfRoutes);
 router.use('/health', healthRoutes);
 router.use('/salesforce', salesforceRoutes);
 
@@ -33,6 +35,7 @@ router.get('/', (req, res) => {
       users: '/api/users',
       salesforce: '/api/salesforce',
       'ratio-estimator': '/api/ratio-estimator',
+      'code-summary-pdf': '/api/code-summary-pdf',
       health: '/api/health',
     },
   });

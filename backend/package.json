@@ -22,11 +22,13 @@
   },
   "dependencies": {
     "@prisma/client": "^6.17.1",
+    "@trpc/server": "^11.0.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "csv-parser": "^3.2.0",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "googleapis": "^169.0.0",
     "jsforce": "^3.10.8",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
@@ -36,7 +38,8 @@
     "serve-static": "^1.15.0",
     "socket.io": "^4.8.1",
     "sqlite3": "^5.1.7",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"
