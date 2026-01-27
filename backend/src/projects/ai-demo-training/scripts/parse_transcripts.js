@@ -25,9 +25,18 @@ function parseTranscript(inputFile) {
   const dateArray = recordedText.match(/Recorded on (\w+ \d+, \d{4})/);
   const date = dateArray[1];
 
-  // Get Duration
-  const durationArray = recordedText.match(/(\d+)h (\d+)m/);
-  const duration = durationArray[1] + 'h ' + durationArray[2] + 'm';
+  // Get Duration - handle both "1h 1m" and "22m" formats
+  let duration = null;
+  const durationWithHours = recordedText.match(/(\d+)h\s*(\d+)m/);
+  const durationMinutesOnly = recordedText.match(/(\d+)m/);
+
+  if (durationWithHours) {
+    // Format: "1h 1m" or "1h1m"
+    duration = durationWithHours[1] + 'h ' + durationWithHours[2] + 'm';
+  } else if (durationMinutesOnly) {
+    // Format: "22m" (minutes only)
+    duration = durationMinutesOnly[1] + 'm';
+  }
 
   // Find index "participants" is in the text
   const participantsIndex = splitText.indexOf('Participants');
