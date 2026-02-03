@@ -1,9 +1,12 @@
 import { defineConfig } from 'vite';
+import { resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Load .env from repo root (single source of truth)
+  envDir: resolve(__dirname, '..'),
   server: {
     port: 5173,
     open: true, // Auto-open browser to frontend dev server

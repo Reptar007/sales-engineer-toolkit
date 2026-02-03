@@ -8,11 +8,10 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolve1PasswordValue } from './resolve1Password.js';
 
-// Load environment variables
+// Load environment variables from repo root only
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// Try root .env file (backend/src/functions/ -> ../../../ -> root)
 dotenv.config({ path: resolve(__dirname, '../../../.env') });
-dotenv.config(); // Also load from process.env and default .env location
+dotenv.config();
 
 // Universal variables - resolve 1Password references
 const BASE_URL = resolve1PasswordValue(process.env.QAW_BASE_URL);

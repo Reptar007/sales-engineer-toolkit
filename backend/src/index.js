@@ -12,9 +12,8 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 // Initialize Prisma client for production (PostgreSQL) BEFORE importing routes
 import { initializePrisma } from './lib/prisma.js';
 
-// Load environment variables
+// Load environment variables from repo root only
 const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: resolve(__dirname, '../.env') });
 dotenv.config({ path: resolve(__dirname, '../../.env') });
 dotenv.config();
 

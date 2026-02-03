@@ -5,10 +5,9 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'node:fs';
 
-// Load environment variables
+// Load environment variables from repo root only
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '../../.env') });
-dotenv.config({ path: resolve(__dirname, '../../../.env') });
 dotenv.config();
 
 // Try to use root Prisma client for PostgreSQL (production), fall back to backend client (local)

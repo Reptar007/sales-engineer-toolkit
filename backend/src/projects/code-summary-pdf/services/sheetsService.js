@@ -8,11 +8,10 @@ import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { resolve1PasswordValue } from '../../../functions/resolve1Password.js';
 
-// Load environment variables
+// Load environment variables from repo root only
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// Try root .env file (backend/src/projects/code-summary-pdf/services/ -> ../../../../../ -> root)
 dotenv.config({ path: resolve(__dirname, '../../../../../.env') });
-dotenv.config(); // Also load from process.env and default .env location
+dotenv.config();
 
 // Get Google Sheets configuration from environment
 // Read directly from process.env to ensure we get the latest value

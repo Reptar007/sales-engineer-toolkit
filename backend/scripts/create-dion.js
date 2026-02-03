@@ -3,10 +3,9 @@ import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-// Load environment variables
+// Load environment variables from repo root only
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '../../.env') });
-dotenv.config({ path: resolve(__dirname, '../../../.env') });
 dotenv.config();
 
 // Try to use root Prisma client (PostgreSQL) or fall back to backend client (SQLite)

@@ -1,0 +1,29 @@
+{
+  "sourceFile": "2026-01-20_disco_demo.json",
+  "keyMoments": [
+    {
+      "chunkIndex": 59,
+      "timestamp": "17:33",
+      "speaker": "Jonathan",
+      "text": "me a high level on that. Yeah, let me do that. Where do you integrate with companies when you're doing that? Yeah.",
+      "label": "customer_question",
+      "score": 0.541
+    },
+    {
+      "chunkIndex": 108,
+      "timestamp": "29:14",
+      "speaker": "Jamie",
+      "text": "What it can do?",
+      "label": "customer_question",
+      "score": 0.508
+    },
+    {
+      "chunkIndex": 218,
+      "timestamp": "50:48",
+      "speaker": "Ian",
+      "text": "this, I don't think you were here when I showed this, but we, if you toggle, this is a no code version of the platform so you can go through and you can just, I guess I'll just leave without saving you'll. Be able to see information about this workflow and you'll be able to talk to the AI without changing any code. So I can just be like,",
+      "label": "demo_walkthrough",
+      "score": 0.502
+    }
+  ]
+}

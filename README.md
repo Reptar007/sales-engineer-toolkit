@@ -163,13 +163,7 @@ The backend provides a REST API for ratio estimation:
 
 ### Environment Variables
 
-The backend looks for environment variables in this order:
-
-1. `backend/.env`
-2. Root `.env`
-3. System environment variables
-
-Create a `.env` file in the root directory:
+The backend and frontend both use a **single `.env` file at the repo root**. Create it in the root directory:
 
 ```env
 OPENAI_API_KEY=your_openai_api_key
