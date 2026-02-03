@@ -6,6 +6,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "predev": "op inject -i .env.example -o .env",
     "dev": "concurrently --names \"BACKEND,FRONTEND\" --prefix-colors \"blue,green\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",

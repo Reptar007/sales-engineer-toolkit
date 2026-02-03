@@ -33,6 +33,14 @@ async function apiRequest(endpoint, options = {}) {
   try {
     const response = await fetch(url, config);
 
+    if (response.status === 401 && token) {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userData');
+      window.dispatchEvent(new CustomEvent('auth:sessionExpired'));
+      window.location.href = '/login';
+      return null;
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);

@@ -66,19 +66,13 @@ This project is configured to use 1Password CLI for secure environment variable 
    op signin
    ```
 
-3. **Set up environment variables** (one-time setup):
+3. **Run the app** — `npm run dev` automatically injects from 1Password into `.env` before starting, so you don't need to run a separate inject step each time.
 
-   ```bash
-   npm run env:setup
-   ```
-
-   Or to refresh existing environment variables:
+   To inject only (e.g. to refresh `.env` without starting the app):
 
    ```bash
    npm run env:refresh
    ```
-
-This will automatically inject the API keys from your 1Password vault into a `.env` file.
 
 #### Option 2: Manual Setup
 
@@ -95,7 +89,7 @@ PORT=7071
 ### Development
 
 ```bash
-# Run both backend and frontend in development mode
+# Run both backend and frontend (injects 1Password into .env first, then starts servers)
 npm run dev
 
 # Or run them separately:
