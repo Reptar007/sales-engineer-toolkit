@@ -1,6 +1,7 @@
 import express from 'express';
 import { getSalesforceConnection, getQuarterName } from './functions.js';
 import { authenticateToken } from '../../middleware/auth.js';
+import { getSalesforceConfig } from '../../config/salesforce.js';
 
 const router = express.Router();
 
@@ -38,6 +39,11 @@ router.get('/', async (req, res) => {
       details: 'Failed to connect to Salesforce. Please check your credentials.',
     });
   }
+});
+
+// Get SF config
+router.get(`/config`, authenticateToken, async (req, res) => {
+  return res.json(getSalesforceConfig());
 });
 
 // Get data from a specific report (protected - requires authentication)
