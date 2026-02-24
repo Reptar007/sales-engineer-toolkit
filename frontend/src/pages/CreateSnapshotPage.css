@@ -1,0 +1,88 @@
+/* CreateSnapshotPage styles */
+
+.create-snapshot {
+  max-width: 40rem;
+}
+
+.create-snapshot__title {
+  margin-bottom: 0.5rem;
+}
+
+.create-snapshot__intro {
+  color: #666;
+  font-size: 0.9375rem;
+  margin-bottom: 1.5rem;
+}
+
+.create-snapshot__loading {
+  color: #666;
+}
+
+.create-snapshot__existing {
+  margin-bottom: 1.5rem;
+}
+
+.create-snapshot__existing-label {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.create-snapshot__existing-value {
+  color: #333;
+}
+
+.create-snapshot__existing-value--empty {
+  color: #666;
+}
+
+.create-snapshot__form {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.create-snapshot__form-label {
+  font-weight: 500;
+}
+
+.create-snapshot__form-select {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #e0e0e0;
+  font-size: 0.9375rem;
+  min-width: 5rem;
+  background-color: #ffffff;
+  color: #333333;
+}
+
+.create-snapshot__form-button {
+  padding: 0.5rem 1rem;
+  background-color: #1e3a5f;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.create-snapshot__form-button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.create-snapshot__message {
+  margin: 0;
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+}
+
+.create-snapshot__message--success {
+  color: #047857;
+}
+
+.create-snapshot__message--error {
+  color: #b91c1c;
+}

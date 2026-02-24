@@ -151,6 +151,24 @@ export async function fetchGongConversations(opportunityId) {
   return apiRequest(`/salesforce/opportunity/${opportunityId}/gong-conversations`);
 }
 
+/**
+ * Fetches the central Salesforce config (report IDs by year, goals by year, snapshot years).
+ * @returns {Promise<{ reportIdsByYear: Object, goalsByYear: Object, snapshotYears: number[] }>} Config used by metrics, calculator, and snapshot UI.
+ */
+export async function getSalesforceConfig() {
+  return apiRequest(`/salesforce/config`);
+}
+
+/**
+ * Creates snapshot JSON files for a given year by fetching both reports from Salesforce and writing them to disk.
+ * Admin-only; requires backend POST /salesforce/snapshot/:year.
+ * @param {number} year - Year to snapshot (e.g. 2025, 2026).
+ * @returns {Promise<Object>} Success payload (e.g. summary of created files).
+ */
+export async function createSnapshot(year) {
+  return apiRequest(`/salesforce/snapshot/${year}`, { method: 'POST' });
+}
+
 // Export apiRequest for direct use
 export { apiRequest };
 

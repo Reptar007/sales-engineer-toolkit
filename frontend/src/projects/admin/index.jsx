@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import UsersPage from '../../pages/UsersPage';
+import CreateSnapshotPage from '../../pages/CreateSnapshotPage';
 import './Admin.css';
 
 const Admin = () => {
@@ -16,6 +17,7 @@ const Admin = () => {
     { id: 'user', label: 'Users', icon: '👤' },
     { id: 'team', label: 'Create Team', icon: '👥' },
     { id: 'ae', label: 'Create Account Executive', icon: '💼' },
+    { id: 'snapshot_years', label: 'Snapshot Years', icon: '📦'},
   ];
 
   return (
@@ -62,6 +64,12 @@ const Admin = () => {
           <section className="section">
             <h2 className="section-title">Create Account Executive</h2>
             <p>Account Executive creation form will go here</p>
+          </section>
+        )}
+
+        {activeTab === 'snapshot_years' && (
+          <section className='section'>
+            <CreateSnapshotPage />
           </section>
         )}
       </div>
