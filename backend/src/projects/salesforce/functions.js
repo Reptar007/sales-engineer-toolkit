@@ -1,6 +1,13 @@
 import * as dotenv from 'dotenv';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import jsforce from 'jsforce';
 import { execSync } from 'child_process';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const SNAPSHOTS_DIR = resolve(__dirname, '../../../data/snapshots');
+const REGISTRY_PATH = resolve(SNAPSHOTS_DIR, 'registry.json');
 
 dotenv.config();
 
@@ -89,7 +96,8 @@ export async function getSalesforceConnection() {
   const username = resolve1PasswordValue(process.env.SALESFORCE_EMAIL);
   const password = resolve1PasswordValue(process.env.SALESFORCE_PASSWORD);
   const token = resolve1PasswordValue(process.env.SALESFORCE_TOKEN);
-  const loginUrl = process.env.SALESFORCE_LOGIN_URL || 'https://login.salesforce.com';
+  const loginUrlRaw = process.env.SALESFORCE_LOGIN_URL || 'https://login.salesforce.com';
+  const loginUrl = resolve1PasswordValue(loginUrlRaw) || 'https://login.salesforce.com';
 
   if (!username || !password) {
     throw new Error(
@@ -131,3 +139,36 @@ export function getQuarterName(quarterKey, groupingsDown) {
   const quarter = groupingsDown.groupings[quarterIndex];
   return quarter ? quarter.label : `Quarter ${quarterIndex}`;
 }
+
+/**
+ * Read the snapshot registry (list of years that have snapshot data).
+ * @returns {{ years: number[] }}
+ */
+export function readSnapshotRegistry() {
+  try {
+    const raw = readFileSync(REGISTRY_PATH, 'utf8');
+    const data = JSON.parse(raw);
+    if (Array.isArray(data.years)) {
+      return { years: data.years };
+    }
+  } catch {
+    // missing or invalid file
+  }
+  return { years: [] };
+}
+
+/**
+ * Add a year to the snapshot registry and persist to disk.
+ * @param {number} year
+ */
+export function addYearToSnapshotRegistry(year) {
+  const reg = readSnapshotRegistry();
+  if (!reg.years.includes(year)) {
+    reg.years.push(year);
+    reg.years.sort((a, b) => a - b);
+    mkdirSync(SNAPSHOTS_DIR, { recursive: true });
+    writeFileSync(REGISTRY_PATH, JSON.stringify(reg, null, 2), 'utf8');
+  }
+}
+
+export { SNAPSHOTS_DIR };
