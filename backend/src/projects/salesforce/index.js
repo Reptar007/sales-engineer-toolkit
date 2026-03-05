@@ -3,13 +3,13 @@ import {
   getSalesforceConnection,
   getQuarterName,
   readSnapshotRegistry,
-  addYearToSnapshotRegistry,
   SNAPSHOTS_DIR,
 } from './functions.js';
+import { createSnapshotForYear } from './snapshotService.js';
 import { authenticateToken } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/rbac.js';
 import { getSalesforceConfig } from '../../config/salesforce.js';
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync } from 'fs';
 
 const router = express.Router();
 
@@ -653,119 +653,8 @@ router.post('/snapshot/:year', authenticateToken, requireRole('admin'), async (r
   }
 
   try {
-    if (!conn) {
-      conn = await getSalesforceConnection();
-    }
-
-    const metricsReportId = reportIds.metrics;
-    const calculatorReportId = reportIds.calculator;
-
-    const [metricsResult, calculatorResult] = await Promise.all([
-      conn.analytics.report(metricsReportId).execute({ details: true }),
-      conn.analytics.report(calculatorReportId).execute({ details: true }),
-    ]);
-
-    // Format metrics (same shape as GET /report/:reportId for metrics)
-    const quarterlyData = {};
-    const allOpportunities = [];
-    Object.keys(metricsResult.factMap).forEach((quarterKey) => {
-      const quarterData = metricsResult.factMap[quarterKey];
-      const quarterName = getQuarterName(quarterKey, metricsResult.groupingsDown);
-      if (quarterName === 'Total') return;
-
-      const opportunities = [];
-      if (quarterData.rows && Array.isArray(quarterData.rows)) {
-        quarterData.rows.forEach((row) => {
-          const dataCells = row.dataCells;
-          const aeId = dataCells[0]?.value || '';
-          const opportunity = {
-            aeName: dataCells[0]?.label || '',
-            opportunityName: dataCells[1]?.label || '',
-            arrAmount: dataCells[2]?.value?.amount || 0,
-            arrAmountFormatted: dataCells[2]?.label || '',
-            salesScore: dataCells[3]?.label || '',
-            effectiveDate: dataCells[4]?.label || '',
-            aeId,
-            opportunityId: dataCells[1]?.value || '',
-            quarter: quarterName,
-          };
-          opportunities.push(opportunity);
-          allOpportunities.push(opportunity);
-        });
-      }
-      const filteredTotalARR = opportunities.reduce((sum, opp) => sum + opp.arrAmount, 0);
-      quarterlyData[quarterName] = {
-        quarter: quarterName,
-        totalARR: filteredTotalARR,
-        totalARRFormatted: `$${filteredTotalARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        opportunityCount: opportunities.length,
-        opportunities,
-      };
-    });
-    let yearlyTotalARR = 0;
-    Object.keys(quarterlyData).forEach((key) => {
-      if (key !== 'Total') yearlyTotalARR += quarterlyData[key].totalARR || 0;
-    });
-    quarterlyData['Total'] = {
-      quarter: 'Total',
-      totalARR: yearlyTotalARR,
-      totalARRFormatted: `$${yearlyTotalARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      opportunityCount: allOpportunities.length,
-      opportunities: [],
-    };
-    const metricsPayload = {
-      success: true,
-      reportId: metricsReportId,
-      totalOpportunities: allOpportunities.length,
-      quarterlyData,
-      allOpportunities,
-      filtered: false,
-    };
-
-    // Format calculator (same shape as GET /report/:reportId for calculator)
-    const calcRows = calculatorResult.factMap?.['T!T']?.rows ?? [];
-    const calcData = calcRows.map((row) => {
-      const dataCells = row.dataCells;
-      return {
-        opportunityId: dataCells[0]?.value || '',
-        opportunityName: dataCells[0]?.label || '',
-        stage: dataCells[1]?.label || '',
-        quarter: dataCells[2]?.label || '',
-        type: dataCells[3]?.label || '',
-        aeName: dataCells[4]?.label || '',
-        probability: dataCells[5]?.value || '',
-        probabilityFormatted: dataCells[5]?.label || '',
-        arrAmount: dataCells[6]?.value?.amount || 0,
-        amount: dataCells[6]?.label || '',
-      };
-    });
-    const totalARR = calcData.reduce((sum, opp) => sum + (opp.arrAmount || 0), 0);
-    const calculatorPayload = {
-      success: true,
-      reportId: calculatorReportId,
-      totalOpportunities: calcData.length,
-      totalARR,
-      totalARRFormatted: `$${totalARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      data: calcData,
-    };
-
-    mkdirSync(SNAPSHOTS_DIR, { recursive: true });
-    writeFileSync(
-      `${SNAPSHOTS_DIR}/${year}-metrics.json`,
-      JSON.stringify(metricsPayload, null, 2),
-      'utf8',
-    );
-    writeFileSync(
-      `${SNAPSHOTS_DIR}/${year}-calculator.json`,
-      JSON.stringify(calculatorPayload, null, 2),
-      'utf8',
-    );
-    addYearToSnapshotRegistry(year);
-
-    return res.status(200).json({
-      success: true,
-      message: `Snapshot created for ${year}`,
-    });
+    const result = await createSnapshotForYear(year);
+    return res.status(200).json(result);
   } catch (error) {
     return res.status(500).json({
       success: false,
