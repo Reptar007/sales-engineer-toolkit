@@ -57,6 +57,13 @@ router.get(`/config`, authenticateToken, async (req, res) => {
 // Get data from a specific report (protected - requires authentication)
 router.get('/report/:reportId', authenticateToken, async (req, res) => {
   const { reportId } = req.params;
+  const config = getSalesforceConfig();
+  const metricsReportIds = Object.values(config.reportIdsByYear || {})
+    .map((r) => r.metrics)
+    .filter(Boolean);
+  const calculatorReportIds = Object.values(config.reportIdsByYear || {})
+    .map((r) => r.calculator)
+    .filter(Boolean);
 
   try {
     // Create connection for each request
@@ -69,7 +76,7 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
       details: true,
     });
 
-    if (reportId === `00OPA000002sLkf2AE`) {
+    if (metricsReportIds.includes(reportId)) {
       // Format the result to be more readable
       const quarterlyData = {};
       const allOpportunities = [];
@@ -153,7 +160,7 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
         allOpportunities: allOpportunities,
         filtered: false, // No filtering - everyone sees all data
       });
-    } else if (reportId === `00OPA000002uP5p2AE`) {
+    } else if (calculatorReportIds.includes(reportId)) {
       const data = [];
       const rows = result.factMap['T!T'].rows;
       rows.forEach((row) => {
@@ -195,6 +202,13 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
         totalARR: totalARR,
         totalARRFormatted: totalARRFormatted,
         data: data,
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: 'Unknown report type',
+        details:
+          'Report ID is not configured as a metrics or calculator report. Add it to reportIdsByYear in config.',
       });
     }
   } catch (error) {

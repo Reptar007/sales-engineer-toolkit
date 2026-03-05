@@ -1,13 +1,12 @@
 import dotenv from 'dotenv';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolve1PasswordValue } from '../projects/salesforce/functions.js';
 
 // set up env processing
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '../../.env') });
 dotenv.config();
-
-const REPORT_ID_CALCULATOR = process.env.SALESFORCE_REPORT_ID_CALCULATOR || '';
 
 function parseSnapshotYears() {
   const raw = process.env.SNAPSHOT_YEARS || '2025';
@@ -18,15 +17,23 @@ function parseSnapshotYears() {
 }
 
 export function getSalesforceConfig() {
+  const calculatorReportId = resolve1PasswordValue(
+    process.env.SALESFORCE_REPORT_ID_CALCULATOR || '',
+  );
+  const metrics2025 = resolve1PasswordValue(
+    process.env.SALESFORCE_REPORT_ID_METRICS_2025 || '00OPA000002sLkf2AE',
+  );
+  const metrics2026 = resolve1PasswordValue(process.env.SALESFORCE_REPORT_ID_METRICS_2026 || '');
+
   return {
     reportIdsByYear: {
       2025: {
-        metrics: '00OPA000002sLkf2AE',
-        calculator: REPORT_ID_CALCULATOR,
+        metrics: metrics2025,
+        calculator: calculatorReportId,
       },
       2026: {
-        metrics: process.env.SALESFORCE_REPORT_ID_METRICS_2026 || '',
-        calculator: REPORT_ID_CALCULATOR,
+        metrics: metrics2026,
+        calculator: calculatorReportId,
       },
     },
     goalsByYear: {
