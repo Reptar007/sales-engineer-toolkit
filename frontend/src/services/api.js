@@ -160,6 +160,24 @@ export async function getSalesforceConfig() {
 }
 
 /**
+ * Fetches metrics payload for a snapshot year (same shape as metrics report).
+ * @param {number} year - Year (e.g. 2025).
+ * @returns {Promise<Object>} Metrics report-shaped data.
+ */
+export async function fetchSalesforceSnapshotMetrics(year) {
+  return apiRequest(`/salesforce/snapshot/${year}`);
+}
+
+/**
+ * Fetches calculator payload for a snapshot year (same shape as calculator report).
+ * @param {number} year - Year (e.g. 2025).
+ * @returns {Promise<Object>} Calculator report-shaped data.
+ */
+export async function fetchSalesforceSnapshotCalculator(year) {
+  return apiRequest(`/salesforce/snapshot/${year}/calculator`);
+}
+
+/**
  * Creates snapshot JSON files for a given year by fetching both reports from Salesforce and writing them to disk.
  * Admin-only; requires backend POST /salesforce/snapshot/:year.
  * @param {number} year - Year to snapshot (e.g. 2025, 2026).
@@ -178,6 +196,10 @@ export default {
   fixRejections,
   checkHealth,
   fetchSalesforceReport,
+  fetchSalesforceSnapshotMetrics,
+  fetchSalesforceSnapshotCalculator,
+  getSalesforceConfig,
+  createSnapshot,
   checkSalesforceHealth,
   fetchUsers,
   searchOpportunities,

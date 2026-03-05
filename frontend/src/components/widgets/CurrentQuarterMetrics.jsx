@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchSalesforceReport } from '../../services/api';
+import {
+  fetchSalesforceReport,
+  getSalesforceConfig,
+  fetchSalesforceSnapshotMetrics,
+} from '../../services/api';
 import '../../styles/CurrentQuarterMetrics.less';
 
 /**
@@ -11,7 +15,7 @@ function getCurrentQuarter() {
   const now = new Date();
   const month = now.getMonth() + 1; // 1-12
   const year = now.getFullYear();
-  
+
   let quarter;
   if (month >= 1 && month <= 3) {
     quarter = 1;
@@ -22,7 +26,7 @@ function getCurrentQuarter() {
   } else {
     quarter = 4;
   }
-  
+
   return `Q${quarter} CY${year}`;
 }
 
@@ -31,56 +35,78 @@ function getCurrentQuarter() {
  */
 function CurrentQuarterMetrics() {
   const navigate = useNavigate();
+  const [config, setConfig] = useState(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const response = await fetchSalesforceReport('00OPA000002sLkf2AE');
-        setData(response);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const actualCurrentQuarter = getCurrentQuarter();
+  const currentYear = new Date().getFullYear();
 
-    fetchData();
+  useEffect(() => {
+    let cancelled = false;
+    getSalesforceConfig()
+      .then((c) => {
+        if (!cancelled) setConfig(c);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError('Failed to load config');
+          setLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
   }, []);
 
-  // Get current quarter based on real date
-  const actualCurrentQuarter = getCurrentQuarter();
+  useEffect(() => {
+    if (!config) return;
+    const isSnapshotYear = (config.snapshotYears || []).includes(currentYear);
+    const reportId = config.reportIdsByYear?.[currentYear]?.metrics;
+    if (!isSnapshotYear && !reportId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    const fetchMetrics = () => {
+      if (isSnapshotYear) {
+        return fetchSalesforceSnapshotMetrics(currentYear).catch(() => {
+          if (reportId) return fetchSalesforceReport(reportId);
+          throw new Error('Snapshot unavailable and no report ID for this year');
+        });
+      }
+      return fetchSalesforceReport(reportId);
+    };
+    fetchMetrics()
+      .then((response) => {
+        if (!cancelled) {
+          setData(response);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [config, currentYear]);
+
   const quarterlyData = data?.quarterlyData || {};
-  
-  // Try to find the actual current quarter, fallback to latest available
-  const currentQuarterKey = quarterlyData[actualCurrentQuarter] 
+  const currentQuarterKey = quarterlyData[actualCurrentQuarter]
     ? actualCurrentQuarter
     : Object.keys(quarterlyData).find(
-        (key) => key !== 'Total' && quarterlyData[key]?.opportunities?.length > 0
-      ) || Object.keys(quarterlyData).find((key) => key !== 'Total') || actualCurrentQuarter;
-  
+          (key) => key !== 'Total' && quarterlyData[key]?.opportunities?.length > 0
+        ) ||
+      Object.keys(quarterlyData).find((key) => key !== 'Total') ||
+      actualCurrentQuarter;
   const currentQuarterData = quarterlyData[currentQuarterKey] || {};
   const currentAAR = currentQuarterData?.totalARR || 0;
   const currentYearAAR = quarterlyData?.Total?.totalARR || 0;
 
-  // Extract year from current quarter key (e.g., "Q1 CY2025" -> 2025)
-  const currentYear = parseInt(currentQuarterKey.match(/CY(\d{4})/)?.[1] || new Date().getFullYear().toString());
-  
-  // Quarterly goals - can be extended for different years
-  const quarterlyGoalsByYear = {
-    2025: [
-      { value: 1, label: 'Q1 CY2025', goal: 1900000 },
-      { value: 2, label: 'Q2 CY2025', goal: 2520000 },
-      { value: 3, label: 'Q3 CY2025', goal: 2500000 },
-      { value: 4, label: 'Q4 CY2025', goal: 3560000 },
-    ],
-    // Add more years as needed
-  };
-  
-  const quarterlyGoals = quarterlyGoalsByYear[currentYear] || quarterlyGoalsByYear[2025];
+  const quarterlyGoals = config?.goalsByYear?.[currentYear] || [];
   const currentQuarterGoal = quarterlyGoals.find((q) => q.label === currentQuarterKey)?.goal || 0;
   const yearlyGoal = quarterlyGoals.reduce((acc, q) => acc + q.goal, 0);
 
@@ -123,11 +149,9 @@ function CurrentQuarterMetrics() {
   }
 
   if (error) {
-    // Don't show the widget if credentials aren't configured (common in production)
     if (error.includes('credentials not configured') || error.includes('no username password')) {
-      return null; // Hide the widget instead of showing an error
+      return null;
     }
-    
     return (
       <div className="current-quarter-metrics widget">
         <div className="widget-header">
@@ -148,7 +172,7 @@ function CurrentQuarterMetrics() {
           View Full Dashboard →
         </button>
       </div>
-      
+
       <div className="widget-content">
         <div className="metrics-grid">
           <div className="metric-summary">
@@ -187,4 +211,3 @@ function CurrentQuarterMetrics() {
 }
 
 export default CurrentQuarterMetrics;
-

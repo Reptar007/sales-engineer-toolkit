@@ -12,11 +12,12 @@ const REGISTRY_PATH = resolve(SNAPSHOTS_DIR, 'registry.json');
 dotenv.config();
 
 /**
- * Resolve a value from 1Password if it's an op:// reference, otherwise return as-is
+ * Resolve a value from 1Password if it's an op:// reference, otherwise return as-is.
+ * Exported for use in config so report IDs sent to the frontend are never op:// references.
  * @param {string} value - The value to resolve (may be op:// reference or plain value)
  * @returns {string} The resolved value
  */
-function resolve1PasswordValue(value) {
+export function resolve1PasswordValue(value) {
   if (!value) return value;
 
   // Check if it's a 1Password reference

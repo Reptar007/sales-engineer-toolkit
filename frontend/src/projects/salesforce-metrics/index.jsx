@@ -1,77 +1,140 @@
 import React, { useState, useEffect } from 'react';
 import './SalesforceMetrics.css';
-import { fetchSalesforceReport } from '../../services/api';
+import {
+  fetchSalesforceReport,
+  getSalesforceConfig,
+  fetchSalesforceSnapshotMetrics,
+} from '../../services/api';
+
+function getAvailableYears(config) {
+  if (!config) return [];
+  const fromReports = Object.keys(config.reportIdsByYear || {}).map(Number);
+  const fromSnapshots = config.snapshotYears || [];
+  const combined = [...new Set([...fromReports, ...fromSnapshots])];
+  return combined.sort((a, b) => b - a);
+}
 
 const SalesforceMetrics = () => {
-  // states
+  const [config, setConfig] = useState(null);
+  const [configError, setConfigError] = useState(null);
+  const [selectedYear, setSelectedYear] = useState(null);
   const [quarter, setQuarter] = useState({ value: '4', label: 'Q4 CY2025' });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Basic API call to get you started
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const response = await fetchSalesforceReport('00OPA000002sLkf2AE');
-        setData(response);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const availableYears = getAvailableYears(config);
+  const currentCalendarYear = new Date().getFullYear();
 
-    fetchData();
+  // Fetch config on mount and set default year
+  useEffect(() => {
+    let cancelled = false;
+    getSalesforceConfig()
+      .then((c) => {
+        if (!cancelled) {
+          setConfig(c);
+          setConfigError(null);
+          const years = getAvailableYears(c);
+          const defaultYear = years.length
+            ? (years.includes(currentCalendarYear) ? currentCalendarYear : years[0])
+            : currentCalendarYear;
+          setSelectedYear(defaultYear);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setConfigError(err.message);
+      });
+    return () => { cancelled = true; };
   }, []);
 
-  // Get quarter options from the data
+  // Fetch metrics data when selectedYear or config changes
+  useEffect(() => {
+    if (!config || selectedYear == null) {
+      setLoading(!!config);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    const reportId = config.reportIdsByYear?.[selectedYear]?.metrics;
+    const isSnapshotYear = (config.snapshotYears || []).includes(selectedYear);
+
+    const trySnapshotThenReport = () => {
+      if (isSnapshotYear) {
+        return fetchSalesforceSnapshotMetrics(selectedYear).catch(() => {
+          if (reportId) return fetchSalesforceReport(reportId);
+          throw new Error('Snapshot unavailable and no report ID for this year');
+        });
+      }
+      if (!reportId) return Promise.reject(new Error(`No metrics report ID for year ${selectedYear}`));
+      return fetchSalesforceReport(reportId);
+    };
+
+    trySnapshotThenReport()
+      .then((response) => {
+        if (!cancelled) {
+          setData(response);
+          setError(null);
+          const quarters = Object.keys(response?.quarterlyData || {}).filter((k) => k !== 'Total');
+          const labels = quarters.map((q, i) => ({ value: i + 1, label: q }));
+          if (labels.length > 0 && !labels.some((l) => l.label === quarter.label)) {
+            setQuarter(labels[0]);
+          }
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [config, selectedYear]);
+
   const quarterOptions = [];
   const nonFormattedQuarters = Object.keys(data?.quarterlyData || {});
   for (let i = 0; i < nonFormattedQuarters.length; i++) {
-    const quarter = nonFormattedQuarters[i];
-    if (quarter === 'Total') continue;
-    quarterOptions.push({ value: i + 1, label: quarter });
+    const q = nonFormattedQuarters[i];
+    if (q === 'Total') continue;
+    quarterOptions.push({ value: i + 1, label: q });
   }
 
-  // Get Data for the selected quarter
-  const selectedQuarterData = data?.quarterlyData[quarter.label];
+  const selectedQuarterData = data?.quarterlyData?.[quarter.label];
   const currentAAR = selectedQuarterData?.totalARR || 0;
   const currentYearAAR = data?.quarterlyData?.Total?.totalARR || 0;
   const opportunities = selectedQuarterData?.opportunities || [];
-  const quarterlyGoals = [
-    { value: 1, label: 'Q1 CY2025', goal: 1900000 },
-    { value: 2, label: 'Q2 CY2025', goal: 2520000 },
-    { value: 3, label: 'Q3 CY2025', goal: 2500000 },
-    { value: 4, label: 'Q4 CY2025', goal: 3560000 },
-  ];
-  const yearlyGoal = quarterlyGoals.reduce((acc, q) => acc + q.goal, 0);
-  const selectedQuarterGoal = quarterlyGoals.find((q) => q.label === quarter.label);
+
+  const quarterlyGoalsFromConfig = (config?.goalsByYear?.[selectedYear] || []);
+  const yearlyGoal = quarterlyGoalsFromConfig.reduce((acc, q) => acc + q.goal, 0);
+  const selectedQuarterGoal = quarterlyGoalsFromConfig.find((q) => q.label === quarter.label);
   const quarterlyGoal = selectedQuarterGoal?.goal || 0;
+
   const compensation = {
     'sales engineer 1': 15000,
     'sales engineer 2': 17500,
     'sales engineer Lead': 20000,
   };
 
-  // functions
   const getProgressClass = (percentage) => {
     if (percentage < 30) return 'progress-bar-low';
     if (percentage < 80) return 'progress-bar-medium';
     return 'progress-bar-high';
   };
 
+  const handleYearChange = (e) => {
+    const year = parseInt(e.target.value, 10);
+    if (!Number.isNaN(year)) setSelectedYear(year);
+  };
+
   const handleQuarterChange = (event) => {
     const selectedQuarter = event.target.value;
     const quarterObj = quarterOptions.find((q) => q.label === selectedQuarter);
     setQuarter(quarterObj || { value: selectedQuarter, label: selectedQuarter });
-    // Data will automatically refetch due to useEffect dependency in the hook
   };
 
-  const calculateGoalProgress = (currentAAR, quarterlyGoal) => {
-    if (!currentAAR || !quarterlyGoal) return 0;
-    return (currentAAR / quarterlyGoal) * 100;
+  const calculateGoalProgress = (currentAARVal, quarterlyGoalVal) => {
+    if (!currentAARVal || !quarterlyGoalVal) return 0;
+    return (currentAARVal / quarterlyGoalVal) * 100;
   };
 
   const formatNumber = (num) => {
@@ -85,19 +148,40 @@ const SalesforceMetrics = () => {
     }
   };
 
-  const calculateCompensation = (role, currentAAR, quarterlyGoal) => {
+  const calculateCompensation = (role, currentAARVal, quarterlyGoalVal) => {
     const yearlyCompensation = compensation[role];
     const quarterlyCompensation = yearlyCompensation / 4;
-
-    if (currentAAR / quarterlyGoal < 0.8) {
-      return {compensation: 0, quarterlyCompensation};
+    if (currentAARVal / quarterlyGoalVal < 0.8) {
+      return { compensation: 0, quarterlyCompensation };
     } else {
-      const compensation = quarterlyCompensation * (currentAAR / quarterlyGoal);
-      return {compensation, quarterlyCompensation};
+      const comp = quarterlyCompensation * (currentAARVal / quarterlyGoalVal);
+      return { compensation: comp, quarterlyCompensation };
     }
   };
 
   const progressPercentage = calculateGoalProgress(currentAAR, quarterlyGoal);
+
+  if (configError) {
+    return (
+      <div className="salesforce-metrics">
+        <div className="metrics-header">
+          <h1>Salesforce Metrics</h1>
+          <p className="error">Failed to load config: {configError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (config && availableYears.length === 0) {
+    return (
+      <div className="salesforce-metrics">
+        <div className="metrics-header">
+          <h1>Salesforce Metrics</h1>
+          <p>No years configured. Check report IDs and snapshot years in config.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="salesforce-metrics">
@@ -107,6 +191,18 @@ const SalesforceMetrics = () => {
           <p>Track and analyze your Salesforce performance</p>
         </div>
         <div className="metrics-header-select">
+          <p>Year:</p>
+          <select
+            onChange={handleYearChange}
+            value={selectedYear ?? ''}
+            disabled={!config || availableYears.length === 0}
+          >
+            {availableYears.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
           <p>Quarter:</p>
           <select
             onChange={handleQuarterChange}
@@ -129,7 +225,7 @@ const SalesforceMetrics = () => {
       <div className="metrics-content">
         <div className="metric-card">
           <div className="metric-card-header">
-            <h2>🎯 Current Quarter Goal</h2>
+            <h2>Current Quarter Goal</h2>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">$ {formatNumber(quarterlyGoal)}</h3>
@@ -139,7 +235,7 @@ const SalesforceMetrics = () => {
 
         <div className="metric-card">
           <div className="metric-card-header">
-            <h2>💰 Current Quarter AAR</h2>
+            <h2>Current Quarter AAR</h2>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">$ {formatNumber(currentAAR)}</h3>
@@ -149,7 +245,7 @@ const SalesforceMetrics = () => {
 
         <div className="metric-card">
           <div className="metric-card-header">
-            <h2>📊 Quarterly Goal Progress</h2>
+            <h2>Quarterly Goal Progress</h2>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">{progressPercentage.toFixed(2)}%</h3>
@@ -161,7 +257,7 @@ const SalesforceMetrics = () => {
 
         <div className="metric-card">
           <div className="metric-card-header">
-            <h2>🏆 Yearly Goal</h2>
+            <h2>Yearly Goal</h2>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">$ {formatNumber(yearlyGoal)}</h3>
@@ -171,7 +267,7 @@ const SalesforceMetrics = () => {
 
         <div className="metric-card">
           <div className="metric-card-header">
-            <h2>💵 Yearly AAR</h2>
+            <h2>Yearly AAR</h2>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">$ {formatNumber(currentYearAAR)}</h3>
@@ -181,7 +277,7 @@ const SalesforceMetrics = () => {
 
         <div className="metric-card">
           <div className="metric-card-header">
-            <h2>📈 Yearly Goal Progress</h2>
+            <h2>Yearly Goal Progress</h2>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">
@@ -269,7 +365,7 @@ const SalesforceMetrics = () => {
                 <td>{role.toUpperCase()}</td>
                 <td>{compensation[role].toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 <td>{calculateCompensation(role, currentAAR, quarterlyGoal).quarterlyCompensation.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td>{calculateCompensation(role, currentAAR,quarterlyGoal).compensation.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td>{calculateCompensation(role, currentAAR, quarterlyGoal).compensation.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               </tr>
             ))}
           </tbody>
