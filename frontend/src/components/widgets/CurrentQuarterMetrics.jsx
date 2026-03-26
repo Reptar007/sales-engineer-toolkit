@@ -7,6 +7,9 @@ import {
 } from '../../services/api';
 import '../../styles/CurrentQuarterMetrics.less';
 
+const CONFIG_CACHE_KEY = 'currentQuarterMetrics.config';
+const DATA_CACHE_KEY = 'currentQuarterMetrics.dataByYear';
+
 /**
  * Get current quarter based on actual date
  * Format: Q1 CY2025, Q2 CY2025, etc.
@@ -35,8 +38,25 @@ function getCurrentQuarter() {
  */
 function CurrentQuarterMetrics() {
   const navigate = useNavigate();
-  const [config, setConfig] = useState(null);
-  const [data, setData] = useState(null);
+  const [config, setConfig] = useState(() => {
+    try {
+      const cached = localStorage.getItem(CONFIG_CACHE_KEY);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [data, setData] = useState(() => {
+    try {
+      const year = new Date().getFullYear();
+      const cached = localStorage.getItem(DATA_CACHE_KEY);
+      if (!cached) return null;
+      const byYear = JSON.parse(cached);
+      return byYear[year] || null;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -45,14 +65,20 @@ function CurrentQuarterMetrics() {
 
   useEffect(() => {
     let cancelled = false;
+    if (config) {
+      setLoading(false);
+    }
     getSalesforceConfig()
       .then((c) => {
-        if (!cancelled) setConfig(c);
+        if (!cancelled) {
+          setConfig(c);
+          localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify(c));
+        }
       })
       .catch(() => {
         if (!cancelled) {
           setError('Failed to load config');
-          setLoading(false);
+          if (!data) setLoading(false);
         }
       });
     return () => { cancelled = true; };
@@ -67,7 +93,7 @@ function CurrentQuarterMetrics() {
       return;
     }
     let cancelled = false;
-    setLoading(true);
+    if (!data) setLoading(true);
     setError(null);
     const fetchMetrics = () => {
       if (isSnapshotYear) {
@@ -83,6 +109,14 @@ function CurrentQuarterMetrics() {
         if (!cancelled) {
           setData(response);
           setError(null);
+          try {
+            const raw = localStorage.getItem(DATA_CACHE_KEY);
+            const byYear = raw ? JSON.parse(raw) : {};
+            byYear[currentYear] = response;
+            localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(byYear));
+          } catch {
+            // ignore cache write issues
+          }
         }
       })
       .catch((err) => {

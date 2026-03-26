@@ -6,12 +6,63 @@ import {
   SNAPSHOTS_DIR,
 } from './functions.js';
 import { createSnapshotForYear } from './snapshotService.js';
+import { getGoalsByYearFromDb, getGoalsForYear, upsertGoalsForYear } from './goalsService.js';
 import { authenticateToken } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/rbac.js';
 import { getSalesforceConfig } from '../../config/salesforce.js';
 import { readFileSync } from 'fs';
 
 const router = express.Router();
+
+const MIN_GOALS_YEAR = 2020;
+const MAX_GOALS_YEAR = 2035;
+
+function parseYearParam(yearParam) {
+  const year = Number.parseInt(yearParam, 10);
+  if (
+    Number.isNaN(year) ||
+    !Number.isInteger(year) ||
+    year < MIN_GOALS_YEAR ||
+    year > MAX_GOALS_YEAR
+  ) {
+    return null;
+  }
+  return year;
+}
+
+function normalizeAndValidateGoalsInput(rawGoals) {
+  if (!Array.isArray(rawGoals) || rawGoals.length !== 4) {
+    return { error: 'goals must be an array with 4 entries (quarters 1-4).' };
+  }
+
+  const quarterSet = new Set();
+  const normalized = [];
+
+  for (const item of rawGoals) {
+    const quarter = Number.parseInt(item?.quarter, 10);
+    const goal = Number(item?.goal);
+
+    if (!Number.isInteger(quarter) || quarter < 1 || quarter > 4) {
+      return { error: 'Each goal entry must include a valid quarter (1-4).' };
+    }
+    if (quarterSet.has(quarter)) {
+      return { error: 'Duplicate quarter provided. Include each quarter exactly once.' };
+    }
+    if (!Number.isFinite(goal) || goal < 0) {
+      return { error: 'Each goal entry must include a non-negative numeric goal.' };
+    }
+
+    quarterSet.add(quarter);
+    normalized.push({ quarter, goal });
+  }
+
+  if (quarterSet.size !== 4) {
+    return { error: 'Goals payload must include all quarters 1-4.' };
+  }
+
+  normalized.sort((a, b) => a.quarter - b.quarter);
+  return { data: normalized };
+}
 
 // Don't create connection at startup - create it per request
 let conn = null;
@@ -51,7 +102,67 @@ router.get('/', async (req, res) => {
 
 // Get SF config
 router.get(`/config`, authenticateToken, async (req, res) => {
-  return res.json(getSalesforceConfig());
+  try {
+    const config = getSalesforceConfig();
+    const dbGoalsByYear = await getGoalsByYearFromDb();
+
+    // DB goals override fallback config goals for matching years.
+    config.goalsByYear = {
+      ...(config.goalsByYear || {}),
+      ...dbGoalsByYear,
+    };
+
+    return res.json(config);
+  } catch (error) {
+    console.error('Failed to load Salesforce config goals:', error);
+    return res.status(500).json({ error: 'Failed to load Salesforce config' });
+  }
+});
+
+// Get goals for one year (admin-only)
+router.get('/goals/:year', authenticateToken, requireRole('admin'), async (req, res) => {
+  const year = parseYearParam(req.params.year);
+  if (!year) {
+    return res.status(400).json({
+      error: `Year must be an integer between ${MIN_GOALS_YEAR} and ${MAX_GOALS_YEAR}.`,
+    });
+  }
+
+  try {
+    const goals = await getGoalsForYear(year);
+    return res.json({ year, goals });
+  } catch (error) {
+    console.error('Failed to load goals:', error);
+    return res.status(500).json({ error: 'Failed to load goals' });
+  }
+});
+
+// Upsert goals for one year (admin-only)
+router.put('/goals/:year', authenticateToken, requireRole('admin'), async (req, res) => {
+  const year = parseYearParam(req.params.year);
+  if (!year) {
+    return res.status(400).json({
+      error: `Year must be an integer between ${MIN_GOALS_YEAR} and ${MAX_GOALS_YEAR}.`,
+    });
+  }
+
+  const { data, error } = normalizeAndValidateGoalsInput(req.body?.goals);
+  if (error) {
+    return res.status(400).json({ error });
+  }
+
+  try {
+    const goals = await upsertGoalsForYear(year, data);
+    return res.json({
+      success: true,
+      message: `Quarterly goals saved for ${year}.`,
+      year,
+      goals,
+    });
+  } catch (updateError) {
+    console.error('Failed to save goals:', updateError);
+    return res.status(500).json({ error: 'Failed to save goals' });
+  }
 });
 
 // Get data from a specific report (protected - requires authentication)

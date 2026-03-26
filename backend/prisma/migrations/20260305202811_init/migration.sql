@@ -3,13 +3,22 @@ CREATE TABLE "users" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "email" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
-    "role" TEXT NOT NULL DEFAULT 'readonly',
     "firstName" TEXT,
     "lastName" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "lastLoginAt" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
+);
+
+-- CreateTable
+CREATE TABLE "user_roles" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "role" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "user_roles_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -61,8 +70,25 @@ CREATE TABLE "team_assignments" (
     CONSTRAINT "team_assignments_accountExecutiveId_fkey" FOREIGN KEY ("accountExecutiveId") REFERENCES "account_executives" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
+-- CreateTable
+CREATE TABLE "quarterly_goals" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "year" INTEGER NOT NULL,
+    "quarter" INTEGER NOT NULL,
+    "goal" REAL NOT NULL
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE INDEX "user_roles_userId_idx" ON "user_roles"("userId");
+
+-- CreateIndex
+CREATE INDEX "user_roles_role_idx" ON "user_roles"("role");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_roles_userId_role_key" ON "user_roles"("userId", "role");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "teams_name_key" ON "teams"("name");
@@ -96,3 +122,9 @@ CREATE INDEX "team_assignments_accountExecutiveId_idx" ON "team_assignments"("ac
 
 -- CreateIndex
 CREATE UNIQUE INDEX "team_assignments_salesEngineerId_accountExecutiveId_key" ON "team_assignments"("salesEngineerId", "accountExecutiveId");
+
+-- CreateIndex
+CREATE INDEX "quarterly_goals_year_idx" ON "quarterly_goals"("year");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "quarterly_goals_year_quarter_key" ON "quarterly_goals"("year", "quarter");
