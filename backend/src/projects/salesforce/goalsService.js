@@ -46,3 +46,57 @@ export async function getGoalsByYearFromDb() {
 
   return goalsByYear;
 }
+
+/**
+ * Get config-compatible quarterly goals for one year.
+ * Missing quarters are returned with goal = 0.
+ *
+ * @param {number} year
+ * @returns {Promise<{ value: number, label: string, goal: number }[]>}
+ */
+export async function getGoalsForYear(year) {
+  const prisma = await getPrisma();
+  const rows = await prisma.quarterlyGoal.findMany({
+    where: { year },
+    orderBy: [{ quarter: 'asc' }],
+  });
+
+  const quarterToGoal = new Map();
+  for (const row of rows) {
+    quarterToGoal.set(row.quarter, row.goal);
+  }
+
+  return buildYearGoals(year, quarterToGoal);
+}
+
+/**
+ * Upsert quarterly goals for a year in a single transaction.
+ *
+ * @param {number} year
+ * @param {{ quarter: number, goal: number }[]} goals
+ * @returns {Promise<{ value: number, label: string, goal: number }[]>}
+ */
+export async function upsertGoalsForYear(year, goals) {
+  const prisma = await getPrisma();
+
+  await prisma.$transaction(
+    goals.map((g) =>
+      prisma.quarterlyGoal.upsert({
+        where: {
+          year_quarter: {
+            year,
+            quarter: g.quarter,
+          },
+        },
+        update: { goal: g.goal },
+        create: {
+          year,
+          quarter: g.quarter,
+          goal: g.goal,
+        },
+      }),
+    ),
+  );
+
+  return getGoalsForYear(year);
+}
