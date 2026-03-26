@@ -6,6 +6,7 @@ import {
   SNAPSHOTS_DIR,
 } from './functions.js';
 import { createSnapshotForYear } from './snapshotService.js';
+import { getGoalsByYearFromDb } from './goalsService.js';
 import { authenticateToken } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/rbac.js';
 import { getSalesforceConfig } from '../../config/salesforce.js';
@@ -51,7 +52,21 @@ router.get('/', async (req, res) => {
 
 // Get SF config
 router.get(`/config`, authenticateToken, async (req, res) => {
-  return res.json(getSalesforceConfig());
+  try {
+    const config = getSalesforceConfig();
+    const dbGoalsByYear = await getGoalsByYearFromDb();
+
+    // DB goals override fallback config goals for matching years.
+    config.goalsByYear = {
+      ...(config.goalsByYear || {}),
+      ...dbGoalsByYear,
+    };
+
+    return res.json(config);
+  } catch (error) {
+    console.error('Failed to load Salesforce config goals:', error);
+    return res.status(500).json({ error: 'Failed to load Salesforce config' });
+  }
 });
 
 // Get data from a specific report (protected - requires authentication)

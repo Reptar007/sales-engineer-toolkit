@@ -123,3 +123,14 @@ model TeamAssignment {
   @@index([accountExecutiveId])
   @@map("team_assignments")
 }
+
+model QuarterlyGoal {
+  id String @id @default(cuid())
+  year Int
+  quarter Int
+  goal Float
+
+  @@unique([year, quarter])
+  @@index([year])
+  @@map("quarterly_goals")
+}
