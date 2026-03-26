@@ -6,6 +6,9 @@ import {
   fetchSalesforceSnapshotMetrics,
 } from '../../services/api';
 
+const SELECTED_YEAR_STORAGE_KEY = 'salesforceMetrics.selectedYear';
+const SELECTED_QUARTER_STORAGE_KEY = 'salesforceMetrics.selectedQuarter';
+
 function getAvailableYears(config) {
   if (!config) return [];
   const fromReports = Object.keys(config.reportIdsByYear || {}).map(Number);
@@ -14,17 +17,34 @@ function getAvailableYears(config) {
   return combined.sort((a, b) => b - a);
 }
 
+function getCurrentQuarterLabel(year = new Date().getFullYear()) {
+  const month = new Date().getMonth() + 1;
+  const quarter = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
+  return `Q${quarter} CY${year}`;
+}
+
+function getFallbackYears(currentYear) {
+  return [currentYear + 1, currentYear, currentYear - 1];
+}
+
 const SalesforceMetrics = () => {
   const [config, setConfig] = useState(null);
   const [configError, setConfigError] = useState(null);
-  const [selectedYear, setSelectedYear] = useState(null);
-  const [quarter, setQuarter] = useState({ value: '4', label: 'Q4 CY2025' });
+  const currentCalendarYear = new Date().getFullYear();
+  const persistedYear = Number.parseInt(localStorage.getItem(SELECTED_YEAR_STORAGE_KEY) || '', 10);
+  const initialYear = Number.isInteger(persistedYear) ? persistedYear : currentCalendarYear;
+  const persistedQuarterLabel = localStorage.getItem(SELECTED_QUARTER_STORAGE_KEY);
+
+  const [selectedYear, setSelectedYear] = useState(initialYear);
+  const [quarter, setQuarter] = useState({
+    value: '1',
+    label: persistedQuarterLabel || getCurrentQuarterLabel(initialYear),
+  });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const availableYears = getAvailableYears(config);
-  const currentCalendarYear = new Date().getFullYear();
+  const availableYears = config ? getAvailableYears(config) : getFallbackYears(currentCalendarYear);
 
   // Fetch config on mount and set default year
   useEffect(() => {
@@ -36,8 +56,8 @@ const SalesforceMetrics = () => {
           setConfigError(null);
           const years = getAvailableYears(c);
           const defaultYear = years.length
-            ? (years.includes(currentCalendarYear) ? currentCalendarYear : years[0])
-            : currentCalendarYear;
+            ? (years.includes(initialYear) ? initialYear : years.includes(currentCalendarYear) ? currentCalendarYear : years[0])
+            : initialYear;
           setSelectedYear(defaultYear);
         }
       })
@@ -46,6 +66,18 @@ const SalesforceMetrics = () => {
       });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (Number.isInteger(selectedYear)) {
+      localStorage.setItem(SELECTED_YEAR_STORAGE_KEY, String(selectedYear));
+    }
+  }, [selectedYear]);
+
+  useEffect(() => {
+    if (quarter?.label) {
+      localStorage.setItem(SELECTED_QUARTER_STORAGE_KEY, quarter.label);
+    }
+  }, [quarter]);
 
   // Fetch metrics data when selectedYear or config changes
   useEffect(() => {
@@ -91,13 +123,20 @@ const SalesforceMetrics = () => {
     return () => { cancelled = true; };
   }, [config, selectedYear]);
 
-  const quarterOptions = [];
+  const quarterOptionsFromData = [];
   const nonFormattedQuarters = Object.keys(data?.quarterlyData || {});
   for (let i = 0; i < nonFormattedQuarters.length; i++) {
     const q = nonFormattedQuarters[i];
     if (q === 'Total') continue;
-    quarterOptions.push({ value: i + 1, label: q });
+    quarterOptionsFromData.push({ value: i + 1, label: q });
   }
+
+  const quarterOptionsFromGoals = (config?.goalsByYear?.[selectedYear] || []).map((q) => ({
+    value: q.value,
+    label: q.label,
+  }));
+
+  const quarterOptions = quarterOptionsFromData.length > 0 ? quarterOptionsFromData : quarterOptionsFromGoals;
 
   const selectedQuarterData = data?.quarterlyData?.[quarter.label];
   const currentAAR = selectedQuarterData?.totalARR || 0;
@@ -123,7 +162,14 @@ const SalesforceMetrics = () => {
 
   const handleYearChange = (e) => {
     const year = parseInt(e.target.value, 10);
-    if (!Number.isNaN(year)) setSelectedYear(year);
+    if (!Number.isNaN(year)) {
+      setSelectedYear(year);
+      const currentYearQuarterLabel = getCurrentQuarterLabel(year);
+      setQuarter((prev) => {
+        const fallbackLabel = quarterOptionsFromGoals[0]?.label || currentYearQuarterLabel;
+        return { ...prev, label: fallbackLabel };
+      });
+    }
   };
 
   const handleQuarterChange = (event) => {
@@ -207,7 +253,7 @@ const SalesforceMetrics = () => {
           <select
             onChange={handleQuarterChange}
             value={quarter.label}
-            disabled={quarterOptions.length === 0}
+            disabled={quarterOptions.length === 0 && loading}
           >
             {quarterOptions.length > 0 ? (
               quarterOptions.map((q) => (
@@ -216,7 +262,7 @@ const SalesforceMetrics = () => {
                 </option>
               ))
             ) : (
-              <option value="">Loading quarters...</option>
+              <option value="">{loading ? 'Loading quarters...' : 'No quarters available'}</option>
             )}
           </select>
         </div>

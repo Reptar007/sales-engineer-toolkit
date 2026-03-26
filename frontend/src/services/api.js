@@ -187,6 +187,28 @@ export async function createSnapshot(year) {
   return apiRequest(`/salesforce/snapshot/${year}`, { method: 'POST' });
 }
 
+/**
+ * Fetches quarterly goals for a single year (admin-only).
+ * @param {number} year - Year (e.g. 2026).
+ * @returns {Promise<{ year: number, goals: Array<{ value: number, label: string, goal: number }> }>}
+ */
+export async function getQuarterlyGoals(year) {
+  return apiRequest(`/salesforce/goals/${year}`);
+}
+
+/**
+ * Saves quarterly goals for a single year (admin-only).
+ * @param {number} year - Year (e.g. 2026).
+ * @param {Array<{ quarter: number, goal: number }>} goals - Four quarter goal entries.
+ * @returns {Promise<{ success: boolean, year: number, goals: Array<{ value: number, label: string, goal: number }> }>}
+ */
+export async function updateQuarterlyGoals(year, goals) {
+  return apiRequest(`/salesforce/goals/${year}`, {
+    method: 'PUT',
+    body: JSON.stringify({ goals }),
+  });
+}
+
 // Export apiRequest for direct use
 export { apiRequest };
 
@@ -200,6 +222,8 @@ export default {
   fetchSalesforceSnapshotCalculator,
   getSalesforceConfig,
   createSnapshot,
+  getQuarterlyGoals,
+  updateQuarterlyGoals,
   checkSalesforceHealth,
   fetchUsers,
   searchOpportunities,

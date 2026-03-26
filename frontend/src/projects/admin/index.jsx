@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import UsersPage from '../../pages/UsersPage';
 import CreateSnapshotPage from '../../pages/CreateSnapshotPage';
+import QuarterlyGoalsPage from '../../pages/QuarterlyGoalsPage';
 import './Admin.css';
 
 const Admin = () => {
@@ -17,7 +18,8 @@ const Admin = () => {
     { id: 'user', label: 'Users', icon: '👤' },
     { id: 'team', label: 'Create Team', icon: '👥' },
     { id: 'ae', label: 'Create Account Executive', icon: '💼' },
-    { id: 'snapshot_years', label: 'Snapshot Years', icon: '📦'},
+    { id: 'snapshot_years', label: 'Snapshot Years', icon: '📦' },
+    { id: 'quarterly_goals', label: 'Quarterly Goals', icon: '🎯' },
   ];
 
   return (
@@ -68,8 +70,14 @@ const Admin = () => {
         )}
 
         {activeTab === 'snapshot_years' && (
-          <section className='section'>
+          <section className="section">
             <CreateSnapshotPage />
+          </section>
+        )}
+
+        {activeTab === 'quarterly_goals' && (
+          <section className="section">
+            <QuarterlyGoalsPage />
           </section>
         )}
       </div>
