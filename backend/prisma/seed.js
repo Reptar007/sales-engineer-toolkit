@@ -52,7 +52,7 @@ async function main() {
     teamKirby = await prisma.team.create({
       data: {
         name: 'Team Kirby',
-        description: "Rebecca's team",
+        description: "Becca's team",
         isActive: true,
       },
     });
@@ -61,18 +61,33 @@ async function main() {
     console.log('✅ Team already exists:', teamKirby.name);
   }
 
-  // STEP 3: Create or get SE User + SalesEngineer (Becca/Rebecca)
+  // STEP 3: Create or get SE User + SalesEngineer (Becca)
   let seUser = await prisma.user.findUnique({
-    where: { email: 'rebecca@qawolf.com' },
+    where: { email: 'becca@qawolf.com' },
     include: { userRoles: true },
   });
 
   if (!seUser) {
+    const legacyUser = await prisma.user.findUnique({
+      where: { email: 'rebecca@qawolf.com' },
+      include: { userRoles: true },
+    });
+    if (legacyUser) {
+      seUser = await prisma.user.update({
+        where: { id: legacyUser.id },
+        data: { email: 'becca@qawolf.com' },
+        include: { userRoles: true },
+      });
+      console.log('✅ Migrated Team Kirby user email to becca@qawolf.com');
+    }
+  }
+
+  if (!seUser) {
     seUser = await prisma.user.create({
       data: {
-        email: 'rebecca@qawolf.com',
+        email: 'becca@qawolf.com',
         passwordHash: await bcrypt.hash('password', 10),
-        firstName: 'Rebecca',
+        firstName: 'Becca',
         lastName: 'Stone',
         isActive: true,
         userRoles: {
@@ -107,13 +122,20 @@ async function main() {
       data: {
         userId: seUser.id,
         teamId: teamKirby.id,
-        salesforceEmail: 'rebecca@qawolf.com',
+        salesforceEmail: 'becca@qawolf.com',
         isActive: true,
       },
     });
     console.log('✅ Created SalesEngineer record');
   } else {
     console.log('✅ SalesEngineer record already exists');
+    if (salesEngineer.salesforceEmail === 'rebecca@qawolf.com') {
+      await prisma.salesEngineer.update({
+        where: { id: salesEngineer.id },
+        data: { salesforceEmail: 'becca@qawolf.com' },
+      });
+      console.log('✅ Updated SalesEngineer Salesforce email to becca@qawolf.com');
+    }
   }
 
   // STEP 4: Create or get Account Executives for Team Kirby

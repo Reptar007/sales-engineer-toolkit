@@ -49,7 +49,7 @@ heroku run "cd backend && node scripts/seed-all-teams.js" --app qa-sales-enginee
 
 - **Team Bowser**: Dion Pham (dinhan@qawolf.com) - **admin + sales_engineer_2**
 - **Team Yoshi**: Ricky Moore (ricky@qawolf.com) - sales_engineer_2
-- **Team Kirby**: Rebecca Stone (rebecca@qawolf.com) - sales_engineer_2
+- **Team Kirby**: Becca Stone (becca@qawolf.com) - sales_engineer_2
 - **Team Sonic**: Ian (ian@qawolf.com) - sales_engineer_2
 - **Team Zelda**: Jun (jun@qawolf.com) - sales_engineer_2
 - **Team Mario**: Sebastian Antonucci (sebastian@qawolf.com) - admin, sales_engineer_lead

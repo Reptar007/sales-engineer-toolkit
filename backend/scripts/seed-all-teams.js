@@ -143,8 +143,8 @@ const seMapping = {
   },
   'Team Kirby': {
     notionId: 'b2916065-2221-49f4-93b7-85be8480d397',
-    email: 'rebecca@qawolf.com',
-    seName: 'Rebecca Stone',
+    email: 'becca@qawolf.com',
+    seName: 'Becca Stone',
     slackId: 'U040J1L057S',
   },
   'Team Sonic': {
@@ -225,11 +225,26 @@ async function main() {
       include: { userRoles: true },
     });
 
+    if (!seUser && seData.email === 'becca@qawolf.com') {
+      const legacyUser = await prisma.user.findUnique({
+        where: { email: 'rebecca@qawolf.com' },
+        include: { userRoles: true },
+      });
+      if (legacyUser) {
+        seUser = await prisma.user.update({
+          where: { id: legacyUser.id },
+          data: { email: 'becca@qawolf.com' },
+          include: { userRoles: true },
+        });
+        console.log(`   ✅ Migrated ${teamName} user email to becca@qawolf.com`);
+      }
+    }
+
     // Determine roles based on email
     let requiredRoles;
     if (seData.email === 'sebastian@qawolf.com') {
       requiredRoles = ['admin', 'sales_engineer_lead'];
-    } else if (seData.email === 'rebecca@qawolf.com' || seData.email === 'dinhan@qawolf.com') {
+    } else if (seData.email === 'becca@qawolf.com' || seData.email === 'dinhan@qawolf.com') {
       requiredRoles = ['admin', 'sales_engineer_2'];
     } else {
       requiredRoles = ['sales_engineer_1'];
@@ -314,13 +329,17 @@ async function main() {
       });
       console.log(`   ✅ Created SalesEngineer record for ${seData.email}`);
     } else {
-      // Update team if it changed
-      if (salesEngineer.teamId !== team.id) {
+      const seUpdates = {};
+      if (salesEngineer.teamId !== team.id) seUpdates.teamId = team.id;
+      if (salesEngineer.salesforceEmail !== seData.email) {
+        seUpdates.salesforceEmail = seData.email;
+      }
+      if (Object.keys(seUpdates).length > 0) {
         await prisma.salesEngineer.update({
           where: { id: salesEngineer.id },
-          data: { teamId: team.id },
+          data: seUpdates,
         });
-        console.log(`   🔄 Updated SalesEngineer team for ${seData.email}`);
+        console.log(`   🔄 Updated SalesEngineer for ${seData.email}`);
       } else {
         console.log(`   ⏭️  SalesEngineer record already exists for ${seData.email}`);
       }
@@ -422,7 +441,7 @@ async function main() {
 
   console.log('\n👑 Special roles:');
   console.log('   Sebastian (sebastian@qawolf.com): admin, sales_engineer_lead');
-  console.log('   Rebecca (rebecca@qawolf.com): admin, sales_engineer_2');
+  console.log('   Becca (becca@qawolf.com): admin, sales_engineer_2');
   console.log('   Dion Pham (dinhan@qawolf.com): admin, sales_engineer_2');
   console.log('   All other SEs: sales_engineer_1');
   console.log('\n🔑 Default password for all users: password');
