@@ -55,9 +55,17 @@ const SalesforceMetrics = () => {
           setConfig(c);
           setConfigError(null);
           const years = getAvailableYears(c);
-          const defaultYear = years.length
-            ? (years.includes(initialYear) ? initialYear : years.includes(currentCalendarYear) ? currentCalendarYear : years[0])
-            : initialYear;
+          // Prefer the persisted year if it has data, otherwise fall back to the
+          // most recent year that has a report ID or snapshot (not just goals).
+          const hasData = (yr) => {
+            const hasReport = !!c.reportIdsByYear?.[yr]?.metrics;
+            const hasSnapshot = (c.snapshotYears || []).includes(yr);
+            return hasReport || hasSnapshot;
+          };
+          const yearsWithData = years.filter(hasData);
+          const defaultYear = yearsWithData.includes(initialYear)
+            ? initialYear
+            : yearsWithData[0] ?? (years[0] ?? initialYear);
           setSelectedYear(defaultYear);
         }
       })

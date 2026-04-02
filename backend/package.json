@@ -21,6 +21,7 @@
     "ratio-estimator": "src/index.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.81.0",
     "@prisma/client": "^6.17.1",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",

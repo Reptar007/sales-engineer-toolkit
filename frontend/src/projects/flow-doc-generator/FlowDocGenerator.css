@@ -1,0 +1,490 @@
+/* Flow Doc Generator - matches QA Wolf PDF leave-behind style */
+
+.flow-doc-generator {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Page header (tool UI, not the doc) */
+.fdg-header {
+  margin-bottom: 2rem;
+}
+
+.fdg-header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary, #1a1a2e);
+  margin: 0 0 0.5rem;
+}
+
+.fdg-header p {
+  color: var(--text-secondary, #6b7280);
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Info panels row */
+.fdg-info-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+/* How it works */
+.fdg-how-it-works {
+  background: #f5f5ff;
+  border: 1px solid #c7c7fb;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+
+.fdg-how-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #3d3df5;
+  margin: 0 0 0.625rem;
+}
+
+.fdg-how-steps {
+  margin: 0;
+  padding-left: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: decimal;
+}
+
+.fdg-how-steps li {
+  font-size: 0.875rem;
+  color: #374151;
+  line-height: 1.5;
+  padding-left: 0.25rem;
+}
+
+/* Gotchas */
+.fdg-gotchas {
+  background: #fff5f5;
+  border: 1px solid #fca5a5;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+
+.fdg-gotchas-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #dc2626;
+  margin: 0 0 0.625rem;
+}
+
+.fdg-gotchas-list {
+  margin: 0;
+  padding-left: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: disc;
+}
+
+.fdg-gotchas-list li {
+  font-size: 0.875rem;
+  color: #7f1d1d;
+  line-height: 1.5;
+  padding-left: 0.25rem;
+}
+
+@media (max-width: 680px) {
+  .fdg-info-panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Input section */
+.fdg-input-section {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.fdg-input-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 0.625rem;
+}
+
+.fdg-input-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.fdg-url-input {
+  flex: 1;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.9rem;
+  border: 1.5px solid var(--border-color, #d1d5db);
+  border-radius: 8px;
+  background: var(--input-bg, #f9fafb);
+  color: var(--text-primary, #1a1a2e);
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: 'SFMono-Regular', 'Consolas', monospace;
+}
+
+.fdg-url-input:focus {
+  border-color: #3d3df5;
+  background: var(--card-bg, #ffffff);
+}
+
+.fdg-url-input::placeholder {
+  color: #9ca3af;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.fdg-generate-btn {
+  padding: 0.625rem 1.5rem;
+  background: #3d3df5;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.fdg-generate-btn:hover:not(:disabled) {
+  background: #2c2cd4;
+}
+
+.fdg-generate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Loading state */
+.fdg-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.9rem;
+}
+
+.fdg-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid #e5e7eb;
+  border-top-color: #3d3df5;
+  border-radius: 50%;
+  animation: fdg-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes fdg-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error state */
+.fdg-error {
+  padding: 1rem 1.25rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+/* ─── Document output card ─────────────────────────────────── */
+
+.fdg-doc-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* Doc header: white, logo top-left */
+.fdg-doc-header {
+  padding: 2rem 2.5rem 1.75rem;
+  background: #ffffff;
+}
+
+.fdg-qaw-logo {
+  height: 44px;
+  width: auto;
+  display: block;
+  margin-bottom: 1.5rem;
+}
+
+.fdg-doc-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #0d0d1a;
+  margin: 0;
+  line-height: 1.3;
+  text-align: center;
+}
+
+/* Editable inline fields */
+.fdg-editable-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0d0d1a;
+  text-align: center;
+  width: 100%;
+  border: none;
+  border-bottom: 2px dashed transparent;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.3;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.fdg-editable-title:hover,
+.fdg-editable-title:focus {
+  border-bottom-color: #3d3df5;
+  background: #f5f5ff;
+}
+
+.fdg-editable-summary {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: #374151;
+  width: 100%;
+  border: none;
+  border-left: 3px solid #3d3df5;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  padding: 2px 0 2px 1rem;
+  resize: none;
+  overflow: hidden;
+  border-radius: 0;
+  transition: background 0.15s;
+}
+
+.fdg-editable-summary:hover,
+.fdg-editable-summary:focus {
+  background: #f5f5ff;
+}
+
+.fdg-editable-step-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0d0d1a;
+  flex: 1;
+  border: none;
+  border-bottom: 2px dashed transparent;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.fdg-editable-step-name:hover,
+.fdg-editable-step-name:focus {
+  border-bottom-color: #3d3df5;
+  background: #f5f5ff;
+}
+
+/* Doc body */
+.fdg-doc-body {
+  padding: 0 2.5rem 2.5rem;
+}
+
+/* Summary section */
+.fdg-summary-section {
+  margin-bottom: 2rem;
+}
+
+.fdg-section-heading {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0d0d1a;
+  margin: 0 0 0.625rem;
+}
+
+.fdg-summary-text {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: #374151;
+  margin: 0;
+  padding-left: 1rem;
+  border-left: 3px solid #3d3df5;
+}
+
+/* Steps */
+.fdg-steps-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.fdg-step {
+  /* no card chrome - matches original flat layout */
+}
+
+.fdg-step-name-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0d0d1a;
+  margin: 0 0 0.625rem;
+}
+
+.fdg-step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: #3d3df5;
+  color: #ffffff;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Code block - light gray, matches original */
+.fdg-code-wrapper {
+  position: relative;
+  background: #f3f4f6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.fdg-code-block {
+  margin: 0;
+  padding: 1.25rem 1.25rem;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: #1e293b;
+  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', Menlo, monospace;
+  white-space: pre;
+  max-height: 500px;
+  overflow-y: auto;
+  background: transparent;
+}
+
+/* Copy button - top right of code block */
+.fdg-copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.3rem 0.625rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #ffffff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.fdg-copy-btn:hover {
+  background: #f9fafb;
+}
+
+.fdg-copy-btn.copied {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+
+/* Download button */
+.fdg-doc-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.25rem 0;
+}
+
+.fdg-edit-hint {
+  font-size: 0.775rem;
+  color: var(--text-secondary, #9ca3af);
+  font-style: italic;
+}
+
+.fdg-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.825rem;
+  font-weight: 600;
+  background: #3d3df5;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.fdg-download-btn:hover {
+  background: #2c2cd4;
+}
+
+/* Print tip banner */
+.fdg-print-tip {
+  margin: 0 1.25rem 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  font-size: 0.825rem;
+}
+
+.fdg-print-tip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 0.4rem;
+}
+
+.fdg-print-tip-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: #92400e;
+  padding: 0 0.25rem;
+  line-height: 1;
+}
+
+.fdg-print-tip-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #78350f;
+  line-height: 1.7;
+}
+
