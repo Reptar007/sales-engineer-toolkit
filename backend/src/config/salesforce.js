@@ -23,7 +23,9 @@ export function getSalesforceConfig() {
   const metrics2025 = resolve1PasswordValue(
     process.env.SALESFORCE_REPORT_ID_METRICS_2025 || '00OPA000002sLkf2AE',
   );
-  const metrics2026 = resolve1PasswordValue(process.env.SALESFORCE_REPORT_ID_METRICS_2026 || '');
+  const metrics2026 = resolve1PasswordValue(
+    process.env.SALESFORCE_REPORT_ID_METRICS_2026 || '00OPA000003MLAX2A4',
+  );
 
   return {
     reportIdsByYear: {

@@ -184,11 +184,11 @@ router.post('/generate', async (req, res) => {
   try {
     const systemPrompt =
       'You are a senior QA engineer writing professional technical documentation for a sales leave-behind document. ' +
-      'Your response must be exactly 2 sentences, no more. ' +
+      'Your response must be exactly 2 - 4 sentences, no more. ' +
       'Never use em dashes. Use plain punctuation only.';
 
     const userPrompt =
-      `Summarize what the following QA Wolf automated test flow verifies end-to-end in exactly 2 sentences. ` +
+      `Summarize what the following QA Wolf automated test flow verifies end-to-end in exactly 2 - 4 sentences. ` +
       `Be specific about the features and user actions covered. Stop after the second sentence.\n\n` +
       `Flow file path: ${relativePath}\n\n` +
       `Flow source code:\n${fileSource}`;

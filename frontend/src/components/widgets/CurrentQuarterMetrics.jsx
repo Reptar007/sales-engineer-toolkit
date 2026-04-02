@@ -46,22 +46,30 @@ function CurrentQuarterMetrics() {
       return null;
     }
   });
-  const [data, setData] = useState(() => {
-    try {
-      const year = new Date().getFullYear();
-      const cached = localStorage.getItem(DATA_CACHE_KEY);
-      if (!cached) return null;
-      const byYear = JSON.parse(cached);
-      return byYear[year] || null;
-    } catch {
-      return null;
-    }
-  });
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const actualCurrentQuarter = getCurrentQuarter();
-  const currentYear = new Date().getFullYear();
+  const calendarYear = new Date().getFullYear();
+
+  // Resolve the best year to display: current year if it has data, otherwise
+  // the most recent configured year that has a report ID or snapshot.
+  const resolveDataYear = (c) => {
+    if (!c) return calendarYear;
+    const hasData = (yr) =>
+      (c.snapshotYears || []).includes(yr) || !!c.reportIdsByYear?.[yr]?.metrics;
+    if (hasData(calendarYear)) return calendarYear;
+    const allYears = [
+      ...new Set([
+        ...Object.keys(c.reportIdsByYear || {}).map(Number),
+        ...(c.snapshotYears || []),
+      ]),
+    ].sort((a, b) => b - a);
+    return allYears.find(hasData) ?? calendarYear;
+  };
+
+  const currentYear = resolveDataYear(config);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,13 +137,23 @@ function CurrentQuarterMetrics() {
   }, [config, currentYear]);
 
   const quarterlyData = data?.quarterlyData || {};
-  const currentQuarterKey = quarterlyData[actualCurrentQuarter]
-    ? actualCurrentQuarter
-    : Object.keys(quarterlyData).find(
-          (key) => key !== 'Total' && quarterlyData[key]?.opportunities?.length > 0
-        ) ||
-      Object.keys(quarterlyData).find((key) => key !== 'Total') ||
-      actualCurrentQuarter;
+
+  // Quarter order for sorting: Q1 < Q2 < Q3 < Q4
+  const quarterOrder = (key) => {
+    const match = key.match(/^Q(\d) CY(\d+)$/);
+    if (!match) return -1;
+    return parseInt(match[2]) * 4 + parseInt(match[1]);
+  };
+
+  // Find the most recent quarter at or before the current one that has data
+  const currentQuarterKey = (() => {
+    if (quarterlyData[actualCurrentQuarter]) return actualCurrentQuarter;
+    const currentOrder = quarterOrder(actualCurrentQuarter);
+    const pastQuarters = Object.keys(quarterlyData)
+      .filter((key) => key !== 'Total' && quarterOrder(key) <= currentOrder)
+      .sort((a, b) => quarterOrder(b) - quarterOrder(a));
+    return pastQuarters[0] || actualCurrentQuarter;
+  })();
   const currentQuarterData = quarterlyData[currentQuarterKey] || {};
   const currentAAR = currentQuarterData?.totalARR || 0;
   const currentYearAAR = quarterlyData?.Total?.totalARR || 0;

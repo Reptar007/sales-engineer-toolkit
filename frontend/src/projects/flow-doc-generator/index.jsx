@@ -1,49 +1,43 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import './FlowDocGenerator.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-function CopyButton({ text }) {
-  const [copied, setCopied] = useState(false);
+// Auto-resizing textarea for inline editing
+function EditableTextarea({ value, onChange, className }) {
+  const ref = useRef(null);
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // fallback for older browsers
-      const el = document.createElement('textarea');
-      el.value = text;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.style.height = 'auto';
+      ref.current.style.height = `${ref.current.scrollHeight}px`;
     }
-  }, [text]);
+  }, [value]);
 
   return (
-    <button
-      type="button"
-      className={`fdg-copy-btn${copied ? ' copied' : ''}`}
-      onClick={handleCopy}
-    >
-      {copied ? 'Copied!' : 'Copy'}
-    </button>
+    <textarea
+      ref={ref}
+      className={className}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      rows={1}
+    />
   );
 }
 
-function TestStep({ step, index }) {
+function TestStep({ step, index, onNameChange }) {
   return (
     <div className="fdg-step">
       <h4 className="fdg-step-name-heading">
         <span className="fdg-step-index">{index + 1}</span>
-        {step.name}
+        <input
+          className="fdg-editable-step-name"
+          value={step.name}
+          onChange={(e) => onNameChange(index, e.target.value)}
+          title="Click to edit step name"
+        />
       </h4>
       <div className="fdg-code-wrapper">
-        <CopyButton text={step.code} />
         <pre className="fdg-code-block"><code>{step.code}</code></pre>
       </div>
     </div>
@@ -51,16 +45,25 @@ function TestStep({ step, index }) {
 }
 
 function DocOutput({ doc }) {
+  // Editable doc state - title, summary, step names
+  const [title, setTitle] = useState(doc.flowName);
+  const [summary, setSummary] = useState(doc.summary);
+  const [steps, setSteps] = useState(doc.steps);
   const [showPrintTip, setShowPrintTip] = useState(false);
+
+  const handleStepNameChange = useCallback((index, newName) => {
+    setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, name: newName } : s)));
+  }, []);
 
   const handleDownload = () => {
     setShowPrintTip(true);
     const logoUrl = `${window.location.origin}/QAWolf_logo_blue.png`;
+
     const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${doc.flowName}</title>
+  <title>${title}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #0d0d1a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -78,12 +81,12 @@ function DocOutput({ doc }) {
 </head>
 <body>
   <img src="${logoUrl}" class="fdg-qaw-logo" alt="QA Wolf" />
-  <h1 class="fdg-doc-title">${doc.flowName}</h1>
+  <h1 class="fdg-doc-title">${title}</h1>
   <div class="fdg-summary-block">
     <h2 class="fdg-section-heading">Summary of Flow</h2>
-    <p class="fdg-summary-text">${doc.summary}</p>
+    <p class="fdg-summary-text">${summary}</p>
   </div>
-  ${doc.steps.map((step, i) => `
+  ${steps.map((step, i) => `
   <div class="fdg-step">
     <h3 class="fdg-step-name-heading">
       <span class="fdg-step-index">${i + 1}</span>
@@ -97,7 +100,6 @@ function DocOutput({ doc }) {
     const blob = new Blob([html], { type: 'text/html' });
     const blobUrl = URL.createObjectURL(blob);
 
-    // Print via a hidden iframe - no new tab opens
     const iframe = document.createElement('iframe');
     iframe.style.cssText = 'position:fixed;width:0;height:0;border:none;left:-9999px;top:-9999px;';
     document.body.appendChild(iframe);
@@ -105,7 +107,7 @@ function DocOutput({ doc }) {
     iframe.addEventListener('load', () => {
       setTimeout(() => {
         const originalTitle = document.title;
-        document.title = doc.flowName;
+        document.title = title;
         iframe.contentWindow.focus();
         iframe.contentWindow.print();
         document.title = originalTitle;
@@ -143,20 +145,35 @@ function DocOutput({ doc }) {
           </ol>
         </div>
       )}
+
       <div className="fdg-doc-header">
         <img src="/QAWolf_logo_blue.png" alt="QA Wolf" className="fdg-qaw-logo" />
-        <h2 className="fdg-doc-title">{doc.flowName}</h2>
+        <input
+          className="fdg-editable-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          title="Click to edit title"
+        />
       </div>
 
       <div className="fdg-doc-body">
         <section className="fdg-summary-section">
           <h3 className="fdg-section-heading">Summary of Flow</h3>
-          <p className="fdg-summary-text">{doc.summary}</p>
+          <EditableTextarea
+            className="fdg-editable-summary"
+            value={summary}
+            onChange={setSummary}
+          />
         </section>
 
         <section className="fdg-steps-section">
-          {doc.steps.map((step, i) => (
-            <TestStep key={`${step.name}-${i}`} step={step} index={i} />
+          {steps.map((step, i) => (
+            <TestStep
+              key={`step-${i}`}
+              step={step}
+              index={i}
+              onNameChange={handleStepNameChange}
+            />
           ))}
         </section>
       </div>
@@ -216,6 +233,28 @@ function FlowDocGenerator() {
         <p>Paste a QA Wolf flow URL to generate a formatted technical leave-behind document.</p>
       </div>
 
+      <div className="fdg-info-panels">
+        <div className="fdg-how-it-works">
+          <p className="fdg-how-title">How it works</p>
+          <ol className="fdg-how-steps">
+            <li>Paste a QA Wolf flow URL and click <strong>Generate</strong></li>
+            <li>The AI will summarize the flow and extract each test step</li>
+            <li>Click any field — title, summary, or step names — to edit them before downloading</li>
+            <li>Hit <strong>Download PDF</strong> to save a branded leave-behind</li>
+          </ol>
+        </div>
+
+        <div className="fdg-gotchas">
+          <p className="fdg-gotchas-title">⚠ Gotchas</p>
+          <ul className="fdg-gotchas-list">
+            <li>The SE Lead must be invited to the customer&apos;s QA Wolf team</li>
+            <li>Must use a production URL — staging URLs are not supported</li>
+            <li>Step extraction uses Helpers (V2 coming soon)</li>
+            <li>When saving the PDF, uncheck <strong>Headers and Footers</strong> in the print dialog</li>
+          </ul>
+        </div>
+      </div>
+
       <div className="fdg-input-section">
         <label className="fdg-input-label" htmlFor="fdg-url-input">
           QA Wolf Flow URL
@@ -249,11 +288,7 @@ function FlowDocGenerator() {
         </div>
       )}
 
-      {error && (
-        <div className="fdg-error">
-          {error}
-        </div>
-      )}
+      {error && <div className="fdg-error">{error}</div>}
 
       {doc && !loading && <DocOutput doc={doc} />}
     </div>
