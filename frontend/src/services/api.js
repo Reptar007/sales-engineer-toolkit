@@ -209,6 +209,16 @@ export async function updateQuarterlyGoals(year, goals) {
   });
 }
 
+/** Dashboard: today’s calendar events (Google Calendar when configured). */
+export async function fetchDashboardCalendar() {
+  return apiRequest('/dashboard/calendar');
+}
+
+/** Dashboard: Linear workload grouped by AE / Creations / CSM projects. */
+export async function fetchDashboardLinear() {
+  return apiRequest('/dashboard/linear');
+}
+
 // Export apiRequest for direct use
 export { apiRequest };
 
@@ -225,6 +235,8 @@ export default {
   getQuarterlyGoals,
   updateQuarterlyGoals,
   checkSalesforceHealth,
+  fetchDashboardCalendar,
+  fetchDashboardLinear,
   fetchUsers,
   searchOpportunities,
   fetchGongConversations,

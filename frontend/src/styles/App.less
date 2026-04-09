@@ -2222,6 +2222,54 @@
   }
 }
 
+// Home dashboard top bar (greeting + overflow menu)
+.dashboard-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: @spacing-large;
+  margin-bottom: @spacing-extra-large;
+  padding: 0;
+}
+
+.dashboard-page-head__text {
+  min-width: 0;
+}
+
+.dashboard-page-head__title {
+  font-size: 2.25rem;
+  font-weight: @font-weight-bold;
+  color: var(--text-primary);
+  margin: 0 0 @spacing-small 0;
+  line-height: 1.15;
+}
+
+.dashboard-page-head__sub {
+  font-size: @font-size-medium;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.dashboard-page-head__menu {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: @radius-md;
+  border: 1px solid var(--border-color, @border-subtle);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  .transition();
+
+  &:hover {
+    color: var(--text-primary);
+    border-color: @primary-green;
+    background: var(--bg-hover);
+  }
+}
+
 .projects-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
