@@ -156,7 +156,7 @@ const QuarterlyGoalsPage = () => {
     <div className="quarterly-goals">
       <h2 className="section-title quarterly-goals__title">Quarterly Goals</h2>
       <p className="quarterly-goals__intro">
-        Set ARR goals for each quarter by year. These goals are used in Salesforce metrics and calculator
+        Set CARR goals for each quarter by year. These goals are used in Salesforce metrics and calculator
         views.
       </p>
       <p className="quarterly-goals__hint">

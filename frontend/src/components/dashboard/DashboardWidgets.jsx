@@ -1,11 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import { fetchDashboardCalendar, fetchDashboardLinear } from '../../services/api';
-import { MOCK_CALENDAR_EVENTS, MOCK_LINEAR_BOARD } from './dashboardWidgetMockData';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import {
+  fetchDashboardCalendar,
+  fetchDashboardLinear,
+  startGoogleCalendarOAuth,
+  disconnectGoogleCalendar,
+} from '../../services/api';
+import { MOCK_LINEAR_BOARD } from './dashboardWidgetMockData';
 import './DashboardWidgets.less';
 
 const CALENDAR_OPEN_URL = 'https://calendar.google.com';
 
-function DashboardCalendarCard({ events, openUrl = CALENDAR_OPEN_URL, showEmptyHint }) {
+function DashboardCalendarCard({
+  events,
+  openUrl = CALENDAR_OPEN_URL,
+  showEmptyHint,
+  showConnect,
+  onConnect,
+  onDisconnect,
+  connectLoading,
+  oauthConnected,
+}) {
   return (
     <section className="dashboard-panel" aria-labelledby="dash-cal-title">
       <div className="dashboard-panel__head">
@@ -42,6 +57,25 @@ function DashboardCalendarCard({ events, openUrl = CALENDAR_OPEN_URL, showEmptyH
           ))
         )}
       </div>
+      {(showConnect || oauthConnected) && (
+        <div className="dashboard-calendar__actions">
+          {showConnect && (
+            <button
+              type="button"
+              className="dashboard-calendar__btn dashboard-calendar__btn--primary"
+              disabled={connectLoading}
+              onClick={onConnect}
+            >
+              {connectLoading ? 'Redirecting…' : 'Connect Google Calendar'}
+            </button>
+          )}
+          {oauthConnected && (
+            <button type="button" className="dashboard-calendar__btn" onClick={onDisconnect}>
+              Disconnect Google
+            </button>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -95,24 +129,37 @@ function DashboardLinearCard({ board = MOCK_LINEAR_BOARD }) {
 }
 
 export function DashboardWidgets() {
-  const [calendarEvents, setCalendarEvents] = useState(MOCK_CALENDAR_EVENTS);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarLive, setCalendarLive] = useState(false);
+  const [calendarSource, setCalendarSource] = useState(null);
+  const [connectLoading, setConnectLoading] = useState(false);
   const [linearBoard, setLinearBoard] = useState(MOCK_LINEAR_BOARD);
+
+  const loadCalendar = useCallback(async () => {
+    try {
+      const data = await fetchDashboardCalendar();
+      if (!data) return;
+      if (data.configured) {
+        setCalendarLive(true);
+        setCalendarEvents(Array.isArray(data.events) ? data.events : []);
+        setCalendarSource(data.source ?? null);
+      } else {
+        setCalendarLive(false);
+        setCalendarEvents([]);
+        setCalendarSource(null);
+      }
+    } catch {
+      setCalendarLive(false);
+      setCalendarEvents([]);
+      setCalendarSource(null);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
-    fetchDashboardCalendar()
-      .then((data) => {
-        if (cancelled || !data) return;
-        if (data.configured) {
-          setCalendarLive(true);
-          setCalendarEvents(Array.isArray(data.events) ? data.events : []);
-        }
-      })
-      .catch(() => {
-        /* keep mock */
-      });
+    loadCalendar().catch(() => {});
 
     fetchDashboardLinear()
       .then((data) => {
@@ -131,7 +178,49 @@ export function DashboardWidgets() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadCalendar]);
+
+  useEffect(() => {
+    const g = searchParams.get('google_calendar');
+    if (g == null) return;
+    loadCalendar();
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.delete('google_calendar');
+        return p;
+      },
+      { replace: true },
+    );
+  }, [searchParams, loadCalendar, setSearchParams]);
+
+  const handleConnectGoogle = async () => {
+    setConnectLoading(true);
+    try {
+      const data = await startGoogleCalendarOAuth();
+      if (data?.authorizationUrl) {
+        window.location.href = data.authorizationUrl;
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || 'Could not start Google Calendar connection');
+    } finally {
+      setConnectLoading(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    try {
+      await disconnectGoogleCalendar();
+      await loadCalendar();
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || 'Could not disconnect');
+    }
+  };
+
+  const showConnect = !calendarLive;
+  const oauthConnected = calendarSource === 'oauth';
 
   return (
     <div className="dashboard-widgets">
@@ -139,6 +228,11 @@ export function DashboardWidgets() {
       <DashboardCalendarCard
         events={calendarEvents}
         showEmptyHint={calendarLive}
+        showConnect={showConnect}
+        onConnect={handleConnectGoogle}
+        onDisconnect={handleDisconnectGoogle}
+        connectLoading={connectLoading}
+        oauthConnected={oauthConnected}
       />
     </div>
   );

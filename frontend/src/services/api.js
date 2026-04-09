@@ -219,6 +219,19 @@ export async function fetchDashboardLinear() {
   return apiRequest('/dashboard/linear');
 }
 
+/** Google Calendar OAuth: returns { authorizationUrl }. */
+export async function startGoogleCalendarOAuth() {
+  return apiRequest('/integrations/google/start', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+/** Remove stored Google Calendar tokens for the current user. */
+export async function disconnectGoogleCalendar() {
+  return apiRequest('/integrations/google', { method: 'DELETE' });
+}
+
 // Export apiRequest for direct use
 export { apiRequest };
 
@@ -237,6 +250,8 @@ export default {
   checkSalesforceHealth,
   fetchDashboardCalendar,
   fetchDashboardLinear,
+  startGoogleCalendarOAuth,
+  disconnectGoogleCalendar,
   fetchUsers,
   searchOpportunities,
   fetchGongConversations,

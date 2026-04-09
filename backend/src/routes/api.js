@@ -7,6 +7,7 @@ import salesforceRoutes from '../projects/salesforce/index.js';
 import teamRoutes from './teams.js';
 import userRoutes from '../user.js';
 import dashboardRoutes from './dashboard.js';
+import integrationsRoutes from './integrations.js';
 
 const router = express.Router();
 
@@ -21,6 +22,8 @@ router.use('/users', userRoutes);
 
 // Dashboard widgets (calendar, Linear)
 router.use('/dashboard', dashboardRoutes);
+
+router.use('/integrations', integrationsRoutes);
 
 // Mount project-specific routes
 router.use('/ratio-estimator', ratioEstimatorRoutes);
@@ -42,6 +45,7 @@ router.get('/', (req, res) => {
       'flow-doc': '/api/flow-doc',
       health: '/api/health',
       dashboard: '/api/dashboard',
+      integrations: '/api/integrations',
     },
   });
 });

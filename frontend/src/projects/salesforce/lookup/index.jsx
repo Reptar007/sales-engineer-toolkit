@@ -41,8 +41,21 @@ const SalesforceLookup = () => {
     };
 
     const formatCurrency = (amount) => {
-        if (!amount) return 'N/A';
-        return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (amount === null || amount === undefined) return 'N/A';
+        const n = Number(amount);
+        if (Number.isNaN(n)) return 'N/A';
+        return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
+    /** CARR column: dedicated field (env) → ARR__c (`arr`) → Gross ARR → Amount. */
+    const lookupPrimaryRevenue = (opp) =>
+        opp.carr ?? opp.arr ?? opp.grossARR ?? opp.amount;
+
+    const lookupShowGrossARRRow = (opp) => {
+        if (opp.grossARR == null) return false;
+        const primary = lookupPrimaryRevenue(opp);
+        if (primary == null) return false;
+        return Number(opp.grossARR) !== Number(primary);
     };
 
     const formatDate = (dateString) => {
@@ -604,9 +617,17 @@ const SalesforceLookup = () => {
                             <span className="lookup-detail-value">{opportunity.type || 'N/A'}</span>
                         </div>
                         <div className="lookup-detail-item">
+                            <span className="lookup-detail-label">CARR</span>
+                            <span className="lookup-detail-value">
+                                {formatCurrency(lookupPrimaryRevenue(opportunity))}
+                            </span>
+                        </div>
+                        {lookupShowGrossARRRow(opportunity) && (
+                        <div className="lookup-detail-item">
                             <span className="lookup-detail-label">Gross ARR</span>
                             <span className="lookup-detail-value">{formatCurrency(opportunity.grossARR)}</span>
                         </div>
+                        )}
                         <div className="lookup-detail-item">
                             <span className="lookup-detail-label">Close Date</span>
                             <span className="lookup-detail-value">{formatDate(opportunity.closeDate)}</span>
@@ -893,9 +914,9 @@ const SalesforceLookup = () => {
                                                 <span className="lookup-card-value">{opportunity.stage || 'N/A'}</span>
                                             </div>
                                             <div className="lookup-card-field">
-                                                <span className="lookup-card-label">Amount:</span>
+                                                <span className="lookup-card-label">CARR:</span>
                                                 <span className="lookup-card-value">
-                                                    {formatCurrency(opportunity.amount || opportunity.arr)}
+                                                    {formatCurrency(lookupPrimaryRevenue(opportunity))}
                                                 </span>
                                             </div>
                                             <div className="lookup-card-field">

@@ -46,13 +46,16 @@ export async function createSnapshotForYear(year) {
       quarterData.rows.forEach((row) => {
         const dataCells = row.dataCells;
         const aeId = dataCells[0]?.value || '';
+        // AE, Opp, Sales Score, Effective Date, Gross ARR, CARR — same as GET /report/:reportId metrics branch.
         const opportunity = {
           aeName: dataCells[0]?.label || '',
           opportunityName: dataCells[1]?.label || '',
-          arrAmount: dataCells[2]?.value?.amount || 0,
-          arrAmountFormatted: dataCells[2]?.label || '',
-          salesScore: dataCells[3]?.label || '',
-          effectiveDate: dataCells[4]?.label || '',
+          salesScore: dataCells[2]?.label || '',
+          effectiveDate: dataCells[3]?.label || '',
+          grossARRAmount: dataCells[4]?.value?.amount || 0,
+          grossARRAmountFormatted: dataCells[4]?.label || '',
+          carrAmount: dataCells[5]?.value?.amount || 0,
+          carrAmountFormatted: dataCells[5]?.label || '',
           aeId,
           opportunityId: dataCells[1]?.value || '',
           quarter: quarterName,
@@ -61,11 +64,11 @@ export async function createSnapshotForYear(year) {
         allOpportunities.push(opportunity);
       });
     }
-    const filteredTotalARR = opportunities.reduce((sum, opp) => sum + opp.arrAmount, 0);
+    const filteredTotalCARR = opportunities.reduce((sum, opp) => sum + opp.carrAmount, 0);
     quarterlyData[quarterName] = {
       quarter: quarterName,
-      totalARR: filteredTotalARR,
-      totalARRFormatted: `$${filteredTotalARR.toLocaleString('en-US', {
+      totalCARR: filteredTotalCARR,
+      totalCARRFormatted: `$${filteredTotalCARR.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })}`,
@@ -73,14 +76,14 @@ export async function createSnapshotForYear(year) {
       opportunities,
     };
   });
-  let yearlyTotalARR = 0;
+  let yearlyTotalCARR = 0;
   Object.keys(quarterlyData).forEach((key) => {
-    if (key !== 'Total') yearlyTotalARR += quarterlyData[key].totalARR || 0;
+    if (key !== 'Total') yearlyTotalCARR += quarterlyData[key].totalCARR || 0;
   });
   quarterlyData['Total'] = {
     quarter: 'Total',
-    totalARR: yearlyTotalARR,
-    totalARRFormatted: `$${yearlyTotalARR.toLocaleString('en-US', {
+    totalCARR: yearlyTotalCARR,
+    totalCARRFormatted: `$${yearlyTotalCARR.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`,
@@ -109,17 +112,17 @@ export async function createSnapshotForYear(year) {
       aeName: dataCells[4]?.label || '',
       probability: dataCells[5]?.value || '',
       probabilityFormatted: dataCells[5]?.label || '',
-      arrAmount: dataCells[6]?.value?.amount || 0,
+      carrAmount: dataCells[6]?.value?.amount || 0,
       amount: dataCells[6]?.label || '',
     };
   });
-  const totalARR = calcData.reduce((sum, opp) => sum + (opp.arrAmount || 0), 0);
+  const totalCARR = calcData.reduce((sum, opp) => sum + (opp.carrAmount || 0), 0);
   const calculatorPayload = {
     success: true,
     reportId: calculatorReportId,
     totalOpportunities: calcData.length,
-    totalARR,
-    totalARRFormatted: `$${totalARR.toLocaleString('en-US', {
+    totalCARR,
+    totalCARRFormatted: `$${totalCARR.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`,
