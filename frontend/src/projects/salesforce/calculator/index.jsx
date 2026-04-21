@@ -125,8 +125,8 @@ const SalesforceCalculator = () => {
   const quarterlyGoal = selectedQuarterGoal?.goal || 0;
 
   const selectedQuarterData = metricsData?.quarterlyData?.[currentQuarter];
-  const currentQuarterAAR = selectedQuarterData?.totalARR || 0;
-  const currentQuarterAARFormatted = `$${currentQuarterAAR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const currentQuarterCARR = selectedQuarterData?.totalCARR || 0;
+  const currentQuarterCARRFormatted = `$${currentQuarterCARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const allOpportunities = data?.data || [];
   const totalOpportunities = data?.totalOpportunities || 0;
@@ -147,9 +147,9 @@ const SalesforceCalculator = () => {
         aValue = typeof a.probability === 'number' ? a.probability : parseInt(a.probability) || 0;
         bValue = typeof b.probability === 'number' ? b.probability : parseInt(b.probability) || 0;
         break;
-      case 'arrAmount':
-        aValue = a.arrAmount || 0;
-        bValue = b.arrAmount || 0;
+      case 'carrAmount':
+        aValue = a.carrAmount || 0;
+        bValue = b.carrAmount || 0;
         break;
       default:
         return 0;
@@ -161,21 +161,21 @@ const SalesforceCalculator = () => {
 
   const opportunities = sortedOpportunities;
 
-  const addedTotalARR = opportunities
+  const addedTotalCARR = opportunities
     .filter((opp) => selectedOpps.includes(opp.opportunityId))
-    .reduce((sum, opp) => sum + (opp.arrAmount || 0), 0);
-  const addedTotalARRFormatted = `$${addedTotalARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    .reduce((sum, opp) => sum + (opp.carrAmount || 0), 0);
+  const addedTotalCARRFormatted = `$${addedTotalCARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const projectedTotalARR = currentQuarterAAR + addedTotalARR;
-  const projectedTotalARRFormatted = `$${projectedTotalARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const projectedTotalCARR = currentQuarterCARR + addedTotalCARR;
+  const projectedTotalCARRFormatted = `$${projectedTotalCARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const calculateCompensation = (role, projectedAAR, goal) => {
+  const calculateCompensation = (role, projectedCARR, goal) => {
     const yearlyCompensation = compensation[role];
     const quarterlyCompensation = yearlyCompensation / 4;
-    if (!goal || projectedAAR / goal < 0.8) {
+    if (!goal || projectedCARR / goal < 0.8) {
       return { compensation: 0, quarterlyCompensation };
     } else {
-      const comp = quarterlyCompensation * (projectedAAR / goal);
+      const comp = quarterlyCompensation * (projectedCARR / goal);
       return { compensation: comp, quarterlyCompensation };
     }
   };
@@ -222,7 +222,7 @@ const SalesforceCalculator = () => {
     );
   }
 
-  const progressPercentage = quarterlyGoal > 0 ? (projectedTotalARR / quarterlyGoal) * 100 : 0;
+  const progressPercentage = quarterlyGoal > 0 ? (projectedTotalCARR / quarterlyGoal) * 100 : 0;
   const goalFormatted = `$${(quarterlyGoal / 1000000).toFixed(2)}M`;
 
   return (
@@ -237,10 +237,10 @@ const SalesforceCalculator = () => {
       <div className="calculator-content">
         <div className="metric-card">
           <div className="metric-card-header">
-            <h2>Current Quarter AAR</h2>
+            <h2>Current Quarter CARR</h2>
           </div>
           <div className="metric-card-body">
-            <h3 className="metric-card-body-text">{currentQuarterAARFormatted}</h3>
+            <h3 className="metric-card-body-text">{currentQuarterCARRFormatted}</h3>
             <p className="quarterly-goal-text">Closed won for {currentQuarter}</p>
           </div>
         </div>
@@ -249,7 +249,7 @@ const SalesforceCalculator = () => {
             <h2>Added Opportunities</h2>
           </div>
           <div className="metric-card-body">
-            <h3 className="metric-card-body-text">{addedTotalARRFormatted}</h3>
+            <h3 className="metric-card-body-text">{addedTotalCARRFormatted}</h3>
             <p className="quarterly-goal-text">{selectedOpps.length} selected</p>
           </div>
         </div>
@@ -258,7 +258,7 @@ const SalesforceCalculator = () => {
             <h2>Projected Total</h2>
           </div>
           <div className="metric-card-body">
-            <h3 className="metric-card-body-text">{projectedTotalARRFormatted}</h3>
+            <h3 className="metric-card-body-text">{projectedTotalCARRFormatted}</h3>
             <p className="quarterly-goal-text">If selected opportunities close</p>
           </div>
         </div>
@@ -283,7 +283,7 @@ const SalesforceCalculator = () => {
 
       <div className="calculator-compensation-container">
         {Object.keys(compensation).map((role) => {
-          const compData = calculateCompensation(role, projectedTotalARR, quarterlyGoal);
+          const compData = calculateCompensation(role, projectedTotalCARR, quarterlyGoal);
           const roleClass =
             role === 'sales engineer 1'
               ? 'compensation-card-se1'
@@ -302,7 +302,7 @@ const SalesforceCalculator = () => {
                 <p className="quarterly-goal-text">
                   Quarterly: ${compData.quarterlyCompensation.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
-                {quarterlyGoal > 0 && projectedTotalARR / quarterlyGoal < 0.8 && (
+                {quarterlyGoal > 0 && projectedTotalCARR / quarterlyGoal < 0.8 && (
                   <p style={{ fontSize: '0.75rem', color: '#d32f2f', marginTop: '0.5rem' }}>
                     Must hit 80% of goal to earn compensation
                   </p>
@@ -357,9 +357,9 @@ const SalesforceCalculator = () => {
                   <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
                 )}
               </th>
-              <th className="sortable" onClick={() => handleSort('arrAmount')}>
-                ARR Amount
-                {sortColumn === 'arrAmount' && (
+              <th className="sortable" onClick={() => handleSort('carrAmount')}>
+                CARR
+                {sortColumn === 'carrAmount' && (
                   <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
                 )}
               </th>
@@ -396,7 +396,7 @@ const SalesforceCalculator = () => {
                     <td>{opportunity.probabilityFormatted || `${opportunity.probability}%`}</td>
                     <td>
                       {opportunity.amount ||
-                        `$${(opportunity.arrAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        `$${(opportunity.carrAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </td>
                   </tr>
                 );

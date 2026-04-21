@@ -147,8 +147,8 @@ const SalesforceMetrics = () => {
   const quarterOptions = quarterOptionsFromData.length > 0 ? quarterOptionsFromData : quarterOptionsFromGoals;
 
   const selectedQuarterData = data?.quarterlyData?.[quarter.label];
-  const currentAAR = selectedQuarterData?.totalARR || 0;
-  const currentYearAAR = data?.quarterlyData?.Total?.totalARR || 0;
+  const currentQuarterCARR = selectedQuarterData?.totalCARR || 0;
+  const currentYearCARR = data?.quarterlyData?.Total?.totalCARR || 0;
   const opportunities = selectedQuarterData?.opportunities || [];
 
   const quarterlyGoalsFromConfig = (config?.goalsByYear?.[selectedYear] || []);
@@ -186,9 +186,9 @@ const SalesforceMetrics = () => {
     setQuarter(quarterObj || { value: selectedQuarter, label: selectedQuarter });
   };
 
-  const calculateGoalProgress = (currentAARVal, quarterlyGoalVal) => {
-    if (!currentAARVal || !quarterlyGoalVal) return 0;
-    return (currentAARVal / quarterlyGoalVal) * 100;
+  const calculateGoalProgress = (currentCARRVal, quarterlyGoalVal) => {
+    if (!currentCARRVal || !quarterlyGoalVal) return 0;
+    return (currentCARRVal / quarterlyGoalVal) * 100;
   };
 
   const formatNumber = (num) => {
@@ -202,18 +202,18 @@ const SalesforceMetrics = () => {
     }
   };
 
-  const calculateCompensation = (role, currentAARVal, quarterlyGoalVal) => {
+  const calculateCompensation = (role, currentCARRVal, quarterlyGoalVal) => {
     const yearlyCompensation = compensation[role];
     const quarterlyCompensation = yearlyCompensation / 4;
-    if (currentAARVal / quarterlyGoalVal < 0.8) {
+    if (currentCARRVal / quarterlyGoalVal < 0.8) {
       return { compensation: 0, quarterlyCompensation };
     } else {
-      const comp = quarterlyCompensation * (currentAARVal / quarterlyGoalVal);
+      const comp = quarterlyCompensation * (currentCARRVal / quarterlyGoalVal);
       return { compensation: comp, quarterlyCompensation };
     }
   };
 
-  const progressPercentage = calculateGoalProgress(currentAAR, quarterlyGoal);
+  const progressPercentage = calculateGoalProgress(currentQuarterCARR, quarterlyGoal);
 
   if (configError) {
     return (
@@ -289,11 +289,11 @@ const SalesforceMetrics = () => {
 
         <div className="metric-card">
           <div className="metric-card-header">
-            <h2>Current Quarter AAR</h2>
+            <h2>Current Quarter CARR</h2>
           </div>
           <div className="metric-card-body">
-            <h3 className="metric-card-body-text">$ {formatNumber(currentAAR)}</h3>
-            <p className="quarterly-goal-text">Current quarter AAR</p>
+            <h3 className="metric-card-body-text">$ {formatNumber(currentQuarterCARR)}</h3>
+            <p className="quarterly-goal-text">Current quarter CARR</p>
           </div>
         </div>
 
@@ -321,11 +321,11 @@ const SalesforceMetrics = () => {
 
         <div className="metric-card">
           <div className="metric-card-header">
-            <h2>Yearly AAR</h2>
+            <h2>Yearly CARR</h2>
           </div>
           <div className="metric-card-body">
-            <h3 className="metric-card-body-text">$ {formatNumber(currentYearAAR)}</h3>
-            <p className="quarterly-goal-text">Current year AAR</p>
+            <h3 className="metric-card-body-text">$ {formatNumber(currentYearCARR)}</h3>
+            <p className="quarterly-goal-text">Current year CARR</p>
           </div>
         </div>
 
@@ -335,14 +335,14 @@ const SalesforceMetrics = () => {
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">
-              {calculateGoalProgress(currentYearAAR, yearlyGoal).toFixed(2)}%
+              {calculateGoalProgress(currentYearCARR, yearlyGoal).toFixed(2)}%
             </h3>
             <div
-              className={`progress-bar ${getProgressClass(calculateGoalProgress(currentYearAAR, yearlyGoal))}`}
+              className={`progress-bar ${getProgressClass(calculateGoalProgress(currentYearCARR, yearlyGoal))}`}
             >
               <div
                 className="progress-bar-fill"
-                style={{ width: `${calculateGoalProgress(currentYearAAR, yearlyGoal)}%` }}
+                style={{ width: `${calculateGoalProgress(currentYearCARR, yearlyGoal)}%` }}
               ></div>
             </div>
           </div>
@@ -358,7 +358,7 @@ const SalesforceMetrics = () => {
             <tr>
               <th> AE Name </th>
               <th> Opportunity Name </th>
-              <th> Amount Closed </th>
+              <th> CARR </th>
               <th> Close Date </th>
               <th> Account Score </th>
             </tr>
@@ -381,7 +381,7 @@ const SalesforceMetrics = () => {
                 <tr key={opportunity.opportunityId || `opp-${index}`}>
                   <td>{opportunity.aeName}</td>
                   <td>{opportunity.opportunityName}</td>
-                  <td>{opportunity.arrAmountFormatted || formatNumber(opportunity.arrAmount)}</td>
+                  <td>{opportunity.carrAmountFormatted || formatNumber(opportunity.carrAmount)}</td>
                   <td>{opportunity.effectiveDate}</td>
                   <td>{opportunity.salesScore}</td>
                 </tr>
@@ -418,8 +418,8 @@ const SalesforceMetrics = () => {
               <tr key={role}>
                 <td>{role.toUpperCase()}</td>
                 <td>{compensation[role].toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td>{calculateCompensation(role, currentAAR, quarterlyGoal).quarterlyCompensation.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td>{calculateCompensation(role, currentAAR, quarterlyGoal).compensation.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td>{calculateCompensation(role, currentQuarterCARR, quarterlyGoal).quarterlyCompensation.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td>{calculateCompensation(role, currentQuarterCARR, quarterlyGoal).compensation.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               </tr>
             ))}
           </tbody>

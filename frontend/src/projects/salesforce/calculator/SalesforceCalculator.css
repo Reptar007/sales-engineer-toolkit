@@ -312,7 +312,7 @@ td {
 .salesforce-calculator .table-container th:nth-child(5), 
 .salesforce-calculator .table-container td:nth-child(5) { width: 12%; } /* Probability */
 .salesforce-calculator .table-container th:nth-child(6), 
-.salesforce-calculator .table-container td:nth-child(6) { width: 15%; } /* ARR Amount */
+.salesforce-calculator .table-container td:nth-child(6) { width: 15%; } /* CARR */
 
 .table-container {
   max-height: 22rem;

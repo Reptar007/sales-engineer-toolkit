@@ -16,6 +16,21 @@ function parseSnapshotYears() {
     .filter((n) => !Number.isNaN(n));
 }
 
+/** Standard custom field for Gross ARR on Opportunity (report column “Gross ARR”). */
+export const OPPORTUNITY_GROSS_ARR_FIELD = 'Gross_ARR__c';
+
+/**
+ * Env: SALESFORCE_OPPORTUNITY_CARR_FIELD — API name of the field that holds **CARR** (often different from Gross ARR).
+ * If unset, lookup returns `grossARR` but `carr` is null so we never label Gross ARR as CARR.
+ * Find the name: Setup → Opportunity → Fields, or GET /api/salesforce/opportunity/fields?search=carr
+ */
+export function getOpportunityCarrFieldApiName() {
+  const raw = (process.env.SALESFORCE_OPPORTUNITY_CARR_FIELD || '').trim();
+  if (!raw) return null;
+  if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(raw)) return null;
+  return raw;
+}
+
 export function getSalesforceConfig() {
   const calculatorReportId = resolve1PasswordValue(
     process.env.SALESFORCE_REPORT_ID_CALCULATOR || '',
@@ -28,6 +43,7 @@ export function getSalesforceConfig() {
   );
 
   return {
+    opportunityCarrFieldApiName: getOpportunityCarrFieldApiName(),
     reportIdsByYear: {
       2025: {
         metrics: metrics2025,

@@ -342,6 +342,6 @@ tbody tr:last-child td {
 /* Column width controls */
 th:nth-child(1), td:nth-child(1) { width: 18%; } /* AE Name */
 th:nth-child(2), td:nth-child(2) { width: 30%; } /* Opportunity Name */
-th:nth-child(3), td:nth-child(3) { width: 22%; } /* Amount Closed */
+th:nth-child(3), td:nth-child(3) { width: 22%; } /* CARR */
 th:nth-child(4), td:nth-child(4) { width: 22%; } /* Close Date */
 th:nth-child(5), td:nth-child(5) { width: 12%; } /* Account Score */

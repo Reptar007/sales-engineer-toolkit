@@ -9,7 +9,11 @@ import { createSnapshotForYear } from './snapshotService.js';
 import { getGoalsByYearFromDb, getGoalsForYear, upsertGoalsForYear } from './goalsService.js';
 import { authenticateToken } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/rbac.js';
-import { getSalesforceConfig } from '../../config/salesforce.js';
+import {
+  getSalesforceConfig,
+  getOpportunityCarrFieldApiName,
+  OPPORTUNITY_GROSS_ARR_FIELD,
+} from '../../config/salesforce.js';
 import { readFileSync } from 'fs';
 
 const router = express.Router();
@@ -211,14 +215,17 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
             // Get AE ID from the opportunity
             const aeId = dataCells[0]?.value || '';
 
-            // Parse each opportunity record
+            // Parse each opportunity record.
+            // Report columns (0-based): AE, Opp, Sales Score, Effective Date, Gross ARR, CARR.
             const opportunity = {
               aeName: dataCells[0]?.label || '', // AE Name
               opportunityName: dataCells[1]?.label || '', // Opportunity Name
-              arrAmount: dataCells[2]?.value?.amount || 0, // ARR Amount (numeric)
-              arrAmountFormatted: dataCells[2]?.label || '', // ARR Amount (formatted)
-              salesScore: dataCells[3]?.label || '', // Sales Score (Account Score)
-              effectiveDate: dataCells[4]?.label || '', // Effective Date
+              salesScore: dataCells[2]?.label || '', // Account Score (letter grade)
+              effectiveDate: dataCells[3]?.label || '', // Effective date
+              grossARRAmount: dataCells[4]?.value?.amount || 0,
+              grossARRAmountFormatted: dataCells[4]?.label || '',
+              carrAmount: dataCells[5]?.value?.amount || 0, // CARR (after Gross ARR column)
+              carrAmountFormatted: dataCells[5]?.label || '',
 
               // Additional IDs for reference
               aeId: aeId,
@@ -234,12 +241,12 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
         }
 
         // Recalculate totals for filtered opportunities
-        const filteredTotalARR = opportunities.reduce((sum, opp) => sum + opp.arrAmount, 0);
+        const filteredTotalCARR = opportunities.reduce((sum, opp) => sum + opp.carrAmount, 0);
 
         quarterlyData[quarterName] = {
           quarter: quarterName,
-          totalARR: filteredTotalARR,
-          totalARRFormatted: `$${filteredTotalARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          totalCARR: filteredTotalCARR,
+          totalCARRFormatted: `$${filteredTotalCARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           opportunityCount: opportunities.length,
           opportunities: opportunities,
         };
@@ -247,18 +254,18 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
 
       // Calculate yearly total by summing all quarters (excluding "Total" entry)
       // This ensures accuracy after filtering
-      let yearlyTotalARR = 0;
+      let yearlyTotalCARR = 0;
       Object.keys(quarterlyData).forEach((key) => {
         if (key !== 'Total') {
-          yearlyTotalARR += quarterlyData[key].totalARR || 0;
+          yearlyTotalCARR += quarterlyData[key].totalCARR || 0;
         }
       });
 
       // Update or create "Total" entry with calculated yearly total
       quarterlyData['Total'] = {
         quarter: 'Total',
-        totalARR: yearlyTotalARR,
-        totalARRFormatted: `$${yearlyTotalARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        totalCARR: yearlyTotalCARR,
+        totalCARRFormatted: `$${yearlyTotalCARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         opportunityCount: allOpportunities.length,
         opportunities: [], // Total doesn't need individual opportunities
       };
@@ -284,7 +291,7 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
         const aeName = dataCells[4]?.label || '';
         const probability = dataCells[5]?.value || '';
         const probabilityFormatted = dataCells[5]?.label || '';
-        const arrAmount = dataCells[6]?.value?.amount || 0;
+        const carrAmount = dataCells[6]?.value?.amount || 0;
         const amount = dataCells[6]?.label || '';
 
         data.push({
@@ -296,22 +303,22 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
           aeName: aeName,
           probability: probability,
           probabilityFormatted: probabilityFormatted,
-          arrAmount: arrAmount,
+          carrAmount: carrAmount,
           amount: amount,
         });
       });
 
       // Calculate totals
       const totalOpportunities = data.length;
-      const totalARR = data.reduce((sum, opp) => sum + (opp.arrAmount || 0), 0);
-      const totalARRFormatted = `$${totalARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const totalCARR = data.reduce((sum, opp) => sum + (opp.carrAmount || 0), 0);
+      const totalCARRFormatted = `$${totalCARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
       res.json({
         success: true,
         reportId: reportId,
         totalOpportunities: totalOpportunities,
-        totalARR: totalARR,
-        totalARRFormatted: totalARRFormatted,
+        totalCARR: totalCARR,
+        totalCARRFormatted: totalCARRFormatted,
         data: data,
       });
     } else {
@@ -363,7 +370,11 @@ router.get(`/opportunity/search`, authenticateToken, async (req, res) => {
       conn = await getSalesforceConnection();
     }
 
-    // Build and execute SOQL query
+    const carrFieldApi = getOpportunityCarrFieldApiName();
+    const grossField = OPPORTUNITY_GROSS_ARR_FIELD;
+    const extraCarrSelect = carrFieldApi && carrFieldApi !== grossField ? `, ${carrFieldApi}` : '';
+
+    // Build and execute SOQL query (always Gross ARR; optional second field for true CARR)
     const result = await conn.query(
       `SELECT Id, Name, StageName, Amount, CloseDate, Probability, Type, 
          CreatedDate, LastModifiedDate,
@@ -374,7 +385,7 @@ router.get(`/opportunity/search`, authenticateToken, async (req, res) => {
          IsWon,
          LastActivityDate,
          ForecastCategory,
-         Gross_ARR__c,
+         ${grossField}${extraCarrSelect},
          ARR__c,
          AE_Detailed_Notes__c,
          Meeting_Booked_Details__c,
@@ -404,6 +415,8 @@ router.get(`/opportunity/search`, authenticateToken, async (req, res) => {
 
     // Transform results: flatten nested objects
     const transformedData = result.records.map((record) => {
+      const grossRaw = record[grossField];
+      const carrRaw = carrFieldApi != null ? record[carrFieldApi] : null;
       return {
         id: record.Id || '',
         name: record.Name || '',
@@ -421,7 +434,8 @@ router.get(`/opportunity/search`, authenticateToken, async (req, res) => {
         isWon: record.IsWon || false,
         lastActivityDate: record.LastActivityDate || null,
         forecastCategory: record.ForecastCategory || '',
-        grossARR: record.Gross_ARR__c || null,
+        grossARR: grossRaw != null ? grossRaw : null,
+        carr: carrRaw != null ? carrRaw : null,
         arr: record.ARR__c || null,
         aeDetailedNotes: record.AE_Detailed_Notes__c || '',
         meetingBookedDetails: record.Meeting_Booked_Details__c || '',

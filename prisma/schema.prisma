@@ -34,18 +34,37 @@ model User {
   updatedAt    DateTime  @updatedAt
 
   // Relations
-  salesEngineer SalesEngineer?
-  userRoles     UserRole[]
+  salesEngineer     SalesEngineer?
+  userRoles         UserRole[]
+  googleIntegration UserGoogleIntegration?
 
   @@map("users")
+}
+
+/// Per-user Google Calendar OAuth tokens (refresh/access ciphertext only at rest).
+model UserGoogleIntegration {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  googleSub            String?
+  refreshTokenEnc      String
+  accessTokenEnc       String?
+  accessTokenExpiresAt DateTime?
+  scopes               String?
+  connectedAt          DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_google_integrations")
 }
 
 model UserRole {
   id        String   @id @default(cuid())
   userId    String
   role      Role
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -65,21 +84,22 @@ model Team {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  salesEngineer     SalesEngineer?    // One team = one SE
+  salesEngineer     SalesEngineer? // One team = one SE
   accountExecutives AccountExecutive[]
 
   @@map("teams")
 }
 
 model SalesEngineer {
-  id             String   @id @default(cuid())
-  userId         String   @unique
-  teamId         String   @unique
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  teamId          String   @unique
   salesforceEmail String?
-  salesforceId   String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  salesforceId    String?
+  linearUserId    String?  @unique
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -92,14 +112,14 @@ model SalesEngineer {
 }
 
 model AccountExecutive {
-  id            String   @id @default(cuid())
-  name          String
-  salesforceId  String   @unique
+  id              String   @id @default(cuid())
+  name            String
+  salesforceId    String   @unique
   salesforceEmail String?
-  teamId        String
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  teamId          String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
   team            Team             @relation(fields: [teamId], references: [id])

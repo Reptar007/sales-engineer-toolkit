@@ -155,8 +155,8 @@ function CurrentQuarterMetrics() {
     return pastQuarters[0] || actualCurrentQuarter;
   })();
   const currentQuarterData = quarterlyData[currentQuarterKey] || {};
-  const currentAAR = currentQuarterData?.totalARR || 0;
-  const currentYearAAR = quarterlyData?.Total?.totalARR || 0;
+  const currentQuarterCARR = currentQuarterData?.totalCARR || 0;
+  const currentYearCARR = quarterlyData?.Total?.totalCARR || 0;
 
   const quarterlyGoals = config?.goalsByYear?.[currentYear] || [];
   const currentQuarterGoal = quarterlyGoals.find((q) => q.label === currentQuarterKey)?.goal || 0;
@@ -177,8 +177,8 @@ function CurrentQuarterMetrics() {
     return num.toString();
   };
 
-  const quarterlyProgress = calculateGoalProgress(currentAAR, currentQuarterGoal);
-  const yearlyProgress = calculateGoalProgress(currentYearAAR, yearlyGoal);
+  const quarterlyProgress = calculateGoalProgress(currentQuarterCARR, currentQuarterGoal);
+  const yearlyProgress = calculateGoalProgress(currentYearCARR, yearlyGoal);
 
   const handleViewFull = () => {
     navigate('/projects/salesforce-metrics');
@@ -234,8 +234,8 @@ function CurrentQuarterMetrics() {
           </div>
 
           <div className="metric-summary">
-            <div className="metric-label">Quarter AAR</div>
-            <div className="metric-value">${formatNumber(currentAAR)}</div>
+            <div className="metric-label">Quarter CARR</div>
+            <div className="metric-value">${formatNumber(currentQuarterCARR)}</div>
             <div className="metric-progress">
               {quarterlyProgress.toFixed(1)}% of goal
             </div>
@@ -250,8 +250,8 @@ function CurrentQuarterMetrics() {
           </div>
 
           <div className="metric-summary">
-            <div className="metric-label">Yearly AAR</div>
-            <div className="metric-value">${formatNumber(currentYearAAR)}</div>
+            <div className="metric-label">Yearly CARR</div>
+            <div className="metric-value">${formatNumber(currentYearCARR)}</div>
             <div className="metric-progress">
               {yearlyProgress.toFixed(1)}% of goal
             </div>
