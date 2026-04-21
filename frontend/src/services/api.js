@@ -232,6 +232,36 @@ export async function disconnectGoogleCalendar() {
   return apiRequest('/integrations/google', { method: 'DELETE' });
 }
 
+/**
+ * Load the current user's Linear profile link state.
+ * @returns {Promise<{
+ *   hasSalesEngineer: boolean,
+ *   linearUserId: string | null,
+ *   linearUser: { id: string, email: string, name: string } | null,
+ *   appEmail: string,
+ *   autoResolvable: boolean,
+ * }>}
+ */
+export async function getLinearProfile() {
+  return apiRequest('/users/me/linear');
+}
+
+/**
+ * Link the current user to a Linear account. Provide exactly one of email or userId.
+ * @param {{ linearEmail?: string, linearUserId?: string }} body
+ */
+export async function saveLinearProfile(body) {
+  return apiRequest('/users/me/linear', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Clear the current user's stored SalesEngineer.linearUserId. */
+export async function disconnectLinearProfile() {
+  return apiRequest('/users/me/linear', { method: 'DELETE' });
+}
+
 // Export apiRequest for direct use
 export { apiRequest };
 
@@ -252,6 +282,9 @@ export default {
   fetchDashboardLinear,
   startGoogleCalendarOAuth,
   disconnectGoogleCalendar,
+  getLinearProfile,
+  saveLinearProfile,
+  disconnectLinearProfile,
   fetchUsers,
   searchOpportunities,
   fetchGongConversations,

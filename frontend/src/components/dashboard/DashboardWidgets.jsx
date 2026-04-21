@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   fetchDashboardCalendar,
   fetchDashboardLinear,
@@ -8,6 +8,14 @@ import {
 } from '../../services/api';
 import { MOCK_LINEAR_BOARD } from './dashboardWidgetMockData';
 import './DashboardWidgets.less';
+
+const LINEAR_DEFAULT_OPEN_URL = MOCK_LINEAR_BOARD.openUrl;
+
+const LINEAR_INITIAL_STATE = {
+  status: 'loading',
+  openUrl: LINEAR_DEFAULT_OPEN_URL,
+  projects: [],
+};
 
 const CALENDAR_OPEN_URL = 'https://calendar.google.com';
 
@@ -26,7 +34,6 @@ function DashboardCalendarCard({
       <div className="dashboard-panel__head">
         <h2 className="dashboard-panel__title" id="dash-cal-title">
           Today&apos;s calendar
-          <span className="dashboard-panel__badge">New</span>
         </h2>
         <a
           className="dashboard-panel__link"
@@ -80,25 +87,68 @@ function DashboardCalendarCard({
   );
 }
 
-function DashboardLinearCard({ board = MOCK_LINEAR_BOARD }) {
-  const projects = board.projects ?? [];
-
+function LinearCallout({ title, message, action }) {
   return (
-    <section className="dashboard-panel" aria-labelledby="dash-linear-title">
-      <div className="dashboard-panel__head">
-        <h2 className="dashboard-panel__title" id="dash-linear-title">
-          Linear workload
-          <span className="dashboard-panel__badge">New</span>
-        </h2>
-        <a
-          className="dashboard-panel__link"
-          href={board.openUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Open
-        </a>
-      </div>
+    <div className="dashboard-linear__callout">
+      {title && <p className="dashboard-linear__callout-title">{title}</p>}
+      <p className="dashboard-linear__callout-message">{message}</p>
+      {action}
+    </div>
+  );
+}
+
+function DashboardLinearCard({ state }) {
+  const { status, openUrl, projects } = state;
+
+  const renderBody = () => {
+    if (status === 'loading') {
+      return (
+        <p className="dashboard-linear__callout-message">Loading your issues…</p>
+      );
+    }
+
+    if (status === 'needs_profile') {
+      return (
+        <LinearCallout
+          title="Connect your Linear account"
+          message="Link your Linear identity so your dashboard shows issues assigned to you."
+          action={
+            <Link to="/profile" className="dashboard-calendar__btn dashboard-calendar__btn--primary">
+              Go to Profile
+            </Link>
+          }
+        />
+      );
+    }
+
+    if (status === 'no_sales_engineer') {
+      return (
+        <LinearCallout
+          title="Account not set up"
+          message="Your account isn't configured as a Sales Engineer yet. Ask an admin to add you to a team."
+        />
+      );
+    }
+
+    if (status === 'unavailable') {
+      return (
+        <LinearCallout
+          title="Linear is temporarily unavailable"
+          message="We couldn't reach Linear just now. Try refreshing in a minute."
+        />
+      );
+    }
+
+    if (status === 'ok' && projects.length === 0) {
+      return (
+        <LinearCallout
+          title="You're all caught up"
+          message="No open issues assigned to you right now."
+        />
+      );
+    }
+
+    return (
       <div className="dashboard-linear__projects">
         {projects.map((project) => (
           <div key={project.id} className="dashboard-linear__project">
@@ -124,6 +174,25 @@ function DashboardLinearCard({ board = MOCK_LINEAR_BOARD }) {
           </div>
         ))}
       </div>
+    );
+  };
+
+  return (
+    <section className="dashboard-panel" aria-labelledby="dash-linear-title">
+      <div className="dashboard-panel__head">
+        <h2 className="dashboard-panel__title" id="dash-linear-title">
+          Linear workload
+        </h2>
+        <a
+          className="dashboard-panel__link"
+          href={openUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open
+        </a>
+      </div>
+      {renderBody()}
     </section>
   );
 }
@@ -134,7 +203,7 @@ export function DashboardWidgets() {
   const [calendarLive, setCalendarLive] = useState(false);
   const [calendarSource, setCalendarSource] = useState(null);
   const [connectLoading, setConnectLoading] = useState(false);
-  const [linearBoard, setLinearBoard] = useState(MOCK_LINEAR_BOARD);
+  const [linearState, setLinearState] = useState(LINEAR_INITIAL_STATE);
 
   const loadCalendar = useCallback(async () => {
     try {
@@ -164,15 +233,24 @@ export function DashboardWidgets() {
     fetchDashboardLinear()
       .then((data) => {
         if (cancelled || !data) return;
+        const openUrl = data.openUrl || LINEAR_DEFAULT_OPEN_URL;
         if (data.configured && Array.isArray(data.projects)) {
-          setLinearBoard({
-            openUrl: data.openUrl || MOCK_LINEAR_BOARD.openUrl,
-            projects: data.projects,
-          });
+          setLinearState({ status: 'ok', openUrl, projects: data.projects });
+        } else if (data.needsLinearProfile) {
+          setLinearState({ status: 'needs_profile', openUrl, projects: [] });
+        } else if (data.reason === 'no_sales_engineer') {
+          setLinearState({ status: 'no_sales_engineer', openUrl, projects: [] });
+        } else {
+          setLinearState({ status: 'unavailable', openUrl, projects: [] });
         }
       })
       .catch(() => {
-        /* keep mock */
+        if (cancelled) return;
+        setLinearState({
+          status: 'unavailable',
+          openUrl: LINEAR_DEFAULT_OPEN_URL,
+          projects: [],
+        });
       });
 
     return () => {
@@ -224,7 +302,7 @@ export function DashboardWidgets() {
 
   return (
     <div className="dashboard-widgets">
-      <DashboardLinearCard board={linearBoard} />
+      <DashboardLinearCard state={linearState} />
       <DashboardCalendarCard
         events={calendarEvents}
         showEmptyHint={calendarLive}

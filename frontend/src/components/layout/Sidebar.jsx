@@ -134,10 +134,13 @@ function Sidebar({ isSidebarOpen }) {
         {/* Bottom section */}
         <div className="sidebar-footer">
           <div className="sidebar-divider"></div>
-          <button className="nav-link" type="button">
+          <NavLink
+            to="/profile"
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+          >
             <span className="nav-icon">⚙️</span>
-            <span className="nav-label">Settings</span>
-          </button>
+            <span className="nav-label">Profile</span>
+          </NavLink>
           <button className="nav-link" type="button" onClick={handleLogout}>
             <span className="nav-icon">🚪</span>
             <span className="nav-label">Log out</span>

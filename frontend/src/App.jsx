@@ -11,6 +11,7 @@ import ProjectView from './pages/ProjectView';
 import LoginPage from './pages/LoginPage';
 import PasswordChangePage from './pages/PasswordChangePage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ProfilePage from './pages/ProfilePage';
 import Admin from './projects/admin';
 import SalesforceCalculator from './projects/salesforce/calculator';
 import SalesforceLookup from './projects/salesforce/lookup';
@@ -72,6 +73,14 @@ function AppContent() {
               element={
                 <ProtectedRoute>
                   <Admin />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
                 </ProtectedRoute>
               }
             />
