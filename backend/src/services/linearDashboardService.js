@@ -1,36 +1,11 @@
 /**
- * Linear GraphQL for dashboard "workload" grouped by project.
- * Env: LINEAR_API_KEY, LINEAR_PROJECT_AE_REQUESTS_ID, LINEAR_PROJECT_CREATIONS_TASKS_ID,
- *      LINEAR_PROJECT_CSM_REQUESTS_ID (Linear project UUIDs)
+ * Per-user Linear "workload" for the dashboard.
+ * Returns the logged-in user's open issues in LINEAR_TEAM_ID, grouped by project.
+ * Env: LINEAR_API_KEY, LINEAR_TEAM_ID, optional LINEAR_APP_URL
  */
 
-const LINEAR_GQL = 'https://api.linear.app/graphql';
-
-const PROJECT_DEFS = [
-  { id: 'ae-requests', envKey: 'LINEAR_PROJECT_AE_REQUESTS_ID', name: 'AE Requests' },
-  { id: 'creations-tasks', envKey: 'LINEAR_PROJECT_CREATIONS_TASKS_ID', name: 'Creations Tasks' },
-  { id: 'csm-requests', envKey: 'LINEAR_PROJECT_CSM_REQUESTS_ID', name: 'CSM Requests' },
-];
-
-const ISSUES_QUERY = `
-  query DashboardProjectIssues($projectId: String!) {
-    project(id: $projectId) {
-      id
-      name
-      issues(first: 40) {
-        nodes {
-          id
-          identifier
-          title
-          state {
-            name
-            type
-          }
-        }
-      }
-    }
-  }
-`;
+import { getPrisma } from '../lib/prisma.js';
+import { resolveLinearUserByEmail, linearGraphQL } from '../lib/linearClient.js';
 
 function mapIssue(issue) {
   const state = issue.state;
@@ -85,75 +60,198 @@ function mapIssue(issue) {
   };
 }
 
-async function linearRequest(apiKey, query, variables) {
-  const res = await fetch(LINEAR_GQL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: apiKey,
-    },
-    body: JSON.stringify({ query, variables }),
+/**
+ * Resolve the Linear user UUID for an app user.
+ * Auto-resolves from the user's email on first request and persists the result
+ * to SalesEngineer.linearUserId so future requests skip the lookup.
+ *
+ * @param {string} userId  app User.id
+ * @returns {Promise<
+ *   | { status: 'ok', linearUserId: string, salesEngineer: object }
+ *   | { status: 'no_sales_engineer' }
+ *   | { status: 'needs_profile' }
+ * >}
+ */
+async function loadOrResolveLinearUserId(userId) {
+  const prisma = await getPrisma();
+  const salesEngineer = await prisma.salesEngineer.findUnique({
+    where: { userId },
+    include: { user: true },
   });
 
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(body?.errors?.[0]?.message || `Linear HTTP ${res.status}`);
+  if (!salesEngineer) {
+    return { status: 'no_sales_engineer' };
   }
-  if (body.errors?.length) {
-    throw new Error(body.errors[0].message || 'Linear GraphQL error');
+
+  if (salesEngineer.linearUserId) {
+    return {
+      status: 'ok',
+      linearUserId: salesEngineer.linearUserId,
+      salesEngineer,
+    };
   }
-  return body.data;
+
+  const email = salesEngineer.user?.email;
+  if (!email) {
+    console.log('Linear: no email on user, cannot auto-resolve', { userId });
+    return { status: 'needs_profile' };
+  }
+
+  const linearUser = await resolveLinearUserByEmail(email);
+  if (!linearUser?.id) {
+    console.log('Linear: no Linear user found for email, needs Profile setup', { email });
+    return { status: 'needs_profile' };
+  }
+
+  const updated = await prisma.salesEngineer.update({
+    where: { id: salesEngineer.id },
+    data: { linearUserId: linearUser.id },
+  });
+
+  return {
+    status: 'ok',
+    linearUserId: linearUser.id,
+    salesEngineer: { ...updated, user: salesEngineer.user },
+  };
 }
 
-async function fetchProjectIssues(apiKey, linearProjectId) {
-  if (!linearProjectId?.trim()) {
-    return [];
+const TEAM_ISSUES_QUERY = `
+  query MyTeamIssues($teamId: ID!, $assigneeId: ID!, $after: String) {
+    issues(
+      filter: {
+        team: { id: { eq: $teamId } }
+        assignee: { id: { eq: $assigneeId } }
+        state: {
+          name: {
+            in: [
+              "Blocked",
+              "Paused",
+              "In Progress",
+              "Access Check Completed",
+              "Access Blocked",
+              "To Do",
+              "Backlog"
+            ]
+          }
+        }
+      }
+      first: 100
+      after: $after
+    ) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id
+        identifier
+        title
+        url
+        priority
+        state { name type }
+        project { id name }
+      }
+    }
   }
-  const data = await linearRequest(apiKey, ISSUES_QUERY, { projectId: linearProjectId.trim() });
-  const project = data?.project;
-  if (!project) {
-    return [];
+`;
+
+const MAX_PAGES = 5;
+
+async function fetchMyTeamIssues(linearUserId) {
+  const teamId = process.env.LINEAR_TEAM_ID?.trim();
+  if (!teamId) {
+    const err = new Error('LINEAR_TEAM_ID is not configured');
+    err.statusCode = 503;
+    throw err;
   }
-  const nodes = project.issues?.nodes || [];
-  return nodes.map(mapIssue).filter(Boolean);
+
+  const all = [];
+  let after = null;
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const data = await linearGraphQL(TEAM_ISSUES_QUERY, {
+      teamId,
+      assigneeId: linearUserId,
+      after,
+    });
+    const nodes = data?.issues?.nodes ?? [];
+    all.push(...nodes);
+
+    const pageInfo = data?.issues?.pageInfo;
+    if (!pageInfo?.hasNextPage || !pageInfo.endCursor) {
+      break;
+    }
+    after = pageInfo.endCursor;
+  }
+  return all;
 }
 
 /**
- * @returns {Promise<{ configured: boolean, openUrl: string, projects: Array<{id: string, name: string, issues: object[]}> }>}
+ * Group raw Linear issue nodes by project.id, mapping each issue into the
+ * { id, title, status, tone } shape the frontend widget expects.
+ * Project-less issues are collected into a synthetic 'Other' bucket at the end.
+ *
+ * @param {Array<object>} issues  raw Linear issue nodes
+ * @returns {Array<{id: string, name: string, issues: object[]}>}
  */
-export async function getLinearBoardForDashboard() {
-  const apiKey = process.env.LINEAR_API_KEY?.trim();
-  const openUrl = (process.env.LINEAR_APP_URL || 'https://linear.app').replace(/\/$/, '');
+function groupIssuesByProject(issues) {
+  const byProject = new Map();
+  let other = null;
 
-  const baseProjects = PROJECT_DEFS.map((p) => ({
-    id: p.id,
-    name: p.name,
-    issues: [],
-  }));
+  for (const issue of issues) {
+    const mapped = mapIssue(issue);
+    if (!mapped) continue;
 
-  if (!apiKey) {
-    return { configured: false, openUrl, projects: baseProjects };
+    if (issue.project?.id) {
+      const key = issue.project.id;
+      let bucket = byProject.get(key);
+      if (!bucket) {
+        bucket = { id: key, name: issue.project.name || 'Untitled project', issues: [] };
+        byProject.set(key, bucket);
+      }
+      bucket.issues.push(mapped);
+    } else {
+      if (!other) {
+        other = { id: 'other', name: 'Other', issues: [] };
+      }
+      other.issues.push(mapped);
+    }
   }
 
-  // Linear accepts the raw API key in Authorization (optional "Bearer " prefix)
-  const authHeader = apiKey;
+  const result = Array.from(byProject.values());
+  if (other) {
+    result.push(other);
+  }
+  return result;
+}
 
-  const projects = await Promise.all(
-    PROJECT_DEFS.map(async (def) => {
-      const linearId = process.env[def.envKey]?.trim();
-      if (!linearId) {
-        return { id: def.id, name: def.name, issues: [] };
-      }
-      try {
-        const issues = await fetchProjectIssues(authHeader, linearId);
-        return { id: def.id, name: def.name, issues };
-      } catch (err) {
-        console.error(`Linear project ${def.id}:`, err.message);
-        return { id: def.id, name: def.name, issues: [] };
-      }
-    }),
-  );
+/**
+ * Per-user dashboard payload.
+ * @param {string} userId  app User.id from req.user.id
+ * @returns {Promise<{
+ *   configured: boolean,
+ *   openUrl: string,
+ *   projects: Array<{id: string, name: string, issues: object[]}>,
+ *   reason?: 'no_sales_engineer',
+ *   needsLinearProfile?: true,
+ *   error?: 'linear_unavailable',
+ * }>}
+ */
+export async function getLinearBoardForDashboardForUser(userId) {
+  const openUrl = (process.env.LINEAR_APP_URL || 'https://linear.app').replace(/\/$/, '');
 
-  const configured = PROJECT_DEFS.some((def) => process.env[def.envKey]?.trim());
-  return { configured, openUrl, projects };
+  const resolved = await loadOrResolveLinearUserId(userId);
+
+  if (resolved.status === 'no_sales_engineer') {
+    return { configured: false, reason: 'no_sales_engineer', openUrl, projects: [] };
+  }
+
+  if (resolved.status === 'needs_profile') {
+    return { configured: false, needsLinearProfile: true, openUrl, projects: [] };
+  }
+
+  try {
+    const issues = await fetchMyTeamIssues(resolved.linearUserId);
+    const projects = groupIssuesByProject(issues);
+    return { configured: true, openUrl, projects };
+  } catch (err) {
+    console.error('Linear: fetch failed for user', userId, '-', err.message);
+    return { configured: false, error: 'linear_unavailable', openUrl, projects: [] };
+  }
 }

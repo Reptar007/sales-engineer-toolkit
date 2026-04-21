@@ -1,13 +1,13 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { getLinearBoardForDashboard } from '../services/linearDashboardService.js';
+import { getLinearBoardForDashboardForUser } from '../services/linearDashboardService.js';
 import { getTodayCalendarForDashboard } from '../services/googleCalendarDashboardService.js';
 
 const router = express.Router();
 
 router.get('/linear', authenticateToken, async (req, res) => {
   try {
-    const payload = await getLinearBoardForDashboard();
+    const payload = await getLinearBoardForDashboardForUser(req.user.id);
     res.json(payload);
   } catch (err) {
     console.error('GET /api/dashboard/linear:', err);
