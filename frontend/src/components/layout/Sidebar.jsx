@@ -3,10 +3,36 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { getAllProjects } from '../../projects';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import {
+  GoHome,
+  GoStar,
+  GoGoal,
+  GoTrophy,
+  GoNumber,
+  GoSearch,
+  GoFile,
+  GoPerson,
+  GoSignOut,
+  GoChevronLeft,
+  GoChevronRight,
+  GoChevronDown,
+} from 'react-icons/go';
+
 /**
  * Sidebar Navigation Component
  */
-function Sidebar({ isSidebarOpen }) {
+// Wolf-themed label + icon overrides keyed by project id, so we can rebrand the
+// sidebar without touching the project registry (which other surfaces consume).
+const PROJECT_LABEL_OVERRIDES = {
+  'ratio-estimator': 'Howl Sheet',
+};
+
+const PROJECT_ICON_OVERRIDES = {
+  'ratio-estimator': <GoFile />,
+  'salesforce-metrics': <GoGoal />,
+};
+
+function Sidebar({ isSidebarOpen, toggleSidebar }) {
   const projects = getAllProjects();
   const navigate = useNavigate();
   const location = useLocation();
@@ -17,38 +43,35 @@ function Sidebar({ isSidebarOpen }) {
   };
 
   // Separate Home from other nav items
-  const homeItem = { path: '/', label: 'Home', icon: '🏠' };
+  const homeItem = { path: '/', label: 'The Den', icon: <GoHome /> };
 
   const navItems = [
     ...projects
       .filter((project) => project.id !== 'salesforce-metrics')
       .map((project) => ({
       path: `/projects/${project.id}`,
-      label: project.name,
-      icon: project.icon,
+      label: PROJECT_LABEL_OVERRIDES[project.id] || project.name,
+      icon: PROJECT_ICON_OVERRIDES[project.id] || project.icon,
     })),
   ];
 
   const salesforceSubItems = [
-    { 
-      path: '/projects/salesforce-metrics', 
-      label: 'Metrics', 
-      icon: '📈' // from registry
+    {
+      path: '/projects/salesforce-metrics',
+      label: 'Trophies',
+      icon: <GoTrophy />,
     },
-    { 
-      path: '/projects/salesforce/calculator', 
-      label: 'Calculator', 
-      icon: '🧮' // hardcoded for now
+    {
+      path: '/projects/salesforce/calculator',
+      label: 'Bounty Calc',
+      icon: <GoNumber />,
     },
-    { 
-      path: '/projects/salesforce/lookup', 
-      label: 'Lookup', 
-      icon: '🔍' // hardcoded for now
-    }
+    {
+      path: '/projects/salesforce/lookup',
+      label: 'Scent Tracker',
+      icon: <GoSearch />,
+    },
   ];
-
-  // Get Salesforce project from registry for icon/name
-  const salesforceProject = projects.find(project => project.id === 'salesforce-metrics');
 
   // Auto-expand dropdown when on Salesforce routes
   useEffect(() => {
@@ -56,6 +79,13 @@ function Sidebar({ isSidebarOpen }) {
       setOpenDropdown(true);
     }
   }, [location.pathname]);
+
+  // Force the dropdown closed when the rail collapses to icon-only.
+  useEffect(() => {
+    if (!isSidebarOpen) {
+      setOpenDropdown(false);
+    }
+  }, [isSidebarOpen]);
 
   const { user,logout } = useAuth();
   const handleLogout = () => {
@@ -82,21 +112,23 @@ function Sidebar({ isSidebarOpen }) {
           {isAdmin && (
             <li className="nav-item">
               <NavLink to="/admin" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span className="nav-icon">👑</span>
-                <span className="nav-label">Admin</span>
+                <span className="nav-icon"><GoStar /></span>
+                <span className="nav-label">Alpha Pack</span>
               </NavLink>
             </li>
           )}
-          {/* Salesforce Dropdown */}
+          {/* Salesforce Dropdown — wolf-rebranded as "Hunt Pipeline" */}
           <li className="nav-item">
             <button
               type="button"
               className={`nav-link nav-link-dropdown ${location.pathname.startsWith('/projects/salesforce') || location.pathname === '/projects/salesforce-metrics' ? 'active' : ''}`}
               onClick={toggleDropdown}
             >
-              <span className="nav-icon">{salesforceProject?.icon || '📊'}</span>
-              <span className="nav-label">Salesforce</span>
-              <span className="nav-chevron">{openDropdown ? '▼' : '▶'}</span>
+              <span className="nav-icon"><GoGoal /></span>
+              <span className="nav-label">Hunt Pipeline</span>
+              <span className="nav-chevron">
+                {openDropdown ? <GoChevronDown /> : <GoChevronRight />}
+              </span>
             </button>
             {openDropdown && (
               <ul className="nav-submenu">
@@ -138,13 +170,27 @@ function Sidebar({ isSidebarOpen }) {
             to="/profile"
             className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           >
-            <span className="nav-icon">⚙️</span>
-            <span className="nav-label">Profile</span>
+            <span className="nav-icon"><GoPerson /></span>
+            <span className="nav-label">My Wolf</span>
           </NavLink>
           <button className="nav-link" type="button" onClick={handleLogout}>
-            <span className="nav-icon">🚪</span>
-            <span className="nav-label">Log out</span>
+            <span className="nav-icon"><GoSignOut /></span>
+            <span className="nav-label">Leave the Pack</span>
           </button>
+
+          {toggleSidebar && (
+            <button
+              type="button"
+              className="sidebar-collapse"
+              onClick={toggleSidebar}
+              aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            >
+              <span className="sidebar-collapse__icon" aria-hidden>
+                {isSidebarOpen ? <GoChevronLeft /> : <GoChevronRight />}
+              </span>
+              <span className="sidebar-collapse__label">Collapse</span>
+            </button>
+          )}
         </div>
       </nav>
     </aside>

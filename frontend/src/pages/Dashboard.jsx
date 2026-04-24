@@ -11,8 +11,6 @@ function getCurrentQuarterLabel() {
   return `Q${quarter} CY${year}`;
 }
 
-/** Replace with team from API when available */
-const PLACEHOLDER_TEAM_NAME = 'Team Kirby';
 
 /**
  * Main Dashboard - Home page with metrics widget and project overview
@@ -21,7 +19,8 @@ function Dashboard() {
   const { user } = useAuth();
   const firstName = user?.firstName?.trim();
   const greeting = firstName ? `Hello, ${firstName} 👋` : 'Welcome to SalesWolf!';
-  const subline = `${PLACEHOLDER_TEAM_NAME} · ${getCurrentQuarterLabel()}`;
+  const team = user?.team?.name
+  const subline = `${team} · ${getCurrentQuarterLabel()}`;
 
   return (
     <div className="dashboard">

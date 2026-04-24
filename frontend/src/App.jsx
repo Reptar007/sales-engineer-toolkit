@@ -35,12 +35,14 @@ function AppContent() {
     location.pathname === '/change-password' ||
     location.pathname === '/forgot-password';
 
+  const isCollapsed = !isAuthPage && !isSidebarOpen;
+
   return (
-    <div className="app">
-      <Header toggleSidebar={toggleSidebar} />
+    <div className={`app ${isCollapsed ? 'app--sidebar-collapsed' : ''}`}>
+      <Header />
 
       <div className="app-layout">
-        {!isAuthPage && <Sidebar isSidebarOpen={isSidebarOpen} />}
+        {!isAuthPage && <Sidebar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />}
         <main
           className={`main-content ${isAuthPage ? 'auth-page' : ''} ${!isAuthPage && !isSidebarOpen ? 'sidebar-closed' : ''}`}
         >

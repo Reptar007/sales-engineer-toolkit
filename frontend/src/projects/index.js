@@ -5,7 +5,6 @@
 
 import SalesforceMetrics from './salesforce-metrics';
 import RatioEstimator from './ratio-estimator';
-import FlowDocGenerator from './flow-doc-generator';
 
 export const projects = {
   'salesforce-metrics': {
@@ -21,27 +20,17 @@ export const projects = {
   },
   'ratio-estimator': {
     id: 'ratio-estimator',
-    name: 'Ratio Estimator',
-    description: 'Estimate and review ratios for sales opportunities',
-    icon: '📊',
+    name: 'Opp PDF Builder',
+    description: 'Build a polished PDF brief for an opportunity',
+    icon: '📄',
     component: RatioEstimator,
     path: '/ratio-estimator',
     category: 'Tools',
     version: '1.0.0',
     features: ['File Upload', 'AI Estimation', 'Review & Approval', 'Export Results'],
   },
-  'flow-doc-generator': {
-    id: 'flow-doc-generator',
-    name: 'Flow Doc Generator',
-    description: 'Generate a technical leave-behind doc from a QA Wolf flow URL',
-    icon: '📄',
-    component: FlowDocGenerator,
-    path: '/flow-doc-generator',
-    category: 'Tools',
-    version: '1.0.0',
-    features: ['QAW Integration', 'AI Summary', 'Test Step Extraction', 'Leave-Behind Doc'],
-  },
-  // Add more projects here as you create them
+  // Note: 'flow-doc-generator' was unregistered — folder + backend route
+  // left on disk so it can be revived by re-adding the import + entry here.
 };
 
 export const getProject = (projectId) => projects[projectId];

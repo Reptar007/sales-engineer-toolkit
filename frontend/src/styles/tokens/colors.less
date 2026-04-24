@@ -2,140 +2,222 @@
 // Color Design Tokens - LESS Variables
 // =========================
 
+// -------------------------
+// Brand Palette — Dark Blue SaaS
+// These are the raw brand hues. Prefer semantic tokens below
+// (`@primary`, `@success`, `@error`, etc.) in application code so a
+// future palette swap only touches this file.
+// -------------------------
+@midnight-navy: #020617;
+@deep-blue: #02066c;
+@dark-indigo: #0b0f2a;
+@card-bg-navy: #0f172a;
+@electric-blue: #2979ff;
+@bright-azure: #3b82f6;
+@neon-cyan: #00e5ff;
+@brand-teal: #14b8a6;
+@brand-purple: #8b5cf6;
+@coral: #ff6b4a;
+@soft-yellow: #facc15;
+@light-gray: #e5e7eb;
+@muted-gray: #9ca3af;
+@border-gray: #1f2937;
+
+// Neutral scale derived from the brand (useful for cards, borders, surfaces).
+@neutral-50: #f8fafc;
+@neutral-100: @light-gray;
+@neutral-200: #cbd5e1;
+@neutral-300: @muted-gray;
+@neutral-400: #6b7280;
+@neutral-500: #4b5563;
+@neutral-600: #374151;
+@neutral-700: @border-gray;
+@neutral-800: @card-bg-navy;
+@neutral-900: @dark-indigo;
+@neutral-950: @midnight-navy;
+
+// -------------------------
 // Base Colors
+// -------------------------
 @white: #ffffff;
 @canvas-light: #ffffff; // White background
-@canvas-dark: #333333; // Dark Gray
+@canvas-dark: @dark-indigo; // Dark Indigo page canvas
 
-// Primary Green
-@primary-green: #2e7d32;
-@primary-green-hover: #1b5e20;
-@primary-green-light: #e8f5e8;
-@primary-green-dark: #1b5e20;
+// -------------------------
+// Primary (Electric Blue — was green)
+// Variable names kept for compatibility with existing component LESS.
+// -------------------------
+@primary-green: @electric-blue;
+@primary-green-hover: @bright-azure;
+@primary-green-light: #dbe9ff;
+@primary-green-dark: #1a5cd9;
 
-// Pine Colors (Figma Design System)
-@pine-900: #0b3d2e;
+// Pine / deep brand hue (used for high-contrast fills, headings on dark).
+@pine-900: @midnight-navy;
 
-// Success Green
-@success-green: #388e3c;
-@success-green-hover: #2e7d32;
+// -------------------------
+// Success (Teal — was green)
+// -------------------------
+@success-green: @brand-teal;
+@success-green-hover: #0f9488;
 
-// Dark Gray Palette
-@dark-gray: #333333;
-@dark-gray-light: #555555;
-@dark-gray-lighter: #666666;
+// -------------------------
+// Dark Gray Palette (now a navy-tinted neutral scale)
+// -------------------------
+@dark-gray: @card-bg-navy;
+@dark-gray-light: @neutral-600;
+@dark-gray-lighter: @border-gray;
 
+// -------------------------
 // Soft Gray Palette
-@soft-gray: #e0e0e0;
-@soft-gray-dark: #cccccc;
+// -------------------------
+@soft-gray: @light-gray;
+@soft-gray-dark: @muted-gray;
 
-// Error Red
-@error-red: #d32f2f;
-@error-red-hover: #b71c1c;
-@error-bg: #ffebee;
-@error-light: #ffebee;
-@error-dark: #c62828;
-@error-medium: #e57373;
+// -------------------------
+// Error (Coral — was red)
+// -------------------------
+@error-red: @coral;
+@error-red-hover: #e8532f;
+@error-bg: #ffece6;
+@error-light: #ffece6;
+@error-dark: #c84a2e;
+@error-medium: #ff9478;
 
+// -------------------------
 // Text Colors - Light Theme
-@text-primary-light: #333333;
-@text-secondary-light: #666666;
-@text-muted-light: #999999;
+// -------------------------
+@text-primary-light: @midnight-navy;
+@text-secondary-light: @neutral-500;
+@text-muted-light: @muted-gray;
 
+// -------------------------
 // Text Colors - Dark Theme
+// -------------------------
 @text-primary-dark: #ffffff;
-@text-secondary-dark: #cccccc;
-@text-muted-dark: #aaaaaa;
+@text-secondary-dark: @light-gray;
+@text-muted-dark: @muted-gray;
 
 // Universal Text Colors (for new components)
 @text-primary: @text-primary-light;
 @text-secondary: @text-secondary-light;
 @text-tertiary: @text-muted-light;
 
+// -------------------------
 // Background Colors
+// -------------------------
 @background-primary: #ffffff;
 @background-secondary: #ffffff;
-@background-tertiary: #f5f5f5;
+@background-tertiary: #f3f5f9;
 
-// Navigation Colors (Dark Blue)
-@nav-primary: #1e3a5f;
-@nav-primary-dark: #152a4a;
-@nav-hover: #2a4a6f;
+// -------------------------
+// Navigation Colors (Dark Navy)
+// -------------------------
+@nav-primary: @card-bg-navy;
+@nav-primary-dark: @midnight-navy;
+@nav-hover: @border-gray;
 @bg-card-light: #ffffff;
-@bg-card-dark: #555555;
-@bg-hover-light: #f5f5f5;
-@bg-hover-dark: #666666;
+@bg-card-dark: @card-bg-navy;
+@bg-hover-light: #f3f5f9;
+@bg-hover-dark: @border-gray;
 
+// -------------------------
 // Border Colors
-@border-default: #e0e0e0;
-@border-subtle: #f0f0f0;
+// -------------------------
+@border-default: @light-gray;
+@border-subtle: #eef1f6;
 
+// -------------------------
 // Table Colors
-@table-header-bg-light: #f8f9fa;
-@table-header-bg-dark: #666666;
+// -------------------------
+@table-header-bg-light: #f3f5f9;
+@table-header-bg-dark: @border-gray;
 @table-border-light: @soft-gray;
-@table-border-dark: @dark-gray-lighter;
+@table-border-dark: @border-gray;
 
+// -------------------------
 // Alpha Colors
-@error-bg: rgba(211, 47, 47, 0.1);
-@modal-backdrop: rgba(0, 0, 0, 0.5);
-@drop-shadow-light: rgba(0, 0, 0, 0.1);
-@drop-shadow-dark: rgba(0, 0, 0, 0.3);
+// -------------------------
+@error-bg: rgba(255, 107, 74, 0.12);
+@modal-backdrop: rgba(2, 6, 23, 0.6);
+@drop-shadow-light: rgba(15, 23, 42, 0.1);
+@drop-shadow-dark: rgba(0, 0, 0, 0.45);
 
+// -------------------------
 // Artist Mode Colors
-@artist-canvas-light: #f0f8ff;
-@artist-canvas-dark: #1a1f2e;
-@artist-primary: #4a90e2;
-@artist-border-color: #2c3e50;
-@artist-shadow-color: rgba(44, 62, 80, 0.2);
-@artist-shadow-color-strong: rgba(44, 62, 80, 0.4);
+// -------------------------
+@artist-canvas-light: #eaf2ff;
+@artist-canvas-dark: @dark-indigo;
+@artist-primary: @electric-blue;
+@artist-border-color: @border-gray;
+@artist-shadow-color: rgba(15, 23, 42, 0.2);
+@artist-shadow-color-strong: rgba(2, 6, 23, 0.45);
 
-// Success Green Variations
-@success-green-alt: #4caf50;
-@success-green-shadow: rgba(56, 142, 60, 0.4);
+// -------------------------
+// Success (Teal) Variations
+// -------------------------
+@success-green-alt: #2dd4bf;
+@success-green-shadow: rgba(20, 184, 166, 0.4);
 
-// Error Red Variations
-@error-red-alt: #f44336;
-@error-red-shadow: rgba(211, 47, 47, 0.4);
+// -------------------------
+// Error (Coral) Variations
+// -------------------------
+@error-red-alt: #ff8a6e;
+@error-red-shadow: rgba(255, 107, 74, 0.4);
 
+// -------------------------
 // Status Badge Alpha Backgrounds
-@status-pending-bg: rgba(156, 163, 175, 0.1);
-@status-pending-bg-dark: rgba(156, 163, 175, 0.15);
-@status-approved-bg: rgba(56, 142, 60, 0.05);
-@status-approved-bg-dark: rgba(56, 142, 60, 0.15);
-@status-rejected-bg: rgba(211, 47, 47, 0.05);
-@status-rejected-bg-dark: rgba(211, 47, 47, 0.15);
+// -------------------------
+@status-pending-bg: rgba(156, 163, 175, 0.12);
+@status-pending-bg-dark: rgba(156, 163, 175, 0.2);
+@status-approved-bg: rgba(20, 184, 166, 0.1);
+@status-approved-bg-dark: rgba(20, 184, 166, 0.2);
+@status-rejected-bg: rgba(255, 107, 74, 0.1);
+@status-rejected-bg-dark: rgba(255, 107, 74, 0.2);
 
+// -------------------------
 // Table Header Gradients
+// -------------------------
 @table-header-gradient-light: linear-gradient(
   180deg,
-  #a3d2ff 0%,
-  #baddff 33%,
-  #d1e7ff 66%,
-  #e8f2ff 100%
+  #dbe9ff 0%,
+  #e4edff 33%,
+  #eef3ff 66%,
+  #f6f9ff 100%
 );
 @table-header-gradient-dark: linear-gradient(
   180deg,
-  #2f4157 0%,
-  #2d3e52 33%,
-  #2b3a4e 66%,
-  #293649 100%
+  @midnight-navy 0%,
+  @dark-indigo 40%,
+  @card-bg-navy 100%
 );
+
+// -------------------------
+// Brand Gradients
+// -------------------------
+@accent-gradient: linear-gradient(135deg, @electric-blue, @bright-azure);
+@accent-gradient-cool: linear-gradient(135deg, @bright-azure, @brand-teal);
+@accent-gradient-vivid: linear-gradient(135deg, @brand-purple, @electric-blue);
 
 // Button Gradients
 @btn-gradient-success: linear-gradient(135deg, @success-green, @success-green-alt);
 @btn-gradient-error: linear-gradient(135deg, @error-red, @error-red-alt);
-@btn-gradient-artist: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+@btn-gradient-artist: linear-gradient(135deg, @coral, @neon-cyan);
+@btn-gradient-primary: @accent-gradient;
 
+// -------------------------
 // Status Badge Text Colors
-@status-pending-text: #6b7280;
-@status-pending-text-dark: #9ca3af;
-@status-approved-text-dark: #4caf50;
-@status-rejected-text-dark: #f44336;
+// -------------------------
+@status-pending-text: @neutral-500;
+@status-pending-text-dark: @muted-gray;
+@status-approved-text-dark: @success-green-alt;
+@status-rejected-text-dark: @error-red-alt;
 
+// -------------------------
 // Modern Color Space Support (for browsers that support it)
+// -------------------------
 .modern-colors() when (@supports-oklch = true) {
-  --primary-green: oklch(0.45 0.15 140);
-  --success-green: oklch(0.5 0.15 140);
-  --error-red: oklch(0.55 0.2 25);
+  --primary-green: oklch(0.62 0.18 258);
+  --success-green: oklch(0.72 0.12 178);
+  --error-red: oklch(0.7 0.18 32);
 }

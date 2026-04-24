@@ -384,6 +384,11 @@ router.post('/forgot-password', async (req, res) => {
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
+    const prisma = await getPrisma();
+    const se = await prisma.salesEngineer.findUnique({
+      where: { userId: user.id },
+      select: { team: { select: { id: true, name: true } } },
+    });
     return res.status(200).json({
       message: 'User retrieved successfully',
       user: {
@@ -392,6 +397,7 @@ router.get('/me', authenticateToken, async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         roles: user.roles,
+        team: se?.team ?? null,
       },
     });
   } catch (error) {

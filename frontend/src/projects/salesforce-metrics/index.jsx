@@ -27,6 +27,18 @@ function getFallbackYears(currentYear) {
   return [currentYear + 1, currentYear, currentYear - 1];
 }
 
+function getQuarterDateRange(label) {
+  const m = /Q(\d)\s*CY?(\d{4})/i.exec(label || '');
+  if (!m) return null;
+  const q = Number(m[1]);
+  const year = Number(m[2]);
+  const startMonth = (q - 1) * 3;
+  const start = new Date(year, startMonth, 1);
+  const end = new Date(year, startMonth + 3, 0);
+  const fmt = (d) => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+  return { start: fmt(start), end: fmt(end), label: `${fmt(start)} – ${fmt(end)}` };
+}
+
 const SalesforceMetrics = () => {
   const [config, setConfig] = useState(null);
   const [configError, setConfigError] = useState(null);
@@ -43,6 +55,8 @@ const SalesforceMetrics = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  const dateRange = getQuarterDateRange(quarter.label)
 
   const availableYears = config ? getAvailableYears(config) : getFallbackYears(currentCalendarYear);
 
@@ -243,6 +257,12 @@ const SalesforceMetrics = () => {
         <div className="metrics-header-text">
           <h1>Salesforce Metrics</h1>
           <p>Track and analyze your Salesforce performance</p>
+          {dateRange?.label && (
+            <div className="quarter-range" aria-label={`${quarter.label} date range`}>
+              <span className="quarter-range-badge">{quarter.label}</span>
+              <span className="quarter-range-dates">{dateRange.label}</span>
+            </div>
+          )}
         </div>
         <div className="metrics-header-select">
           <p>Year:</p>
