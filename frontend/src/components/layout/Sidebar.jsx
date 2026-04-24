@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { getAllProjects } from '../../projects';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import {
   GoHome,
   GoStar,
@@ -96,6 +95,17 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
 
   return (
     <aside className={`sidebar ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
+      <div className="top-header">
+        <Link to="/" className="header-logo">
+          <img src="/saleswolf-icon.png" alt="SalesWolf" className="header-logo-icon" />
+          <div className="header-text">
+            <h1>
+              Sales<span className="header-wolf">Wolf</span>
+            </h1>
+            <p>HUNT • CLOSE • DOMINATE</p>
+          </div>
+        </Link>
+      </div>
       <nav className="sidebar-nav">
         <ul className="nav-list">
           {/* Home - Always at the top */}

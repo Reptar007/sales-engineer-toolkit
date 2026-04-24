@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import './styles/App.less';
 import './styles/themes.less';
-import Header from './components/Header';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -39,8 +38,6 @@ function AppContent() {
 
   return (
     <div className={`app ${isCollapsed ? 'app--sidebar-collapsed' : ''}`}>
-      <Header />
-
       <div className="app-layout">
         {!isAuthPage && <Sidebar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />}
         <main

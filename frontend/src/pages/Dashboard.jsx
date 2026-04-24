@@ -1,6 +1,8 @@
 import React from 'react';
 import CurrentQuarterMetrics from '../components/widgets/CurrentQuarterMetrics';
 import DashboardWidgets from '../components/dashboard/DashboardWidgets';
+import PageHeader from '../components/layout/PageHeader';
+import useDashboardSummary from '../hooks/useDashboardSummary';
 import { useAuth } from '../contexts/AuthContext';
 
 function getCurrentQuarterLabel() {
@@ -8,7 +10,7 @@ function getCurrentQuarterLabel() {
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
   const quarter = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
-  return `Q${quarter} CY${year}`;
+  return `Q${quarter} • ${year}`;
 }
 
 
@@ -18,25 +20,16 @@ function getCurrentQuarterLabel() {
 function Dashboard() {
   const { user } = useAuth();
   const firstName = user?.firstName?.trim();
-  const greeting = firstName ? `Hello, ${firstName} 👋` : 'Welcome to SalesWolf!';
-  const team = user?.team?.name
-  const subline = `${team} · ${getCurrentQuarterLabel()}`;
+  const teamName = user?.team?.name;
+  const summary = useDashboardSummary();
 
   return (
     <div className="dashboard">
-      <header className="dashboard-page-head">
-        <div className="dashboard-page-head__text">
-          <h1 className="dashboard-page-head__title">{greeting}</h1>
-          <p className="dashboard-page-head__sub">{subline}</p>
-        </div>
-        <button
-          type="button"
-          className="dashboard-page-head__menu"
-          aria-label="More actions"
-        >
-          ⋯
-        </button>
-      </header>
+      <PageHeader
+        name={firstName}
+        summary={summary}
+        team={teamName ? { name: teamName, quarter: getCurrentQuarterLabel() } : undefined}
+      />
 
       <CurrentQuarterMetrics />
 

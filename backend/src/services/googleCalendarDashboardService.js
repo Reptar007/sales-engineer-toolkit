@@ -61,6 +61,45 @@ function eventMeta(event) {
   return 'Calendar';
 }
 
+// Regex used to spot a video-conference URL in free-form fields (location,
+// description) when Google didn't attach proper conferenceData.
+const VIDEO_URL_RE = /zoom\.us|meet\.google|google\.com\/meet|teams\.microsoft|whereby\.com/i;
+
+/**
+ * Decide whether an event is a real "meeting" vs a personal time block
+ * (focus time, lunch, "Home", solo blocks, etc.).
+ *
+ * Heuristic — true if ANY of:
+ *   1. Has a video conference attached (Meet / Zoom / Teams / hangoutLink).
+ *   2. Has a Zoom/Meet/Teams URL in the location field.
+ *   3. Has more than one human attendee (room/resource attendees ignored).
+ *
+ * All-day events are never meetings.
+ */
+function isMeetingEvent(event) {
+  const allDay = Boolean(event.start?.date && !event.start?.dateTime);
+  if (allDay) return false;
+
+  // 1. Proper conference data
+  const hasVideoConf = Boolean(
+    event.hangoutLink ||
+    event.conferenceData?.entryPoints?.some((e) => e.entryPointType === 'video'),
+  );
+  if (hasVideoConf) return true;
+
+  // 2. Video URL pasted into location (or, as a fallback, description)
+  if (VIDEO_URL_RE.test(event.location || '')) return true;
+  if (VIDEO_URL_RE.test(event.description || '')) return true;
+
+  // 3. More than one human attendee. Google includes the organizer themselves
+  // in this list, so we look for >1 non-resource attendees.
+  const attendees = Array.isArray(event.attendees) ? event.attendees : [];
+  const humanAttendees = attendees.filter((a) => !a.resource);
+  if (humanAttendees.length > 1) return true;
+
+  return false;
+}
+
 function durationMeta(event) {
   const start = event.start?.dateTime || event.start?.date;
   const end = event.end?.dateTime || event.end?.date;
@@ -97,6 +136,7 @@ function mapItemsToEvents(items, timeZone) {
       title: event.summary || '(No title)',
       meta,
       color: EVENT_COLORS[index % EVENT_COLORS.length],
+      isMeeting: isMeetingEvent(event),
     };
   });
 }
@@ -122,7 +162,7 @@ async function listTodayEvents(calendar, calendarId, timeZone) {
 }
 
 /**
- * @returns {Promise<{ configured: boolean, events: Array<{id: string, time: string, title: string, meta: string, color: string}> }>}
+ * @returns {Promise<{ configured: boolean, events: Array<{id: string, time: string, title: string, meta: string, color: string, isMeeting: boolean}> }>}
  */
 export async function getTodayCalendarEvents() {
   const calendarId = process.env.GOOGLE_CALENDAR_ID?.trim();

@@ -6,30 +6,32 @@
 
 .sidebar {
   width: 18rem;
-  height: calc(100vh - 6rem);
+  height: 100vh;
   background-color: @nav-primary;
-  border-right: 1px solid @nav-primary-dark;
-  padding: 1.5rem 0.75rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 0;
   position: fixed;
-  top: 6rem;
+  top: 0;
   left: 0;
   bottom: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
   margin: 0;
-  border-top: none;
   z-index: 10;
   transition: width 0.25s ease;
 }
 
 .sidebar-nav {
   width: 100%;
-  padding-top: 1rem;
+  flex: 1;
+  min-height: 0; // Allow flex child to shrink so overflow-y can take effect
+  padding: 1rem 0.75rem 1.5rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .nav-list {
@@ -59,12 +61,14 @@
   margin: 0 0.25rem;
 }
 
-.nav-link:hover {
+// Hover state only applies to inactive items — active items keep their
+// pill styling untouched when hovered.
+.nav-link:not(.active):hover {
   background-color: rgba(0, 0, 0, 0.35);
-  color: var(--soft-yellow);
+  color: var(--coral);
 
   .nav-icon {
-    color: var(--soft-yellow);
+    color: var(--coral);
   }
 }
 
@@ -83,7 +87,9 @@
   font-size: 1.375rem;
   flex-shrink: 0;
   line-height: 1;
-  color: inherit;
+  // Default muted white. Active items keep this color even on hover (see
+  // .nav-link:not(.active):hover above). Inactive items get coral on hover.
+  color: rgba(255, 255, 255, 0.85);
   transition: color 0.2s ease;
 
   svg {
@@ -238,7 +244,7 @@
 // App Layout Styles
 .app-layout {
   display: flex;
-  min-height: calc(100vh - 6rem);
+  min-height: 100vh;
   margin: 0;
   padding: 0;
   gap: 0;
@@ -251,8 +257,30 @@
   padding: 2rem;
   overflow-x: hidden;
   min-width: 0; // Allows flex item to shrink below content size
-  background-color: #ffffff;
-  min-height: calc(100vh - 6rem);
+  // Layered atmospheric backdrop:
+  //  1) A bright blue "glow" radiating from the top (the spotlight).
+  //  2) A subtle deepening at the bottom corners so they read darker than
+  //     the middle, giving the page a cinematic, lifted feel.
+  // The base color stays --card-bg-navy so the sidebar still meets the
+  // dashboard with zero seam.
+  // background-attachment: fixed keeps the glow anchored to the viewport
+  // instead of moving / repeating on scroll.
+  background-color: var(--card-bg-navy);
+  background-image:
+    radial-gradient(
+      ellipse 110% 65% at 50% 0%,
+      rgba(120, 150, 230, 0.32) 0%,
+      rgba(70, 100, 190, 0.18) 30%,
+      rgba(30, 50, 110, 0.08) 55%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse 80% 60% at 50% 100%,
+      rgba(0, 0, 0, 0.45) 0%,
+      transparent 65%
+    );
+  background-attachment: fixed;
+  min-height: 100vh;
   margin-left: 18rem; // Account for fixed sidebar
   transition: margin-left 0.25s ease;
 
@@ -262,37 +290,36 @@
     margin-left: 5.5rem;
   }
 
-  // Remove margin and padding on auth pages (login, password change)
+  // Auth pages keep the existing light treatment so the login card is not
+  // affected by the dashboard spotlight.
   &.auth-page {
     margin-left: 0 !important;
     padding: 0 !important;
+    background-color: #ffffff;
+    background-image: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: calc(100vh - 6rem);
-    max-height: calc(100vh - 6rem);
+    height: 100vh;
+    max-height: 100vh;
     overflow: hidden;
   }
 }
 
 // =========================
-// Sidebar Brand Block (top of rail)
+// Sidebar Brand Block (top of rail) — lives inside .sidebar as a flex child
 // =========================
 .top-header {
   background: linear-gradient(180deg, var(--midnight-navy), var(--card-bg-navy));
   border-bottom: 1px solid var(--border-gray);
   padding: 0.75rem 1rem;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 18rem;
-  z-index: 100;
   display: flex;
   align-items: center;
   height: 6rem;
+  flex-shrink: 0;
   margin: 0;
   box-shadow: none;
-  transition: width 0.25s ease, padding 0.25s ease;
+  transition: padding 0.25s ease;
 }
 
 .header-logo {
@@ -343,11 +370,12 @@
     gap: 0;
   }
 
-  // <div className="header-wolf"> sits inside the <h1> — force inline so
-  // "Sales" and "Wolf" stay on the same line, with a yellow accent on Wolf.
+  // <span className="header-wolf"> sits inside the <h1> — accent the "Wolf"
+  // word in coral so it ties into the rest of the app's coral hierarchy
+  // (page-header overline + name, hover states, CTAs).
   .header-wolf {
     display: inline;
-    color: var(--soft-yellow);
+    color: var(--coral);
     font-weight: 800;
   }
 
@@ -456,9 +484,13 @@
 // Driven by `app--sidebar-collapsed` on the root .app element so the brand
 // header, sidebar, and main content all shrink in lockstep.
 .app--sidebar-collapsed {
-  // Brand bar shrinks to fit only the W tile
-  .top-header {
+  // Sidebar shrinks to an icon-only rail; the brand bar (now an in-flow
+  // child of .sidebar) shrinks with it automatically.
+  .sidebar {
     width: 5.5rem;
+  }
+
+  .top-header {
     padding: 0.75rem 0.5rem;
     justify-content: center;
   }
@@ -473,10 +505,8 @@
     justify-content: center;
   }
 
-  // Sidebar shrinks to an icon-only rail
-  .sidebar {
-    width: 5.5rem;
-    padding: 1.5rem 0.625rem;
+  .sidebar-nav {
+    padding: 1rem 0.625rem 1.5rem;
   }
 
   .nav-link {
