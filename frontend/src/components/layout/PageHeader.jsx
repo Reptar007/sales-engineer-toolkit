@@ -58,14 +58,24 @@ const GREETINGS = {
   evening: { label: 'Good evening', Icon: LuMoon },
 };
 
-// Build a wolf-themed sentence from the {meetingsToday, inProgress, blocked}
-// counts. Returns null when there's nothing meaningful to say (e.g. all zero
-// or summary not yet ready).
+// Build a wolf-themed sentence from the dashboard summary counts. The
+// "in progress" count is intentionally NOT surfaced here because the
+// hero already renders an "N active hunts" pill on the right-hand side.
+// Instead we lift the more actionable signals — high-priority hunts
+// (Urgent + High) and AI demo work — into the sentence so the SE sees
+// what needs attention.
+// Returns null when there's nothing meaningful to say (all zeros or the
+// summary is still loading).
 function renderSummarySentence(summary) {
   // Stay silent until the hook reports ready, so we don't flash an
   // "all clear" sentence before the counts come in.
   if (!summary || summary.ready === false) return null;
-  const { meetingsToday = 0, inProgress = 0, blocked = 0 } = summary;
+  const {
+    meetingsToday = 0,
+    highPriority = 0,
+    aiDemo = 0,
+    blocked = 0,
+  } = summary;
   const parts = [];
 
   if (meetingsToday > 0) {
@@ -76,11 +86,19 @@ function renderSummarySentence(summary) {
       </React.Fragment>,
     );
   }
-  if (inProgress > 0) {
+  if (highPriority > 0) {
     parts.push(
-      <React.Fragment key="p">
-        <span className="page-header__count">{inProgress}</span>{' '}
-        {inProgress === 1 ? 'hunt' : 'hunts'} in progress
+      <React.Fragment key="hp">
+        <span className="page-header__count">{highPriority}</span>{' '}
+        high-priority {highPriority === 1 ? 'hunt' : 'hunts'}
+      </React.Fragment>,
+    );
+  }
+  if (aiDemo > 0) {
+    parts.push(
+      <React.Fragment key="ai">
+        <span className="page-header__count">{aiDemo}</span> AI{' '}
+        {aiDemo === 1 ? 'demo' : 'demos'} coming up
       </React.Fragment>,
     );
   }
@@ -96,7 +114,7 @@ function renderSummarySentence(summary) {
   if (parts.length === 0) {
     return (
       <p className="page-header__summary">
-        Your pack is clear — no meetings, no open hunts, no blockers right now.
+        Your pack is clear — no meetings, no priority hunts, no demos coming up.
       </p>
     );
   }
@@ -168,24 +186,24 @@ function PageHeader({ name, overline, subline, summary, team, children }) {
               {teamParts.prefix && <>{teamParts.prefix} </>}
               <span className="page-header__team-name">{teamParts.rest}</span>
             </p>
-            {(team.quarter || summary?.inProgress != null) && (
+            {(team.quarter || summary?.activeHunts != null) && (
               <div className="page-header__team-meta">
                 {team.quarter && (
                   <span className="page-header__team-quarter">
                     {team.quarter}
                   </span>
                 )}
-                {summary?.inProgress != null && (
+                {summary?.activeHunts != null && (
                   <span
                     className="page-header__active-pill"
-                    aria-label={`${summary.inProgress} active hunts`}
+                    aria-label={`${summary.activeHunts} active hunts`}
                   >
                     <LuZap
                       className="page-header__active-pill-icon"
                       aria-hidden="true"
                     />
-                    {summary.inProgress} active{' '}
-                    {summary.inProgress === 1 ? 'hunt' : 'hunts'}
+                    {summary.activeHunts} active{' '}
+                    {summary.activeHunts === 1 ? 'hunt' : 'hunts'}
                   </span>
                 )}
               </div>
@@ -205,7 +223,10 @@ PageHeader.propTypes = {
   subline: PropTypes.node,
   summary: PropTypes.shape({
     meetingsToday: PropTypes.number,
+    activeHunts: PropTypes.number,
     inProgress: PropTypes.number,
+    highPriority: PropTypes.number,
+    aiDemo: PropTypes.number,
     blocked: PropTypes.number,
     ready: PropTypes.bool,
   }),

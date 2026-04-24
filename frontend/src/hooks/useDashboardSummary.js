@@ -11,7 +11,19 @@ import { fetchDashboardCalendar, fetchDashboardLinear } from '../services/api';
  *                     backend (has video conf link / >1 attendee). Personal
  *                     time blocks like "Home", "Lunch", solo focus time, and
  *                     all-day events do NOT count.
- *   - inProgress    : Linear issues whose tone is 'progress'
+ *   - activeHunts   : Linear issues that are actively in flight — i.e. NOT
+ *                     blocked, paused, AI-demo-tagged, canceled, or done.
+ *                     (Canceled / done are already filtered server-side, so
+ *                     here we just additionally exclude blocked/paused and
+ *                     AI demos.) Powers the "N active hunts" pill on the
+ *                     right side of the hero.
+ *   - inProgress    : Linear issues whose tone is 'progress'. Kept for
+ *                     consumers that specifically want the "in progress"
+ *                     subset (not surfaced in the hero anymore).
+ *   - highPriority  : Linear issues with priority === 'urgent' or 'high'.
+ *                     Both tones get highlighted in the Active Hunts table,
+ *                     so we lump them together as one "needs attention" count.
+ *   - aiDemo        : Linear issues tagged with the "AI Demo" label
  *   - blocked       : Linear issues whose status matches /blocked|paused/i
  *                     (Blocked / Paused / Access Blocked — Linear marks these
  *                      with state.type === 'unstarted', so we filter on the
@@ -19,18 +31,22 @@ import { fetchDashboardCalendar, fetchDashboardLinear } from '../services/api';
  *
  * Returns:
  *   {
- *     meetingsToday, inProgress, blocked,
+ *     meetingsToday, activeHunts, inProgress, highPriority, aiDemo, blocked,
  *     ready,        // true once both fetches have settled
  *     hasCalendar,  // calendar integration is connected
  *     hasLinear,    // linear data is available (status === 'ok')
  *   }
  */
 const BLOCKED_RE = /blocked|paused/i;
+const HIGH_PRIORITY_RE = /^(urgent|high)$/i;
 
 export default function useDashboardSummary() {
   const [state, setState] = useState({
     meetingsToday: 0,
+    activeHunts: 0,
     inProgress: 0,
+    highPriority: 0,
+    aiDemo: 0,
     blocked: 0,
     ready: false,
     hasCalendar: false,
@@ -55,7 +71,10 @@ export default function useDashboardSummary() {
           meetingsToday = events.filter((ev) => ev.isMeeting).length;
         }
 
+        let activeHunts = 0;
         let inProgress = 0;
+        let highPriority = 0;
+        let aiDemo = 0;
         let blocked = 0;
         let hasLinear = false;
         if (linRes.status === 'fulfilled' && linRes.value?.configured) {
@@ -64,9 +83,17 @@ export default function useDashboardSummary() {
           for (const project of projects) {
             const issues = Array.isArray(project.issues) ? project.issues : [];
             for (const issue of issues) {
+              const isBlocked = typeof issue.status === 'string' && BLOCKED_RE.test(issue.status);
+              if (isBlocked) blocked += 1;
+              if (issue.isAiDemo) aiDemo += 1;
+              // "Active" = anything in flight that the SE can actually work
+              // on right now. Blocked/paused issues are waiting on someone
+              // else, AI demos get their own callout, and canceled/done are
+              // already filtered out server-side.
+              if (!isBlocked && !issue.isAiDemo) activeHunts += 1;
               if (issue.tone === 'progress') inProgress += 1;
-              if (typeof issue.status === 'string' && BLOCKED_RE.test(issue.status)) {
-                blocked += 1;
+              if (typeof issue.priority === 'string' && HIGH_PRIORITY_RE.test(issue.priority)) {
+                highPriority += 1;
               }
             }
           }
@@ -74,7 +101,10 @@ export default function useDashboardSummary() {
 
         setState({
           meetingsToday,
+          activeHunts,
           inProgress,
+          highPriority,
+          aiDemo,
           blocked,
           ready: true,
           hasCalendar,

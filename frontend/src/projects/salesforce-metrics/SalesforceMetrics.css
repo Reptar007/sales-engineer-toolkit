@@ -270,8 +270,13 @@ p.quarterly-goal-text {
   margin: 2rem 0;
 }
 
-/* Table Styles */
-table {
+/* Table Styles
+ * IMPORTANT: every selector below is scoped to .salesforce-metrics so
+ * these rules don't leak globally. Earlier these were unscoped (bare
+ * `table`, `td`, `tbody tr`...) which clobbered every <table> in the
+ * app — including the dashboard's Active Hunts table. Keep them
+ * scoped to this component. */
+.salesforce-metrics table {
   width: 100%;
   margin: 0 0 2rem 0;
   border-collapse: collapse;
@@ -285,7 +290,7 @@ table {
   box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.06);
 }
 
-caption {
+.salesforce-metrics caption {
   text-align: left;
   font-size: 1.75rem;
   font-weight: 600;
@@ -298,18 +303,18 @@ caption {
   gap: 1rem;
 }
 
-caption .caption-subtitle {
+.salesforce-metrics caption .caption-subtitle {
   font-size: 1rem;
   font-weight: 400;
   font-style: italic;
   color: #666666;
 }
 
-thead {
+.salesforce-metrics thead {
   background-color: #f8f9fa;
 }
 
-th {
+.salesforce-metrics th {
   padding: 1rem;
   text-align: center;
   font-weight: 600;
@@ -319,7 +324,7 @@ th {
   text-overflow: ellipsis;
 }
 
-td {
+.salesforce-metrics td {
   padding: 1rem;
   text-align: center;
   color: #333333;
@@ -349,31 +354,37 @@ td {
 }
 
 
-thead, tbody tr {
+.salesforce-metrics thead,
+.salesforce-metrics tbody tr {
   display: table;
   width: 100%;
   table-layout: fixed;
 }
 
-tbody tr:hover {
+.salesforce-metrics tbody tr:hover {
   background-color: #f5f5f5;
 }
 
-tbody tr:nth-child(even) {
+.salesforce-metrics tbody tr:nth-child(even) {
   background-color: #fafafa;
 }
 
-tbody tr:nth-child(even):hover {
+.salesforce-metrics tbody tr:nth-child(even):hover {
   background-color: #f0f0f0;
 }
 
-tbody tr:last-child td {
+.salesforce-metrics tbody tr:last-child td {
   border-bottom: none;
 }
 
-/* Column width controls */
-th:nth-child(1), td:nth-child(1) { width: 18%; } /* AE Name */
-th:nth-child(2), td:nth-child(2) { width: 30%; } /* Opportunity Name */
-th:nth-child(3), td:nth-child(3) { width: 22%; } /* CARR */
-th:nth-child(4), td:nth-child(4) { width: 22%; } /* Close Date */
-th:nth-child(5), td:nth-child(5) { width: 12%; } /* Account Score */
+/* Column width controls (scoped — see note above) */
+.salesforce-metrics th:nth-child(1),
+.salesforce-metrics td:nth-child(1) { width: 18%; } /* AE Name */
+.salesforce-metrics th:nth-child(2),
+.salesforce-metrics td:nth-child(2) { width: 30%; } /* Opportunity Name */
+.salesforce-metrics th:nth-child(3),
+.salesforce-metrics td:nth-child(3) { width: 22%; } /* CARR */
+.salesforce-metrics th:nth-child(4),
+.salesforce-metrics td:nth-child(4) { width: 22%; } /* Close Date */
+.salesforce-metrics th:nth-child(5),
+.salesforce-metrics td:nth-child(5) { width: 12%; } /* Account Score */
