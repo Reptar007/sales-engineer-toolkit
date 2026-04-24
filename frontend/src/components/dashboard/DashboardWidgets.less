@@ -35,7 +35,9 @@
   // Hard-ish height so the two panels stay uniform regardless of
   // their content. Future panels added underneath inherit this
   // baseline so the grid reads as a clean, predictable rhythm.
-  height: 32rem;
+  // Sized to comfortably show ~4 calendar events / ~5 hunt rows
+  // without leaving a ton of dead space underneath.
+  height: 24rem;
   overflow-y: auto;
   // Hide the default light-on-light scrollbar in favor of a thinner
   // dark-friendly one. Falls back gracefully in browsers that don't
@@ -117,7 +119,12 @@
 
 .dashboard-calendar__item {
   display: grid;
-  grid-template-columns: auto 1fr;
+  // Three columns so each row uses the full panel width:
+  //   [dot] [body grows] [actions stay pinned right]
+  // The actions column collapses to 0 when a row has no chips/Join,
+  // and the body just expands to fill the freed space.
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
   gap: 0.75rem 1rem;
   padding: 0.65rem 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -136,27 +143,116 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  margin-top: 0.35rem;
+  // Row uses align-items: center, so the dot centers naturally against
+  // the body. No top offset needed.
+}
+
+// Heading row places the time + title on a single line, with the time
+// rendered as a quieter "label" leading into the bolder title.
+.dashboard-calendar__heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0 0 0.2rem 0;
+  min-width: 0;
 }
 
 .dashboard-calendar__time {
   font-size: 0.8rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.55);
-  margin: 0 0 0.15rem 0;
+  flex-shrink: 0;
 }
 
 .dashboard-calendar__title {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--white);
-  margin: 0 0 0.2rem 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-calendar__meta {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.55);
   margin: 0;
+}
+
+// Body column of each calendar item — stacks time, title, and meta
+// vertically. Lives in the middle (1fr) column of the row grid so it
+// expands to fill the available width.
+.dashboard-calendar__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0; // allow long titles to truncate instead of pushing actions
+}
+
+// Right-edge action cluster on each meeting row (attendee chip + Join
+// link). Lives in the third grid column so it sits flush with the
+// panel's right edge, opposite the dot/time/title on the left.
+.dashboard-calendar__row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+// Read-only info chip (e.g. attendee count). Same shape as the Join
+// button so the action row reads as a coherent group, but visually
+// quieter — no border tint, no hover state.
+.dashboard-calendar__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.dashboard-calendar__chip-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
+}
+
+// Primary action on each meeting — opens the video conference URL in
+// a new tab. Tinted in Zoom-ish blue regardless of provider so the
+// action stands out without us needing to brand-color per provider.
+.dashboard-calendar__join {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  background: rgba(45, 140, 255, 0.16);
+  border: 1px solid rgba(45, 140, 255, 0.35);
+  color: #8ec5ff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  transition: background-color 120ms ease, color 120ms ease;
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(45, 140, 255, 0.26);
+    color: #c3dfff;
+  }
+}
+
+.dashboard-calendar__join-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
 }
 
 .dashboard-calendar__empty {
@@ -638,4 +734,12 @@
   border-color: rgba(94, 106, 210, 0.35);
   // Linear brand purple; slightly lifted for legibility on dark navy.
   color: #a5acff;
+}
+
+.dashboard-source-pill--google {
+  background: rgba(66, 133, 244, 0.16);
+  border-color: rgba(66, 133, 244, 0.35);
+  // Google brand blue, lifted for legibility on dark navy. Matches the
+  // dominant color in the multi-color Google Calendar mark.
+  color: #8ab4f8;
 }

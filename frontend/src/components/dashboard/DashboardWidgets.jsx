@@ -4,7 +4,6 @@ import {
   fetchDashboardCalendar,
   fetchDashboardLinear,
   startGoogleCalendarOAuth,
-  disconnectGoogleCalendar,
 } from '../../services/api';
 import { MOCK_LINEAR_BOARD } from './dashboardWidgetMockData';
 import './DashboardWidgets.less';
@@ -17,59 +16,167 @@ const LINEAR_INITIAL_STATE = {
   projects: [],
 };
 
+// Compact Google Calendar glyph used in the source-pill at the top-right
+// of the calendar panel. Mirrors the LINEAR pill on the hunts widget so
+// the two panels share the same "this data comes from X" treatment.
+function GoogleCalendarGlyph() {
+  return (
+    <svg
+      className="dashboard-source-pill__icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        fill="currentColor"
+        d="M19.5 3H18V1.5a.75.75 0 0 0-1.5 0V3h-9V1.5a.75.75 0 0 0-1.5 0V3H4.5A1.5 1.5 0 0 0 3 4.5v15A1.5 1.5 0 0 0 4.5 21h15a1.5 1.5 0 0 0 1.5-1.5v-15A1.5 1.5 0 0 0 19.5 3Zm0 16.5h-15V9h15v10.5Zm0-12h-15V4.5h2.25V6a.75.75 0 0 0 1.5 0V4.5h9V6a.75.75 0 0 0 1.5 0V4.5h.75v3Z"
+      />
+      <path
+        fill="currentColor"
+        d="M9.75 12.75h1.5v1.5a1.5 1.5 0 1 1-1.5-1.5Zm3 1.5v-1.5h1.5v3.75a.75.75 0 0 1-1.5 0v-2.25Z"
+      />
+    </svg>
+  );
+}
+
+// Tiny "people" icon used next to the attendee count chip on each
+// meeting row. Outline style so it sits quietly inside the chip.
+function AttendeesGlyph() {
+  return (
+    <svg
+      className="dashboard-calendar__chip-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+// Outline video-camera glyph used inside the "Join" link button so it
+// reads as "open the video conference" at a glance.
+function VideoGlyph() {
+  return (
+    <svg
+      className="dashboard-calendar__join-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <polygon points="23 7 16 12 23 17 23 7" />
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+    </svg>
+  );
+}
+
+// Hide all-day events that are NOT out-of-office. Things like "Home",
+// recurring focus blocks, lunch schedules, etc. show up as all-day on
+// the team calendar but aren't useful in a "today's hunts" view. OOO
+// blocks are intentionally kept so the SE can spot teammates / customer
+// AEs who are out today.
+function isVisibleCalendarEvent(ev) {
+  if (ev?.isAllDay && !ev?.isOoo) return false;
+  return true;
+}
+
 function DashboardCalendarCard({
   events,
   showEmptyHint,
   showConnect,
   onConnect,
-  onDisconnect,
   connectLoading,
-  oauthConnected,
 }) {
+  const visibleEvents = events.filter(isVisibleCalendarEvent);
   return (
     <section className="dashboard-panel" aria-labelledby="dash-cal-title">
       <div className="dashboard-panel__head">
-        <h2 className="dashboard-panel__title" id="dash-cal-title">
-          Today&apos;s calendar
-        </h2>
+        <div className="dashboard-panel__head-text">
+          <h2 className="dashboard-panel__title" id="dash-cal-title">
+            Today&apos;s Hunts
+          </h2>
+        </div>
+        <span className="dashboard-source-pill dashboard-source-pill--google">
+          <GoogleCalendarGlyph />
+          Google Cal
+        </span>
       </div>
       <div className="dashboard-calendar">
-        {events.length === 0 && showEmptyHint ? (
+        {visibleEvents.length === 0 && showEmptyHint ? (
           <p className="dashboard-calendar__empty">No events scheduled today.</p>
         ) : (
-          events.map((ev) => (
+          visibleEvents.map((ev) => (
             <div key={ev.id} className="dashboard-calendar__item">
               <span
                 className="dashboard-calendar__dot"
                 style={{ background: ev.color }}
                 aria-hidden
               />
-              <div>
-                <p className="dashboard-calendar__time">{ev.time}</p>
-                <p className="dashboard-calendar__title">{ev.title}</p>
+              <div className="dashboard-calendar__body">
+                <p className="dashboard-calendar__heading">
+                  <span className="dashboard-calendar__time">{ev.time}</span>
+                  <span className="dashboard-calendar__title">{ev.title}</span>
+                </p>
                 <p className="dashboard-calendar__meta">{ev.meta}</p>
               </div>
+              {(ev.attendeeCount > 0 || ev.videoUrl) && (
+                <div className="dashboard-calendar__row-actions">
+                  {ev.attendeeCount > 0 && (
+                    <span
+                      className="dashboard-calendar__chip"
+                      title={`${ev.attendeeCount} ${
+                        ev.attendeeCount === 1 ? 'attendee' : 'attendees'
+                      }`}
+                    >
+                      <AttendeesGlyph />
+                      {ev.attendeeCount}
+                    </span>
+                  )}
+                  {ev.videoUrl && (
+                    <a
+                      className="dashboard-calendar__join"
+                      href={ev.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={
+                        ev.videoProvider
+                          ? `Join via ${ev.videoProvider}`
+                          : 'Join video call'
+                      }
+                    >
+                      <VideoGlyph />
+                      Join
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           ))
         )}
       </div>
-      {(showConnect || oauthConnected) && (
+      {showConnect && (
         <div className="dashboard-calendar__actions">
-          {showConnect && (
-            <button
-              type="button"
-              className="dashboard-calendar__btn dashboard-calendar__btn--primary"
-              disabled={connectLoading}
-              onClick={onConnect}
-            >
-              {connectLoading ? 'Redirecting…' : 'Connect Google Calendar'}
-            </button>
-          )}
-          {oauthConnected && (
-            <button type="button" className="dashboard-calendar__btn" onClick={onDisconnect}>
-              Disconnect Google
-            </button>
-          )}
+          <button
+            type="button"
+            className="dashboard-calendar__btn dashboard-calendar__btn--primary"
+            disabled={connectLoading}
+            onClick={onConnect}
+          >
+            {connectLoading ? 'Redirecting…' : 'Connect Google Calendar'}
+          </button>
         </div>
       )}
     </section>
@@ -384,7 +491,6 @@ export function DashboardWidgets() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarLive, setCalendarLive] = useState(false);
-  const [calendarSource, setCalendarSource] = useState(null);
   const [connectLoading, setConnectLoading] = useState(false);
   const [linearState, setLinearState] = useState(LINEAR_INITIAL_STATE);
 
@@ -395,16 +501,13 @@ export function DashboardWidgets() {
       if (data.configured) {
         setCalendarLive(true);
         setCalendarEvents(Array.isArray(data.events) ? data.events : []);
-        setCalendarSource(data.source ?? null);
       } else {
         setCalendarLive(false);
         setCalendarEvents([]);
-        setCalendarSource(null);
       }
     } catch {
       setCalendarLive(false);
       setCalendarEvents([]);
-      setCalendarSource(null);
     }
   }, []);
 
@@ -520,18 +623,7 @@ export function DashboardWidgets() {
     }
   };
 
-  const handleDisconnectGoogle = async () => {
-    try {
-      await disconnectGoogleCalendar();
-      await loadCalendar();
-    } catch (err) {
-      console.error(err);
-      alert(err?.message || 'Could not disconnect');
-    }
-  };
-
   const showConnect = !calendarLive;
-  const oauthConnected = calendarSource === 'oauth';
 
   return (
     <div className="dashboard-widgets">
@@ -541,9 +633,7 @@ export function DashboardWidgets() {
         showEmptyHint={calendarLive}
         showConnect={showConnect}
         onConnect={handleConnectGoogle}
-        onDisconnect={handleDisconnectGoogle}
         connectLoading={connectLoading}
-        oauthConnected={oauthConnected}
       />
     </div>
   );
