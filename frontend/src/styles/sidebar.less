@@ -388,6 +388,20 @@
     color: var(--muted-gray);
     white-space: nowrap;
   }
+
+  // Tagline bullets pop in coral so the "HUNT • CLOSE • DOMINATE"
+  // line picks up the same accent as the brand mark and the page
+  // header overline dot.
+  .header-tagline-dot {
+    display: inline-block;
+    margin: 0 0.45em;
+    color: var(--coral);
+    // Slightly heavier so the dot doesn't get visually crushed by the
+    // surrounding letterspaced caps.
+    font-size: 1.1em;
+    line-height: 1;
+    vertical-align: middle;
+  }
 }
 
 // Dashboard Section Title

@@ -97,12 +97,22 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
     <aside className={`sidebar ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
       <div className="top-header">
         <Link to="/" className="header-logo">
-          <img src="/saleswolf-icon.png" alt="SalesWolf" className="header-logo-icon" />
+          <img src="/saleswolf-icon-v2.png" alt="SalesWolf" className="header-logo-icon" />
           <div className="header-text">
             <h1>
               Sales<span className="header-wolf">Wolf</span>
             </h1>
-            <p>HUNT • CLOSE • DOMINATE</p>
+            {/*
+              Bullets get their own span so they can pick up the coral
+              accent and visually echo the brand mark in the icon.
+            */}
+            <p className="header-tagline">
+              HUNT
+              <span className="header-tagline-dot" aria-hidden="true">•</span>
+              CLOSE
+              <span className="header-tagline-dot" aria-hidden="true">•</span>
+              DOMINATE
+            </p>
           </div>
         </Link>
       </div>

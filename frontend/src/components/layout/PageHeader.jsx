@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { LuSunrise, LuSun, LuMoon } from 'react-icons/lu';
+import { LuSunrise, LuSun, LuMoon, LuZap } from 'react-icons/lu';
 
 /**
  * PageHeader
@@ -168,8 +168,27 @@ function PageHeader({ name, overline, subline, summary, team, children }) {
               {teamParts.prefix && <>{teamParts.prefix} </>}
               <span className="page-header__team-name">{teamParts.rest}</span>
             </p>
-            {team.quarter && (
-              <p className="page-header__team-quarter">{team.quarter}</p>
+            {(team.quarter || summary?.inProgress != null) && (
+              <div className="page-header__team-meta">
+                {team.quarter && (
+                  <span className="page-header__team-quarter">
+                    {team.quarter}
+                  </span>
+                )}
+                {summary?.inProgress != null && (
+                  <span
+                    className="page-header__active-pill"
+                    aria-label={`${summary.inProgress} active hunts`}
+                  >
+                    <LuZap
+                      className="page-header__active-pill-icon"
+                      aria-hidden="true"
+                    />
+                    {summary.inProgress} active{' '}
+                    {summary.inProgress === 1 ? 'hunt' : 'hunts'}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         ) : (

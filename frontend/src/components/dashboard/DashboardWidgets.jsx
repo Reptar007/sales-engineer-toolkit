@@ -17,11 +17,8 @@ const LINEAR_INITIAL_STATE = {
   projects: [],
 };
 
-const CALENDAR_OPEN_URL = 'https://calendar.google.com';
-
 function DashboardCalendarCard({
   events,
-  openUrl = CALENDAR_OPEN_URL,
   showEmptyHint,
   showConnect,
   onConnect,
@@ -35,14 +32,6 @@ function DashboardCalendarCard({
         <h2 className="dashboard-panel__title" id="dash-cal-title">
           Today&apos;s calendar
         </h2>
-        <a
-          className="dashboard-panel__link"
-          href={openUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Open
-        </a>
       </div>
       <div className="dashboard-calendar">
         {events.length === 0 && showEmptyHint ? (
@@ -98,7 +87,7 @@ function LinearCallout({ title, message, action }) {
 }
 
 function DashboardLinearCard({ state }) {
-  const { status, openUrl, projects } = state;
+  const { status, projects } = state;
 
   const renderBody = () => {
     if (status === 'loading') {
@@ -183,14 +172,6 @@ function DashboardLinearCard({ state }) {
         <h2 className="dashboard-panel__title" id="dash-linear-title">
           Linear workload
         </h2>
-        <a
-          className="dashboard-panel__link"
-          href={openUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Open
-        </a>
       </div>
       {renderBody()}
     </section>

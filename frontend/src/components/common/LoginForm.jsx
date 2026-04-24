@@ -41,7 +41,7 @@ function LoginForm() {
       <div className="login-header">
         <div className="logo-container">
           <h2>Welcome to SalesWolf</h2>
-          <img src="/saleswolf-icon.png" alt="SalesWolf" className="logo" />
+          <img src="/saleswolf-icon-v2.png" alt="SalesWolf" className="logo" />
         </div>
         <p>Sign in to access your projects</p>
       </div>

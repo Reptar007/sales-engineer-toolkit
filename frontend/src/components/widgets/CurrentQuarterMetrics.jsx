@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import {
+  LuTarget,
+  LuTrendingUp,
+  LuTrophy,
+  LuChartBar,
+} from 'react-icons/lu';
 import {
   fetchSalesforceReport,
   getSalesforceConfig,
@@ -37,7 +42,6 @@ function getCurrentQuarter() {
  * Current Quarter Metrics Widget - Summary version for home page
  */
 function CurrentQuarterMetrics() {
-  const navigate = useNavigate();
   const [config, setConfig] = useState(() => {
     try {
       const cached = localStorage.getItem(CONFIG_CACHE_KEY);
@@ -156,11 +160,9 @@ function CurrentQuarterMetrics() {
   })();
   const currentQuarterData = quarterlyData[currentQuarterKey] || {};
   const currentQuarterCARR = currentQuarterData?.totalCARR || 0;
-  const currentYearCARR = quarterlyData?.Total?.totalCARR || 0;
 
   const quarterlyGoals = config?.goalsByYear?.[currentYear] || [];
   const currentQuarterGoal = quarterlyGoals.find((q) => q.label === currentQuarterKey)?.goal || 0;
-  const yearlyGoal = quarterlyGoals.reduce((acc, q) => acc + q.goal, 0);
 
   const calculateGoalProgress = (current, goal) => {
     if (!current || !goal) return 0;
@@ -178,24 +180,93 @@ function CurrentQuarterMetrics() {
   };
 
   const quarterlyProgress = calculateGoalProgress(currentQuarterCARR, currentQuarterGoal);
-  const yearlyProgress = calculateGoalProgress(currentYearCARR, yearlyGoal);
 
-  const handleViewFull = () => {
-    navigate('/projects/salesforce-metrics');
+  // Pull just the quarter number out of keys like "Q2 CY2026" so labels can
+  // read as "Quarter 2 Goal" / "Quarter 2 CARR" instead of the generic
+  // "Quarter Goal" / "Quarter CARR".
+  const currentQuarterNumber = currentQuarterKey.match(/^Q(\d)/)?.[1];
+  const quarterGoalLabel = currentQuarterNumber
+    ? `Quarter ${currentQuarterNumber} Goal`
+    : 'Quarter Goal';
+  const quarterCarrLabel = currentQuarterNumber
+    ? `Quarter ${currentQuarterNumber} CARR`
+    : 'Quarter CARR';
+
+  // Resolve the *previous* quarter key so we can compute delta vs last
+  // quarter on the first two cards. "Q2 CY2026" → "Q1 CY2026", and
+  // "Q1 CY2026" wraps back to "Q4 CY2025".
+  const previousQuarterKey = (() => {
+    const match = currentQuarterKey.match(/^Q(\d)\s+CY(\d+)$/);
+    if (!match) return null;
+    const q = parseInt(match[1], 10);
+    const yr = parseInt(match[2], 10);
+    return q === 1 ? `Q4 CY${yr - 1}` : `Q${q - 1} CY${yr}`;
+  })();
+
+  const previousQuarterData = previousQuarterKey
+    ? quarterlyData[previousQuarterKey] || {}
+    : {};
+  const previousQuarterCARR = previousQuarterData?.totalCARR || 0;
+  const previousQuarterGoal = previousQuarterKey
+    ? quarterlyGoals.find((q) => q.label === previousQuarterKey)?.goal || 0
+    : 0;
+
+  // ---- Lead / no-AE view stats (Pack-wide totals) ------------------------
+  // The Salesforce response already includes opportunityCount per quarter,
+  // so we can compute these client-side without a new endpoint. When the
+  // per-SE personal flow lands later, we'll swap to user-scoped numbers
+  // based on an `applicable` flag.
+  const currentPackWins = currentQuarterData?.opportunityCount || 0;
+  const previousPackWins = previousQuarterData?.opportunityCount || 0;
+
+  // Average deal size = total CARR / number of closed-won opps for the
+  // quarter. Guarded against div-by-zero on quarters with no wins.
+  const safeAvg = (total, count) => (count > 0 ? total / count : 0);
+  const currentAvgDealSize = safeAvg(currentQuarterCARR, currentPackWins);
+  const previousAvgDealSize = safeAvg(previousQuarterCARR, previousPackWins);
+  // ------------------------------------------------------------------------
+
+  const goalDelta = currentQuarterGoal - previousQuarterGoal;
+  const carrDelta = currentQuarterCARR - previousQuarterCARR;
+  const winsDelta = currentPackWins - previousPackWins;
+  const avgDealDelta = currentAvgDealSize - previousAvgDealSize;
+
+  // Format a signed delta into "+$120K" / "−45" / etc. with a tone hint so
+  // the styles can tint green for growth and coral for a drop. The
+  // `formatValue` callback lets the caller pick the unit (currency, plain
+  // count, percentage, …). Returns null when there's no prior data to
+  // compare against so the card can hide the delta gracefully.
+  const formatDelta = (
+    delta,
+    hasBaseline,
+    formatValue = (n) => `$${formatNumber(n)}`,
+  ) => {
+    if (!hasBaseline) return null;
+    if (!delta) return { text: formatValue(0), tone: 'flat' };
+    const sign = delta > 0 ? '+' : '−';
+    const tone = delta > 0 ? 'up' : 'down';
+    return { text: `${sign}${formatValue(Math.abs(delta))}`, tone };
   };
+
+  const goalDeltaInfo = formatDelta(goalDelta, !!previousQuarterGoal);
+  const carrDeltaInfo = formatDelta(carrDelta, !!previousQuarterCARR);
+  // Pack Wins delta is a plain integer count (no `$`), formatted as e.g. "+3".
+  const winsDeltaInfo = formatDelta(
+    winsDelta,
+    !!previousPackWins,
+    (n) => `${Math.round(n)}`,
+  );
+  // Avg deal size is currency.
+  const avgDealDeltaInfo = formatDelta(avgDealDelta, !!previousAvgDealSize);
+
+  const previousQuarterShortLabel = previousQuarterKey
+    ? previousQuarterKey.replace(/\s+CY/, ' ')
+    : '';
 
   if (loading) {
     return (
-      <div className="current-quarter-metrics widget">
-        <div className="widget-header">
-          <h2>Current Quarter Metrics</h2>
-          <button className="widget-link" onClick={handleViewFull}>
-            View Full Dashboard →
-          </button>
-        </div>
-        <div className="widget-content">
-          <p>Loading metrics...</p>
-        </div>
+      <div className="current-quarter-metrics">
+        <p className="current-quarter-metrics__status">Loading metrics...</p>
       </div>
     );
   }
@@ -205,56 +276,150 @@ function CurrentQuarterMetrics() {
       return null;
     }
     return (
-      <div className="current-quarter-metrics widget">
-        <div className="widget-header">
-          <h2>Current Quarter Metrics</h2>
-        </div>
-        <div className="widget-content">
-          <p className="error">Unable to load metrics. Please check your Salesforce configuration.</p>
-        </div>
+      <div className="current-quarter-metrics">
+        <p className="current-quarter-metrics__status current-quarter-metrics__status--error">
+          Unable to load metrics. Please check your Salesforce configuration.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="current-quarter-metrics widget">
-      <div className="widget-header">
-        <h2>Current Quarter Metrics</h2>
-        <button className="widget-link" onClick={handleViewFull}>
-          View Full Dashboard →
-        </button>
-      </div>
-
-      <div className="widget-content">
-        <div className="metrics-grid">
-          <div className="metric-summary">
-            <div className="metric-label">Quarter Goal</div>
-            <div className="metric-value">${formatNumber(currentQuarterGoal)}</div>
-            <div className="metric-quarter">{currentQuarterKey}</div>
+    <div className="current-quarter-metrics">
+      <div className="metrics-grid">
+        {/*
+          NOTE: We deliberately use <div> (not <header>/<footer>) for the
+          card sub-sections. App.less defines a global `footer { ... }`
+          rule with `margin-left: 18rem` + a dark background, which would
+          otherwise leak in and render as a dark tab hanging off the side
+          of every metric card.
+        */}
+        <div className="metric-summary metric-summary--detailed">
+          <div className="metric-summary__head">
+            <span className="metric-summary__label">{quarterGoalLabel}</span>
+            <span className="metric-summary__icon" aria-hidden="true">
+              <LuTarget />
+            </span>
           </div>
+          <div className="metric-summary__value">
+            ${formatNumber(currentQuarterGoal)}
+          </div>
+          <div className="metric-summary__foot">
+            {goalDeltaInfo ? (
+              <span
+                className={`metric-summary__delta metric-summary__delta--${goalDeltaInfo.tone}`}
+              >
+                {goalDeltaInfo.text}
+              </span>
+            ) : (
+              <span className="metric-summary__delta metric-summary__delta--muted">
+                —
+              </span>
+            )}
+            <span className="metric-summary__hint">
+              {previousQuarterShortLabel
+                ? `vs ${previousQuarterShortLabel}`
+                : 'vs last quarter'}
+            </span>
+          </div>
+        </div>
 
-          <div className="metric-summary">
-            <div className="metric-label">Quarter CARR</div>
-            <div className="metric-value">${formatNumber(currentQuarterCARR)}</div>
-            <div className="metric-progress">
+        <div className="metric-summary metric-summary--detailed">
+          <div className="metric-summary__head">
+            <span className="metric-summary__label">{quarterCarrLabel}</span>
+            <span className="metric-summary__icon" aria-hidden="true">
+              <LuTrendingUp />
+            </span>
+          </div>
+          <div className="metric-summary__value">
+            ${formatNumber(currentQuarterCARR)}
+          </div>
+          <div className="metric-summary__foot">
+            {carrDeltaInfo ? (
+              <span
+                className={`metric-summary__delta metric-summary__delta--${carrDeltaInfo.tone}`}
+              >
+                {carrDeltaInfo.text}
+              </span>
+            ) : (
+              <span className="metric-summary__delta metric-summary__delta--muted">
+                —
+              </span>
+            )}
+            <span className="metric-summary__hint">
               {quarterlyProgress.toFixed(1)}% of goal
-            </div>
+            </span>
           </div>
+        </div>
 
-          <div className="metric-summary">
-            <div className="metric-label">Yearly Goal</div>
-            <div className="metric-value">${formatNumber(yearlyGoal)}</div>
-            <div className="metric-opportunities">
-              {data?.totalOpportunities || 0} opportunities
-            </div>
+        {/*
+          Lead / no-AE view: pack-wide momentum metrics. When the per-SE
+          personal flow lands, swap these for the user-scoped versions
+          based on an `applicable` flag on the personal-metrics endpoint.
+        */}
+        <div className="metric-summary metric-summary--detailed">
+          <div className="metric-summary__head">
+            <span className="metric-summary__label">
+              {currentQuarterNumber
+                ? `Pack Wins Q${currentQuarterNumber}`
+                : 'Pack Wins'}
+            </span>
+            <span className="metric-summary__icon" aria-hidden="true">
+              <LuTrophy />
+            </span>
           </div>
+          <div className="metric-summary__value">{currentPackWins}</div>
+          <div className="metric-summary__foot">
+            {winsDeltaInfo ? (
+              <span
+                className={`metric-summary__delta metric-summary__delta--${winsDeltaInfo.tone}`}
+              >
+                {winsDeltaInfo.text}
+              </span>
+            ) : (
+              <span className="metric-summary__delta metric-summary__delta--muted">
+                —
+              </span>
+            )}
+            <span className="metric-summary__hint">
+              {previousPackWins
+                ? `${previousPackWins} last quarter`
+                : 'no prior data'}
+            </span>
+          </div>
+        </div>
 
-          <div className="metric-summary">
-            <div className="metric-label">Yearly CARR</div>
-            <div className="metric-value">${formatNumber(currentYearCARR)}</div>
-            <div className="metric-progress">
-              {yearlyProgress.toFixed(1)}% of goal
-            </div>
+        <div className="metric-summary metric-summary--detailed">
+          <div className="metric-summary__head">
+            <span className="metric-summary__label">
+              {currentQuarterNumber
+                ? `Avg Deal Size Q${currentQuarterNumber}`
+                : 'Avg Deal Size'}
+            </span>
+            <span className="metric-summary__icon" aria-hidden="true">
+              <LuChartBar />
+            </span>
+          </div>
+          <div className="metric-summary__value">
+            ${formatNumber(currentAvgDealSize)}
+          </div>
+          <div className="metric-summary__foot">
+            {avgDealDeltaInfo ? (
+              <span
+                className={`metric-summary__delta metric-summary__delta--${avgDealDeltaInfo.tone}`}
+              >
+                {avgDealDeltaInfo.text}
+              </span>
+            ) : (
+              <span className="metric-summary__delta metric-summary__delta--muted">
+                —
+              </span>
+            )}
+            <span className="metric-summary__hint">
+              {previousAvgDealSize
+                ? `vs $${formatNumber(previousAvgDealSize)} last quarter`
+                : 'no prior data'}
+            </span>
           </div>
         </div>
       </div>

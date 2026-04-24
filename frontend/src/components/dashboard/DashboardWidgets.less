@@ -2,7 +2,9 @@
 
 .dashboard-widgets {
   display: grid;
-  grid-template-columns: 3fr 1fr; /* Linear ~75%, calendar ~25% */
+  // Linear workload (left) and Today's calendar (right) split evenly
+  // so each panel reads as an equally-weighted dashboard zone.
+  grid-template-columns: 1fr 1fr;
   gap: 1.25rem;
   align-items: start;
   margin-bottom: @spacing-extra-large;
@@ -12,12 +14,42 @@
   }
 }
 
+// Dark-themed panel surface that mirrors the metric-card treatment
+// (.metric-summary): dark navy fill, hairline white border, layered
+// drop shadow with a subtle inset top highlight. Each panel locks to
+// a fixed height so the dashboard grid stays uniform when more panels
+// land underneath; content overflows into a scroll region while the
+// header stays pinned at the top.
 .dashboard-panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color, @border-subtle);
-  border-radius: var(--radius-lg, 12px);
-  padding: 1.25rem 1.35rem;
-  box-shadow: var(--current-shadow-sm, @shadow-sm);
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  // Top padding lives on the head itself so the sticky header can sit
+  // flush with the panel's edge while scrolling.
+  padding: 0 1.5rem 1.5rem;
+  box-shadow:
+    0 1.25rem 2.5rem rgba(0, 0, 0, 0.55),
+    0 0.5rem 1rem rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  // Hard-ish height so the two panels stay uniform regardless of
+  // their content. Future panels added underneath inherit this
+  // baseline so the grid reads as a clean, predictable rhythm.
+  height: 32rem;
+  overflow-y: auto;
+  // Hide the default light-on-light scrollbar in favor of a thinner
+  // dark-friendly one. Falls back gracefully in browsers that don't
+  // support these properties.
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+
+  &::-webkit-scrollbar {
+    width: 0.375rem;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 9999px;
+  }
 }
 
 .dashboard-panel__head {
@@ -25,7 +57,18 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  // Sticky head pins to the top of the panel as the body scrolls.
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  // Solid background + small bottom blur so scrolled content fades
+  // behind the head instead of bleeding through.
+  background: var(--midnight-navy);
+  // Pad inside the head so the panel can keep zero top padding (lets
+  // the sticky head sit flush with the panel's top edge).
+  padding: 1.25rem 0 0.75rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .dashboard-panel__title {
@@ -34,8 +77,9 @@
   gap: 0.5rem;
   margin: 0;
   font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: -0.005em;
 }
 
 .dashboard-panel__badge {
@@ -45,19 +89,8 @@
   letter-spacing: 0.06em;
   padding: 0.2rem 0.45rem;
   border-radius: 6px;
-  background: rgba(62, 207, 142, 0.2);
-  color: var(--success-green, #3ecf8e);
-}
-
-.dashboard-panel__link {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--primary-green, #3ecf8e);
-  text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
+  background: rgba(255, 107, 74, 0.16);
+  color: var(--coral);
 }
 
 .dashboard-calendar__item {
@@ -65,7 +98,7 @@
   grid-template-columns: auto 1fr;
   gap: 0.75rem 1rem;
   padding: 0.65rem 0;
-  border-bottom: 1px solid var(--border-color, @border-subtle);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 
   &:last-child {
     border-bottom: none;
@@ -87,26 +120,26 @@
 .dashboard-calendar__time {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.55);
   margin: 0 0 0.15rem 0;
 }
 
 .dashboard-calendar__title {
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--white);
   margin: 0 0 0.2rem 0;
 }
 
 .dashboard-calendar__meta {
   font-size: 0.8rem;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.55);
   margin: 0;
 }
 
 .dashboard-calendar__empty {
   font-size: 0.9rem;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.55);
   margin: 0;
   padding: 0.25rem 0;
 }
@@ -114,7 +147,7 @@
 .dashboard-calendar__actions {
   margin-top: 1rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--border-color, @border-subtle);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -125,14 +158,16 @@
   font-weight: 600;
   padding: 0.4rem 0.75rem;
   border-radius: 8px;
-  border: 1px solid var(--border-color, @border-subtle);
-  background: var(--bg-elevated, rgba(255, 255, 255, 0.06));
-  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--white);
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
 
   &:hover:not(:disabled) {
-    border-color: var(--primary-green, #3ecf8e);
-    color: var(--primary-green, #3ecf8e);
+    border-color: rgba(255, 107, 74, 0.55);
+    color: var(--coral);
+    background: rgba(255, 107, 74, 0.08);
   }
 
   &:disabled {
@@ -142,9 +177,9 @@
 }
 
 .dashboard-calendar__btn--primary {
-  border-color: rgba(62, 207, 142, 0.45);
-  background: rgba(62, 207, 142, 0.12);
-  color: var(--primary-green, #3ecf8e);
+  border-color: rgba(255, 107, 74, 0.5);
+  background: rgba(255, 107, 74, 0.14);
+  color: var(--coral);
 }
 
 .dashboard-linear__projects {
@@ -171,13 +206,13 @@
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--white);
 }
 
 .dashboard-linear__callout-message {
   margin: 0;
   font-size: 0.85rem;
-  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  color: rgba(255, 255, 255, 0.7);
   line-height: 1.5;
 }
 
@@ -195,10 +230,10 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-primary);
+  color: var(--white);
   margin: 0 0 0.5rem 0;
   padding-bottom: 0.35rem;
-  border-bottom: 1px solid var(--border-color, @border-subtle);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .dashboard-linear__project-count {
@@ -206,7 +241,7 @@
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .dashboard-linear__issue-list {
@@ -221,7 +256,7 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.55rem 0;
-  border-bottom: 1px solid var(--border-color, @border-subtle);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 
   &:last-child {
     border-bottom: none;
@@ -231,7 +266,7 @@
 
 .dashboard-linear__task {
   font-size: 0.9rem;
-  color: var(--text-primary);
+  color: rgba(255, 255, 255, 0.92);
   margin: 0;
   line-height: 1.35;
 }
@@ -259,5 +294,5 @@
 
 .dashboard-linear__status--backlog {
   background: rgba(255, 255, 255, 0.08);
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.6);
 }
