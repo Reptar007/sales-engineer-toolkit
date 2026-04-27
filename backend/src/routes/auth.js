@@ -32,6 +32,13 @@ router.post('/login', async (req, res) => {
       where: { email },
       include: {
         userRoles: true,
+        // Pull the user's SE team in the same query so the login
+        // response carries the same shape as /auth/me. Without this
+        // the dashboard renders without the "Team {name}" chip on
+        // first login and only picks it up on the next page reload.
+        salesEngineer: {
+          select: { team: { select: { id: true, name: true } } },
+        },
       },
     });
 
@@ -64,6 +71,7 @@ router.post('/login', async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         roles: roles,
+        team: user.salesEngineer?.team ?? null,
       },
       mustChangePassword: isDefaultPassword,
     });

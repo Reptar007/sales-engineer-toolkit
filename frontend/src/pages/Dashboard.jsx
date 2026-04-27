@@ -16,6 +16,12 @@ function getCurrentQuarterLabel() {
 
 /**
  * Main Dashboard - Home page with metrics widget and project overview
+ *
+ * The post-login data-warmup splash is owned by <BootstrapGate /> at
+ * the app shell, not by this page. That way it plays once per session
+ * (after login or fresh page load) instead of on every dashboard mount,
+ * and it shows even when the post-login redirect lands on a non-
+ * dashboard route.
  */
 function Dashboard() {
   const { user } = useAuth();

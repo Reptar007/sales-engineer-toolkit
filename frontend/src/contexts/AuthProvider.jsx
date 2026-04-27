@@ -7,10 +7,37 @@ export const AuthProvider = ({ children }) => {
   const [validationErrors, setValidationErrors] = useState([]); // Array for validation errors
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // True when the app should play the post-login data-warmup splash.
+  // Flipped on after a successful login or after an initial token check
+  // succeeds (fresh page reload while authenticated). Cleared on logout
+  // and after the bootstrap gate finishes warming dashboard data, so
+  // subsequent intra-app navigations don't replay the splash.
+  const [needsBootstrap, setNeedsBootstrap] = useState(false);
 
   // Helper to get auth token from localStorage
   const getAuthToken = () => {
     return localStorage.getItem('authToken');
+  };
+
+  // Best-effort hydrate from /auth/me. The /auth/login endpoint
+  // historically returned a slimmer user shape than /auth/me (e.g.
+  // missing the SE team), so after a successful login we re-fetch /me
+  // and merge it in. Fails silently — login itself is what matters.
+  const hydrateUserFromMe = async (token) => {
+    try {
+      const response = await fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      if (data?.user) {
+        setUser(data.user);
+        localStorage.setItem('userData', JSON.stringify(data.user));
+      }
+      return data?.user ?? null;
+    } catch {
+      return null;
+    }
   };
 
   // Check for existing authentication on app startup
@@ -30,6 +57,9 @@ export const AuthProvider = ({ children }) => {
             const data = await response.json();
             setUser(data.user);
             localStorage.setItem('userData', JSON.stringify(data.user));
+            // Fresh page load while authenticated still needs to warm
+            // dashboard data, so play the splash here too.
+            setNeedsBootstrap(true);
           } else {
             // Token is invalid, clear it
             localStorage.removeItem('authToken');
@@ -83,6 +113,15 @@ export const AuthProvider = ({ children }) => {
         setMustChangePassword(data.mustChangePassword || false);
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userData', JSON.stringify(userData));
+        // Fresh sign-in: trigger the splash screen so the user sees a
+        // polished welcome and lands on a fully-warmed dashboard,
+        // regardless of which route the post-login redirect targets.
+        setNeedsBootstrap(true);
+        // Background hydrate so any fields /auth/login doesn't return
+        // (team membership, future profile additions) populate before
+        // the splash lifts. Intentionally not awaited — login UX
+        // shouldn't block on this.
+        hydrateUserFromMe(data.token);
       } else {
         setError(data.error || '🐺 Oops! Looks like this wolf can\'t find the right den. Check your email and password!');
       }
@@ -219,7 +258,14 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('userData');
     setError(null);
     setValidationErrors([]);
+    // Reset so the next sign-in re-arms the post-login splash.
+    setNeedsBootstrap(false);
   };
+
+  // Called by the bootstrap gate once the dashboard data warm-up is
+  // complete and the splash has finished its exit animation. Idempotent
+  // so accidental double-calls during route transitions are safe.
+  const markBootstrapped = () => setNeedsBootstrap(false);
 
   const value = {
     user,
@@ -236,6 +282,8 @@ export const AuthProvider = ({ children }) => {
     isLoading,
     mustChangePassword,
     setMustChangePassword,
+    needsBootstrap,
+    markBootstrapped,
     getAuthToken, // Expose helper for other components
   };
 

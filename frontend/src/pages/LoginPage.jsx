@@ -50,29 +50,6 @@ const LoginPage = () => {
         alt=""
         aria-hidden="true"
       />
-      <div className="login-waves" aria-hidden="true">
-        <svg
-          className="login-waves__layer login-waves__layer--back"
-          viewBox="0 0 1440 80"
-          preserveAspectRatio="none"
-        >
-          <path d="M0,40 C240,72 480,8 720,40 C960,72 1200,8 1440,40 L1440,80 L0,80 Z" />
-        </svg>
-        <svg
-          className="login-waves__layer login-waves__layer--mid"
-          viewBox="0 0 1440 80"
-          preserveAspectRatio="none"
-        >
-          <path d="M0,50 C240,18 480,82 720,50 C960,18 1200,82 1440,50 L1440,80 L0,80 Z" />
-        </svg>
-        <svg
-          className="login-waves__layer login-waves__layer--front"
-          viewBox="0 0 1440 80"
-          preserveAspectRatio="none"
-        >
-          <path d="M0,55 C240,80 480,30 720,55 C960,80 1200,30 1440,55 L1440,80 L0,80 Z" />
-        </svg>
-      </div>
       <LoginForm />
     </div>
   );

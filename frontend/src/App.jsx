@@ -5,6 +5,7 @@ import './styles/themes.less';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
+import BootstrapGate from './components/BootstrapGate';
 import Dashboard from './pages/Dashboard';
 import ProjectView from './pages/ProjectView';
 import LoginPage from './pages/LoginPage';
@@ -126,6 +127,14 @@ function AppContent() {
       <footer>
         <p>SalesWolf - Sales Engineer Toolkit</p>
       </footer>
+
+      {/*
+        Session-level post-login splash. Lives at the app shell so it
+        plays once per login regardless of which route the user lands
+        on (e.g. coming back to /alpha-pack after re-auth still gets
+        the splash + dashboard prewarm).
+      */}
+      <BootstrapGate />
     </div>
   );
 }
