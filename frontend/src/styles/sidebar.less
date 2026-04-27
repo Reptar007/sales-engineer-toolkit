@@ -290,19 +290,20 @@
     margin-left: 5.5rem;
   }
 
-  // Auth pages keep the existing light treatment so the login card is not
-  // affected by the dashboard spotlight.
+  // Auth pages share the dashboard's navy + spotlight backdrop so the
+  // signed-out experience visually matches the signed-in home page.
+  // We still drop the sidebar gutter and lock the viewport so the auth
+  // card sits centered without scrolling.
   &.auth-page {
     margin-left: 0 !important;
     padding: 0 !important;
-    background-color: #ffffff;
-    background-image: none;
     display: flex;
     align-items: center;
     justify-content: center;
     height: 100vh;
     max-height: 100vh;
     overflow: hidden;
+    position: relative;
   }
 }
 

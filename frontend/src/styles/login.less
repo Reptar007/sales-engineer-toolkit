@@ -23,77 +23,211 @@ body:has(.login-page) {
 }
 
 .login-page {
+  position: relative;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  height: calc(100vh - 3.5rem); // Account for header - fixed height
-  max-height: calc(100vh - 3.5rem); // Prevent exceeding viewport
+  height: 100vh;
+  max-height: 100vh;
   padding: 2rem 1rem;
   width: 100%;
   max-width: 100%;
-  padding-top: 5rem; // Slightly above center to prevent scrolling
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .login-container {
+  position: relative;
+  // Sits above the bubbles (0), mascot (1), and waves (2) so the form
+  // is always the topmost element on the page.
+  z-index: 3;
   width: 100%;
-  max-width: 28rem;
+  max-width: 26rem;
   margin: 0 auto;
 }
 
-.login-header {
-  text-align: center;
-  margin-bottom: 2rem;
-  width: 100%;
-  
-  .logo-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
-    
-    .logo {
-      height: 2.5rem;
-      width: auto;
-      max-width: 100px;
-      object-fit: contain;
-    }
-    
-    h2 {
-      font-size: 2.5rem;
-      font-weight: 700;
-      color: #1f2937;
-      margin: 0;
-      letter-spacing: -0.025em;
-      
-      // Dark mode styling
-      [data-theme="dark"] & {
-        color: #f9fafb;
-      }
-    }
+// =========================
+// Axolotl mascot — sits behind the glass card so its head pokes out
+// above and its tail/body pokes out below, matching the reference.
+// The image is taller than the card and centered behind it; z-index keeps
+// it tucked beneath the form so the card "hugs" it.
+// =========================
+.login-mascot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  // Centered transform lives on a wrapper translate so the float
+  // animation can layer on top without fighting the centering.
+  transform: translate(-50%, -50%);
+  height: 70rem;
+  width: auto;
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+  opacity: 0.82;
+  // Subtle blur + cool color shift sells the "underwater" feel: the
+  // mascot reads as if it's behind a thin column of water, with a
+  // touch of saturation pulled out and a faint cyan tint pushed in.
+  // The aqua halo replaces the earlier coral glow so light scatter
+  // matches the bubble palette.
+  filter: blur(3px) saturate(0.85) brightness(0.95) hue-rotate(-6deg)
+    drop-shadow(0 12px 32px rgba(56, 189, 248, 0.22))
+    drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5));
+  // Slow bob + sway gives the mascot the lazy, suspended motion of
+  // something floating in still water. transform-origin centered so the
+  // animation pivots from the body rather than a corner.
+  animation: mascot-float 9s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+
+@keyframes mascot-float {
+  0%, 100% {
+    transform: translate(-50%, -50%) rotate(0deg);
   }
-  
-  p {
-    font-size: 1.125rem;
-    color: #6b7280;
-    margin: 0;
-    font-weight: 400;
-    
-    // Dark mode styling
-    [data-theme="dark"] & {
-      color: #d1d5db;
-    }
+  25% {
+    transform: translate(calc(-50% + 6px), calc(-50% - 8px)) rotate(-1.2deg);
+  }
+  50% {
+    transform: translate(-50%, calc(-50% - 14px)) rotate(0deg);
+  }
+  75% {
+    transform: translate(calc(-50% - 6px), calc(-50% - 8px)) rotate(1.2deg);
   }
 }
 
+// =========================
+// In-card header — "Welcome to SalesWolf" + subline now live INSIDE the
+// glass card so the heading sits just above the form fields (matches the
+// reference layout where the mascot's head peeks above the heading).
+// =========================
+.login-header {
+  text-align: center;
+  margin-bottom: 1.75rem;
+  width: 100%;
+
+  h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--white);
+    margin: 0 0 0.4rem 0;
+    letter-spacing: -0.015em;
+  }
+
+  // Match the sidebar/brand mark — "Sales" stays white and "Wolf" picks
+  // up the coral accent that comes from the SalesWolf logo (the axolotl
+  // mascot's frills + tail). Keeps the heading visually tied to the
+  // logo identity wherever it appears.
+  &__wolf {
+    color: var(--coral);
+    font-weight: 800;
+  }
+
+  p {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0;
+    font-weight: 400;
+  }
+}
+
+// =========================
+// Auth brand mark (top-left of login / forgot-password / change-password)
+// Mirrors the sidebar's .top-header / .header-logo treatment so the
+// signed-out experience carries the same SalesWolf identity as the app shell.
+// =========================
+.auth-brand {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.875rem;
+  text-decoration: none;
+  color: var(--white);
+  z-index: 10;
+  transition: opacity 0.2s ease;
+
+  &:hover {
+    opacity: 0.92;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--electric-blue);
+    outline-offset: 2px;
+    border-radius: 12px;
+  }
+}
+
+.auth-brand__icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  object-fit: contain;
+  border-radius: 0.75rem;
+}
+
+.auth-brand__text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.1;
+  min-width: 0;
+
+  h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    color: var(--white);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0;
+  }
+
+  .auth-brand__wolf {
+    display: inline;
+    color: var(--coral);
+    font-weight: 800;
+  }
+
+  p {
+    margin: 0.25rem 0 0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted-gray);
+    white-space: nowrap;
+  }
+
+  .auth-brand__dot {
+    display: inline-block;
+    margin: 0 0.45em;
+    color: var(--coral);
+    font-size: 1.1em;
+    line-height: 1;
+    vertical-align: middle;
+  }
+}
+
+// Glassy dark card — translucent midnight-navy with backdrop blur so the
+// axolotl mascot reads softly through the surface, while the hairline
+// white border + inset top highlight + deep black shadow keep it tied
+// to the dashboard panel treatment.
 .login-card {
-  background: @white;
-  border-radius: 1rem;
-  padding: 2.5rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
+  position: relative;
+  z-index: 3;
+  background: rgba(2, 6, 23, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  padding: 2.25rem 2.25rem 1.75rem;
+  box-shadow:
+    0 1.25rem 2.5rem rgba(0, 0, 0, 0.55),
+    0 0.5rem 1rem rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
   .login-form {
@@ -573,4 +707,279 @@ body:has(.login-page) {
       text-decoration: underline;
     }
   }
+}
+
+// =========================
+// Dashboard-matched overrides — re-skin the form fields, button, footer,
+// and status messages so the inherited light-theme rules above pick up
+// the same palette as the dashboard panels (solid midnight-navy surface,
+// hairline white border, electric-blue + coral accents).
+// Scoped to .login-card so this only affects the auth surface.
+// =========================
+.login-card {
+  // ------ Inputs ------
+  // Translucent dark fields so the glassy card surface still reads
+  // through them. A hairline white border keeps them tied to the
+  // dashboard panel treatment.
+  .login-form input,
+  .login-form select {
+    background: rgba(2, 6, 23, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--white);
+    border-radius: 0.5rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    &:hover:not(:disabled) {
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--coral);
+      background: rgba(2, 6, 23, 0.7);
+      box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.22);
+    }
+
+    &:disabled {
+      background: rgba(2, 6, 23, 0.35);
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    // Keep autofilled values legible on the dark surface.
+    &:-webkit-autofill,
+    &:-webkit-autofill:hover,
+    &:-webkit-autofill:focus {
+      -webkit-text-fill-color: var(--white);
+      -webkit-box-shadow: 0 0 0 1000px rgba(2, 6, 23, 0.7) inset !important;
+      caret-color: var(--white);
+      transition: background-color 9999s ease-in-out 0s;
+    }
+
+    // Coral error state — matches the rest of the auth accent palette.
+    &.error {
+      border-color: var(--coral);
+      box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.2);
+
+      &:focus {
+        border-color: var(--coral);
+        box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.28);
+      }
+
+      + label {
+        color: var(--coral);
+      }
+    }
+  }
+
+  // ------ Floating labels ------
+  // Resting state: label sits *inside* the input (acts as a placeholder),
+  // so it should have no background chip — otherwise it looks highlighted
+  // against the input fill.
+  .login-form .form-group label {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 0 0.35rem;
+  }
+
+  // Floating (focused or filled) state: label moves up onto the input's
+  // top border, so it needs a solid chip background that matches the
+  // card's perceived color to cleanly cover the border line. Coral
+  // accent ties into the sign-in button + brand mark.
+  .login-form .form-group input:focus + label,
+  .login-form .form-group input:not(:placeholder-shown) + label {
+    color: var(--coral);
+    background: rgba(2, 6, 23, 0.92);
+  }
+
+  // ------ Password toggle ------
+  .login-form .password-toggle {
+    color: rgba(255, 255, 255, 0.55);
+
+    &:hover {
+      color: var(--white);
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+
+    &:active {
+      background-color: rgba(255, 255, 255, 0.14);
+    }
+
+    &:focus {
+      outline: 2px solid var(--coral);
+      outline-offset: 2px;
+      border-radius: 0.25rem;
+    }
+  }
+
+  // ------ Sign In button ------
+  // Coral / orange gradient — pulls from the SalesWolf logo's coral
+  // accent (the axolotl mascot's frills) so the primary CTA reads as
+  // brand color on the auth surface.
+  .login-button {
+    background: linear-gradient(135deg, var(--coral) 0%, #e8532f 100%);
+    color: var(--white);
+    box-shadow:
+      0 8px 20px -8px rgba(255, 107, 74, 0.55),
+      0 4px 10px -4px rgba(0, 0, 0, 0.5);
+    border-radius: 0.5rem;
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #e8532f 0%, #c84a2e 100%);
+      box-shadow:
+        0 14px 28px -10px rgba(255, 107, 74, 0.6),
+        0 6px 14px -6px rgba(0, 0, 0, 0.55);
+    }
+  }
+
+  // ------ Error / success banners ------
+  .error-message {
+    background: rgba(255, 107, 74, 0.12);
+    color: var(--coral);
+    border-color: rgba(255, 107, 74, 0.35);
+
+    .dismiss-button {
+      color: var(--coral);
+
+      &:hover {
+        color: #ff8a6e;
+      }
+    }
+  }
+
+  .success-message {
+    background: rgba(20, 184, 166, 0.14);
+    color: #5eead4;
+    border-color: rgba(20, 184, 166, 0.35);
+  }
+
+  // ------ Footer "Forgot password?" ------
+  .login-footer {
+    p {
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    .link-button {
+      color: var(--coral);
+
+      &:hover {
+        color: #ff8a6e;
+      }
+    }
+  }
+}
+
+// =========================
+// Underwater bubble field — soft glowing orbs that rise from the bottom
+// of the login page. Each bubble's size, x position, animation duration,
+// delay, and lateral drift are driven by inline CSS custom properties
+// set on the element from the JSX bubble config.
+// =========================
+.bubbles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  // Sit underneath the axolotl mascot (z-index: 1) so bubbles drift up
+  // *behind* the mascot. Login card stays on top at z-index: 2.
+  z-index: 0;
+}
+
+.bubble {
+  position: absolute;
+  bottom: -3rem;
+  left: var(--x);
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 32% 30%,
+    rgba(186, 230, 253, 0.85) 0%,
+    rgba(125, 211, 252, 0.55) 35%,
+    rgba(56, 189, 248, 0.18) 70%,
+    rgba(56, 189, 248, 0) 100%
+  );
+  border: 1px solid rgba(186, 230, 253, 0.45);
+  box-shadow:
+    inset 0 0 8px rgba(255, 255, 255, 0.35),
+    0 0 12px rgba(56, 189, 248, 0.25);
+  animation: bubble-rise var(--duration) linear infinite;
+  animation-delay: var(--delay);
+  will-change: transform, opacity;
+}
+
+// Vertical position is anchored at evenly-spaced keyframes (0 → -27.5 →
+// -55 → -82.5 → -110vh) so the bubble rises at a constant speed and
+// never appears to "stall" mid-screen. Horizontal position sweeps through
+// drift to give a gentle underwater sway without affecting vertical pace.
+@keyframes bubble-rise {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0); }
+  10%  { opacity: 0.9; }
+  25%  { transform: translate3d(calc(var(--drift, 0px) * 0.55), -27.5vh, 0); }
+  50%  { transform: translate3d(var(--drift, 0px), -55vh, 0); }
+  75%  { transform: translate3d(calc(var(--drift, 0px) * 0.55), -82.5vh, 0); }
+  90%  { opacity: 0.9; }
+  100% { opacity: 0; transform: translate3d(0, -110vh, 0); }
+}
+
+// =========================
+// Bottom waves — three parallax SVG wave layers stacked at the bottom
+// of the page. Each layer is twice the viewport wide and slides
+// horizontally on a different duration, creating a gentle, never-quite-
+// repeating water-surface motion. Colors lean cyan/teal so they tie
+// into the bubble palette and the underwater color cast on the mascot.
+// =========================
+.login-waves {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 9rem;
+  pointer-events: none;
+  // Sit above the mascot so the axolotl's tail visually dips into the
+  // water, but stay below the login card / brand mark.
+  z-index: 2;
+  overflow: hidden;
+}
+
+.login-waves__layer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  // 2x viewport so the wave can slide -50% and seamlessly loop back.
+  width: 200%;
+  height: 100%;
+  display: block;
+  will-change: transform;
+}
+
+// Each layer animates at a different speed; offsets and opacities give
+// the layered "near vs. far" depth read of real water.
+.login-waves__layer--back {
+  fill: rgba(125, 211, 252, 0.18);
+  animation: wave-slide 18s linear infinite;
+  bottom: 1.25rem;
+}
+
+.login-waves__layer--mid {
+  fill: rgba(56, 189, 248, 0.32);
+  animation: wave-slide 12s linear infinite;
+  animation-direction: reverse;
+  bottom: 0.5rem;
+}
+
+.login-waves__layer--front {
+  fill: rgba(2, 132, 199, 0.6);
+  animation: wave-slide 8s linear infinite;
+  bottom: 0;
+  // A subtle cyan glow on the topmost wave's crest sells the surface.
+  filter: drop-shadow(0 -2px 6px rgba(56, 189, 248, 0.35));
+}
+
+@keyframes wave-slide {
+  0%   { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
 }
