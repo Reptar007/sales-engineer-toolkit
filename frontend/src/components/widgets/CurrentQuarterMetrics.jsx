@@ -213,9 +213,7 @@ function CurrentQuarterMetrics() {
 
   // ---- Lead / no-AE view stats (Pack-wide totals) ------------------------
   // The Salesforce response already includes opportunityCount per quarter,
-  // so we can compute these client-side without a new endpoint. When the
-  // per-SE personal flow lands later, we'll swap to user-scoped numbers
-  // based on an `applicable` flag.
+  // so we can compute these client-side without a new endpoint.
   const currentPackWins = currentQuarterData?.opportunityCount || 0;
   const previousPackWins = previousQuarterData?.opportunityCount || 0;
 
@@ -224,12 +222,33 @@ function CurrentQuarterMetrics() {
   const safeAvg = (total, count) => (count > 0 ? total / count : 0);
   const currentAvgDealSize = safeAvg(currentQuarterCARR, currentPackWins);
   const previousAvgDealSize = safeAvg(previousQuarterCARR, previousPackWins);
+
+  // ---- SE-scoped stats (right-two tiles when user has AEs) ---------------
+  // Backend attaches `quarterlyDataForUser` (same shape as `quarterlyData`)
+  // and a `userAECount` when the requester is an SE with at least one
+  // assigned AE. Admins / SEs without a team get neither, in which case
+  // we transparently fall back to the pack-wide Wins + Avg Deal Size
+  // tiles below.
+  const userQuarterlyData = data?.quarterlyDataForUser;
+  const userAECount = data?.userAECount || 0;
+  const showUserTiles = !!userQuarterlyData && userAECount > 0;
+
+  const currentUserData = userQuarterlyData?.[currentQuarterKey] || {};
+  const previousUserData = previousQuarterKey
+    ? userQuarterlyData?.[previousQuarterKey] || {}
+    : {};
+  const currentUserWins = currentUserData?.opportunityCount || 0;
+  const previousUserWins = previousUserData?.opportunityCount || 0;
+  const currentUserCARR = currentUserData?.totalCARR || 0;
+  const previousUserCARR = previousUserData?.totalCARR || 0;
   // ------------------------------------------------------------------------
 
   const goalDelta = currentQuarterGoal - previousQuarterGoal;
   const carrDelta = currentQuarterCARR - previousQuarterCARR;
   const winsDelta = currentPackWins - previousPackWins;
   const avgDealDelta = currentAvgDealSize - previousAvgDealSize;
+  const userWinsDelta = currentUserWins - previousUserWins;
+  const userCARRDelta = currentUserCARR - previousUserCARR;
 
   // Format a signed delta into "+$120K" / "−45" / etc. with a tone hint so
   // the styles can tint green for growth and coral for a drop. The
@@ -258,6 +277,14 @@ function CurrentQuarterMetrics() {
   );
   // Avg deal size is currency.
   const avgDealDeltaInfo = formatDelta(avgDealDelta, !!previousAvgDealSize);
+  // SE-scoped equivalents of the above two. Wins delta is a plain count,
+  // CARR delta is currency, both keyed off the *user's* prior quarter.
+  const userWinsDeltaInfo = formatDelta(
+    userWinsDelta,
+    !!previousUserWins,
+    (n) => `${Math.round(n)}`,
+  );
+  const userCARRDeltaInfo = formatDelta(userCARRDelta, !!previousUserCARR);
 
   const previousQuarterShortLabel = previousQuarterKey
     ? previousQuarterKey.replace(/\s+CY/, ' ')
@@ -353,75 +380,166 @@ function CurrentQuarterMetrics() {
         </div>
 
         {/*
-          Lead / no-AE view: pack-wide momentum metrics. When the per-SE
-          personal flow lands, swap these for the user-scoped versions
-          based on an `applicable` flag on the personal-metrics endpoint.
+          Right-two tiles: SE-scoped "My Wins" + "My CARR" when the user
+          has assigned AEs (backend attaches `quarterlyDataForUser`),
+          otherwise pack-wide "Pack Wins" + "Avg Deal Size" so admins and
+          team-less SEs still see useful momentum numbers.
         */}
-        <div className="metric-summary metric-summary--detailed">
-          <div className="metric-summary__head">
-            <span className="metric-summary__label">
-              {currentQuarterNumber
-                ? `Pack Wins Q${currentQuarterNumber}`
-                : 'Pack Wins'}
-            </span>
-            <span className="metric-summary__icon" aria-hidden="true">
-              <LuTrophy />
-            </span>
-          </div>
-          <div className="metric-summary__value">{currentPackWins}</div>
-          <div className="metric-summary__foot">
-            {winsDeltaInfo ? (
-              <span
-                className={`metric-summary__delta metric-summary__delta--${winsDeltaInfo.tone}`}
-              >
-                {winsDeltaInfo.text}
-              </span>
-            ) : (
-              <span className="metric-summary__delta metric-summary__delta--muted">
-                —
-              </span>
-            )}
-            <span className="metric-summary__hint">
-              {previousPackWins
-                ? `${previousPackWins} last quarter`
-                : 'no prior data'}
-            </span>
-          </div>
-        </div>
+        {showUserTiles ? (
+          <>
+            <div className="metric-summary metric-summary--detailed">
+              <div className="metric-summary__head">
+                <span className="metric-summary__label">
+                  {currentQuarterNumber
+                    ? `My Wins Q${currentQuarterNumber}`
+                    : 'My Wins'}
+                </span>
+                <span className="metric-summary__icon" aria-hidden="true">
+                  <LuTrophy />
+                </span>
+              </div>
+              <div className="metric-summary__value">{currentUserWins}</div>
+              <div className="metric-summary__foot">
+                {userWinsDeltaInfo ? (
+                  <span
+                    className={`metric-summary__delta metric-summary__delta--${userWinsDeltaInfo.tone}`}
+                  >
+                    {userWinsDeltaInfo.text}
+                  </span>
+                ) : (
+                  <span className="metric-summary__delta metric-summary__delta--muted">
+                    —
+                  </span>
+                )}
+                {/*
+                  Mirror the Pack Wins subtitle pattern so the delta has a
+                  named baseline. Falls back to the AE-count context only
+                  when there's no prior quarter to compare against.
+                */}
+                <span
+                  className="metric-summary__hint"
+                  title={`Filtered by your ${userAECount} assigned AE${userAECount === 1 ? '' : 's'}`}
+                >
+                  {previousUserWins
+                    ? `${previousUserWins} last quarter`
+                    : `from ${userAECount} AE${userAECount === 1 ? '' : 's'}`}
+                </span>
+              </div>
+            </div>
 
-        <div className="metric-summary metric-summary--detailed">
-          <div className="metric-summary__head">
-            <span className="metric-summary__label">
-              {currentQuarterNumber
-                ? `Avg Deal Size Q${currentQuarterNumber}`
-                : 'Avg Deal Size'}
-            </span>
-            <span className="metric-summary__icon" aria-hidden="true">
-              <LuChartBar />
-            </span>
-          </div>
-          <div className="metric-summary__value">
-            ${formatNumber(currentAvgDealSize)}
-          </div>
-          <div className="metric-summary__foot">
-            {avgDealDeltaInfo ? (
-              <span
-                className={`metric-summary__delta metric-summary__delta--${avgDealDeltaInfo.tone}`}
-              >
-                {avgDealDeltaInfo.text}
-              </span>
-            ) : (
-              <span className="metric-summary__delta metric-summary__delta--muted">
-                —
-              </span>
-            )}
-            <span className="metric-summary__hint">
-              {previousAvgDealSize
-                ? `vs $${formatNumber(previousAvgDealSize)} last quarter`
-                : 'no prior data'}
-            </span>
-          </div>
-        </div>
+            <div className="metric-summary metric-summary--detailed">
+              <div className="metric-summary__head">
+                <span className="metric-summary__label">
+                  {currentQuarterNumber
+                    ? `My CARR Q${currentQuarterNumber}`
+                    : 'My CARR'}
+                </span>
+                <span className="metric-summary__icon" aria-hidden="true">
+                  <LuChartBar />
+                </span>
+              </div>
+              <div className="metric-summary__value">
+                ${formatNumber(currentUserCARR)}
+              </div>
+              <div className="metric-summary__foot">
+                {userCARRDeltaInfo ? (
+                  <span
+                    className={`metric-summary__delta metric-summary__delta--${userCARRDeltaInfo.tone}`}
+                  >
+                    {userCARRDeltaInfo.text}
+                  </span>
+                ) : (
+                  <span className="metric-summary__delta metric-summary__delta--muted">
+                    —
+                  </span>
+                )}
+                {/*
+                  Mirror the Avg Deal Size subtitle pattern: lead with the
+                  named baseline ("vs $X last quarter") so the delta makes
+                  sense at a glance. Fall back to the AE-count context only
+                  when there's no prior quarter to compare against. The
+                  `title` keeps the AE-count tooltip available either way.
+                */}
+                <span
+                  className="metric-summary__hint"
+                  title={`Filtered by your ${userAECount} assigned AE${userAECount === 1 ? '' : 's'}`}
+                >
+                  {previousUserCARR
+                    ? `vs $${formatNumber(previousUserCARR)} last quarter`
+                    : `from ${userAECount} AE${userAECount === 1 ? '' : 's'}`}
+                </span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="metric-summary metric-summary--detailed">
+              <div className="metric-summary__head">
+                <span className="metric-summary__label">
+                  {currentQuarterNumber
+                    ? `Pack Wins Q${currentQuarterNumber}`
+                    : 'Pack Wins'}
+                </span>
+                <span className="metric-summary__icon" aria-hidden="true">
+                  <LuTrophy />
+                </span>
+              </div>
+              <div className="metric-summary__value">{currentPackWins}</div>
+              <div className="metric-summary__foot">
+                {winsDeltaInfo ? (
+                  <span
+                    className={`metric-summary__delta metric-summary__delta--${winsDeltaInfo.tone}`}
+                  >
+                    {winsDeltaInfo.text}
+                  </span>
+                ) : (
+                  <span className="metric-summary__delta metric-summary__delta--muted">
+                    —
+                  </span>
+                )}
+                <span className="metric-summary__hint">
+                  {previousPackWins
+                    ? `${previousPackWins} last quarter`
+                    : 'no prior data'}
+                </span>
+              </div>
+            </div>
+
+            <div className="metric-summary metric-summary--detailed">
+              <div className="metric-summary__head">
+                <span className="metric-summary__label">
+                  {currentQuarterNumber
+                    ? `Avg Deal Size Q${currentQuarterNumber}`
+                    : 'Avg Deal Size'}
+                </span>
+                <span className="metric-summary__icon" aria-hidden="true">
+                  <LuChartBar />
+                </span>
+              </div>
+              <div className="metric-summary__value">
+                ${formatNumber(currentAvgDealSize)}
+              </div>
+              <div className="metric-summary__foot">
+                {avgDealDeltaInfo ? (
+                  <span
+                    className={`metric-summary__delta metric-summary__delta--${avgDealDeltaInfo.tone}`}
+                  >
+                    {avgDealDeltaInfo.text}
+                  </span>
+                ) : (
+                  <span className="metric-summary__delta metric-summary__delta--muted">
+                    —
+                  </span>
+                )}
+                <span className="metric-summary__hint">
+                  {previousAvgDealSize
+                    ? `vs $${formatNumber(previousAvgDealSize)} last quarter`
+                    : 'no prior data'}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -32,12 +32,25 @@ router.post('/login', async (req, res) => {
       where: { email },
       include: {
         userRoles: true,
-        // Pull the user's SE team in the same query so the login
-        // response carries the same shape as /auth/me. Without this
-        // the dashboard renders without the "Team {name}" chip on
-        // first login and only picks it up on the next page reload.
+        // Pull the user's SE team (and that team's active AEs) in the same
+        // query so the login response matches /auth/me exactly. Without
+        // this the dashboard renders without the "Team {name}" chip OR
+        // the SE-scoped tiles on first login and only picks them up on
+        // the next page reload.
         salesEngineer: {
-          select: { team: { select: { id: true, name: true } } },
+          select: {
+            team: {
+              select: {
+                id: true,
+                name: true,
+                accountExecutives: {
+                  where: { isActive: true },
+                  select: { id: true, name: true },
+                  orderBy: { name: 'asc' },
+                },
+              },
+            },
+          },
         },
       },
     });
@@ -73,6 +86,10 @@ router.post('/login', async (req, res) => {
         roles: roles,
         team: user.salesEngineer?.team ?? null,
       },
+      // mustChangePassword forces the post-login change-password flow on
+      // first sign-in. Keep this field — the change-password endpoint now
+      // returns the same `user.team` shape (with active AEs) so the
+      // dashboard tiles stay populated across that hop.
       mustChangePassword: isDefaultPassword,
     });
   } catch (error) {
@@ -163,14 +180,35 @@ router.post('/change-password', authenticateToken, async (req, res) => {
     // Hash new password
     const newPasswordHash = await bcrypt.hash(newPassword, 12);
 
-    // Update password
+    // Update password and reload the same shape the login + /me endpoints
+    // return so the frontend can replace user state without losing team
+    // membership (see frontend/src/contexts/AuthProvider.jsx#changePassword,
+    // which does setUser(data.user) — if team is missing here, the dashboard
+    // header drops the "Team {name}" chip until the next page refresh hits
+    // /auth/me).
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: { passwordHash: newPasswordHash },
-      include: { userRoles: true },
+      include: {
+        userRoles: true,
+        salesEngineer: {
+          select: {
+            team: {
+              select: {
+                id: true,
+                name: true,
+                accountExecutives: {
+                  where: { isActive: true },
+                  select: { id: true, name: true },
+                  orderBy: { name: 'asc' },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
-    // Extract roles and generate new token
     const roles = updatedUser.userRoles.map((ur) => ur.role);
     const token = generateJWT(updatedUser, roles);
 
@@ -183,6 +221,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
         firstName: updatedUser.firstName,
         lastName: updatedUser.lastName,
         roles: roles,
+        team: updatedUser.salesEngineer?.team ?? null,
       },
     });
   } catch (error) {
@@ -388,14 +427,28 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-// Get user route
+// Get user route. Returns the user + their SE team + the team's active AEs
+// so the dashboard can show SE-scoped tiles and tooltips ("My CARR filtered
+// by N AEs") without an extra round-trip.
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
     const prisma = await getPrisma();
     const se = await prisma.salesEngineer.findUnique({
       where: { userId: user.id },
-      select: { team: { select: { id: true, name: true } } },
+      select: {
+        team: {
+          select: {
+            id: true,
+            name: true,
+            accountExecutives: {
+              where: { isActive: true },
+              select: { id: true, name: true },
+              orderBy: { name: 'asc' },
+            },
+          },
+        },
+      },
     });
     return res.status(200).json({
       message: 'User retrieved successfully',

@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import UsersPage from '../../pages/UsersPage';
 import CreateSnapshotPage from '../../pages/CreateSnapshotPage';
 import QuarterlyGoalsPage from '../../pages/QuarterlyGoalsPage';
+import TeamsPage from './TeamsPage';
 import './Admin.css';
 
 const Admin = () => {
@@ -14,10 +15,13 @@ const Admin = () => {
     return <Navigate to="/" replace />;
   }
 
+  // The standalone "Create Account Executive" tab is intentionally gone:
+  // AE create / edit / move / remove all live inside the Teams tab now,
+  // grouped under the team they belong to (matches the data model and the
+  // way admins actually think about roster changes).
   const tabs = [
     { id: 'user', label: 'Users', icon: '👤' },
-    { id: 'team', label: 'Create Team', icon: '👥' },
-    { id: 'ae', label: 'Create Account Executive', icon: '💼' },
+    { id: 'team', label: 'Teams', icon: '👥' },
     { id: 'snapshot_years', label: 'Snapshot Years', icon: '📦' },
     { id: 'quarterly_goals', label: 'Quarterly Goals', icon: '🎯' },
   ];
@@ -57,15 +61,7 @@ const Admin = () => {
 
         {activeTab === 'team' && (
           <section className="section">
-            <h2 className="section-title">Create Team</h2>
-            <p>Team creation form will go here</p>
-          </section>
-        )}
-
-        {activeTab === 'ae' && (
-          <section className="section">
-            <h2 className="section-title">Create Account Executive</h2>
-            <p>Account Executive creation form will go here</p>
+            <TeamsPage />
           </section>
         )}
 

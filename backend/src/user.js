@@ -66,6 +66,42 @@ router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
   }
 });
 
+// List users with a Sales Engineer role who don't yet have a SalesEngineer
+// record (i.e. no team assigned). Used by the admin TeamsPage to populate
+// the "Attach SE" picker. Defined ABOVE the `/me/linear` routes so the
+// literal `/without-team` segment matches before any future `/:userId`
+// patterns might be added.
+router.get('/without-team', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const seRoles = ['sales_engineer_1', 'sales_engineer_2', 'sales_engineer_lead'];
+
+    const users = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        salesEngineer: null,
+        userRoles: { some: { role: { in: seRoles } } },
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        userRoles: { select: { role: true } },
+      },
+      orderBy: [{ firstName: 'asc' }, { email: 'asc' }],
+    });
+
+    return res.status(200).json({
+      message: 'Users without a team fetched successfully',
+      users,
+    });
+  } catch (error) {
+    console.error('Error getting users without team:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/me/linear', authenticateToken, async (req, res) => {
   try {
     const prisma = await getPrisma();

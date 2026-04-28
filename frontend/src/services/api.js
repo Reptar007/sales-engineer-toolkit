@@ -134,6 +134,66 @@ export async function fetchUsers() {
 }
 
 /**
+ * Fetch users with a Sales Engineer role who don't yet have a team.
+ * Used by admin TeamsPage "Attach SE" picker.
+ */
+export async function fetchUsersWithoutTeam() {
+  return apiRequest('/users/without-team');
+}
+
+/** Admin: list all teams (active + inactive) with their SE and active AEs. */
+export async function fetchTeams() {
+  return apiRequest('/teams');
+}
+
+/** Admin: create a new team. Optional `userId` attaches an existing SE. */
+export async function createTeam({ name, description, userId } = {}) {
+  return apiRequest('/teams', {
+    method: 'POST',
+    body: JSON.stringify({ name, description, userId }),
+  });
+}
+
+/** Admin: rename / re-describe / toggle isActive for a team. */
+export async function updateTeam(teamId, patch) {
+  return apiRequest(`/teams/${teamId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+/** Admin: attach an existing SE-role user to a team that has no SE yet. */
+export async function attachSEToTeam(teamId, { userId, salesforceEmail } = {}) {
+  return apiRequest(`/teams/${teamId}/se`, {
+    method: 'POST',
+    body: JSON.stringify({ userId, salesforceEmail }),
+  });
+}
+
+/** Admin: add a new AE to a team. */
+export async function createAE(teamId, { name, salesforceId, salesforceEmail } = {}) {
+  return apiRequest(`/teams/${teamId}/aes`, {
+    method: 'POST',
+    body: JSON.stringify({ name, salesforceId, salesforceEmail }),
+  });
+}
+
+/** Admin: rename, re-email, or move an AE to another team. */
+export async function updateAE(teamId, aeId, patch) {
+  return apiRequest(`/teams/${teamId}/aes/${aeId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+/** Admin: soft-delete an AE (also deactivates matching TeamAssignment rows). */
+export async function deleteAE(teamId, aeId) {
+  return apiRequest(`/teams/${teamId}/aes/${aeId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
  * Search opportunities in Salesforce
  * @param {string} search - Search term
  * @returns {Promise<Object>} Opportunities
