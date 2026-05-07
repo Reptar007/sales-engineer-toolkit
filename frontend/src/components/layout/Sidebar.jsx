@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { getAllProjects } from '../../projects';
 import { useAuth } from '../../contexts/AuthContext';
+import { toTeamSlug } from '../../projects/team/slug';
 import {
   GoHome,
   GoStar,
@@ -11,6 +12,7 @@ import {
   GoSearch,
   GoFile,
   GoPerson,
+  GoOrganization,
   GoSignOut,
   GoChevronLeft,
   GoChevronRight,
@@ -92,6 +94,12 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
     navigate('/login');
   };
   const isAdmin = user?.roles?.includes('admin');
+  // The "Team {name}" entry is only meaningful when the logged-in user is
+  // actually attached to a team (i.e. they're an SE on a team). For
+  // everyone else (admins without an SE record, fresh users) we just
+  // hide it rather than render a dead link.
+  const teamName = user?.team?.name;
+  const teamSlug = teamName ? toTeamSlug(teamName) : null;
 
   return (
     <aside className={`sidebar ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
@@ -129,6 +137,17 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
               <span className="nav-label">{homeItem.label}</span>
             </NavLink>
           </li>
+          {teamSlug && (
+            <li className="nav-item">
+              <NavLink
+                to={`/teams/${teamSlug}`}
+                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+              >
+                <span className="nav-icon"><GoOrganization /></span>
+                <span className="nav-label">{teamName}</span>
+              </NavLink>
+            </li>
+          )}
           {isAdmin && (
             <li className="nav-item">
               <NavLink to="/admin" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>

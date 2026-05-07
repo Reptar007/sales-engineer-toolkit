@@ -41,9 +41,6 @@ function Dashboard() {
 
       <DashboardWidgets />
 
-      <div className="dashboard-footer">
-        <p>Need help? Check out our documentation or contact support.</p>
-      </div>
     </div>
   );
 }

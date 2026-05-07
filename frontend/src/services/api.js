@@ -279,6 +279,17 @@ export async function fetchDashboardLinear() {
   return apiRequest('/dashboard/linear');
 }
 
+/**
+ * Team page: per-user closed-ticket roll-up for a calendar year, grouped
+ * by quarter and by category (estimation / creation / other). Defaults
+ * to the current calendar year on the backend when `year` is omitted.
+ * @param {number} [year]
+ */
+export async function fetchDashboardLinearClosed(year) {
+  const query = Number.isInteger(year) ? `?year=${year}` : '';
+  return apiRequest(`/dashboard/linear/closed${query}`);
+}
+
 /** Google Calendar OAuth: returns { authorizationUrl }. */
 export async function startGoogleCalendarOAuth() {
   return apiRequest('/integrations/google/start', {

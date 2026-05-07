@@ -16,6 +16,7 @@ import Admin from './projects/admin';
 import SalesforceCalculator from './projects/salesforce/calculator';
 import SalesforceLookup from './projects/salesforce/lookup';
 import SalesforceMetrics from './projects/salesforce-metrics';
+import TeamPage from './projects/team';
 
 /**
  * Main App Component with Routing
@@ -81,6 +82,14 @@ function AppContent() {
               element={
                 <ProtectedRoute>
                   <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teams/:slug"
+              element={
+                <ProtectedRoute>
+                  <TeamPage />
                 </ProtectedRoute>
               }
             />

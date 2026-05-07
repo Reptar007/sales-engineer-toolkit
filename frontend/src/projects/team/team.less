@@ -1,0 +1,615 @@
+@import '../../styles/tokens/_index.less';
+
+// Hero row: the team title and the mascot sit side-by-side as a single
+// centered unit instead of being anchored to opposite edges. With the
+// title scaled up to fill the top of the page, the pair reads as one
+// big "this is the team" billboard rather than a tiny title + a
+// floating logo.
+.team-page__hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  // Pull the row up a touch so the larger title doesn't push the rest
+  // of the page down compared to the previous compact hero.
+  padding: 0.5rem 0 1rem;
+}
+
+.team-page__hero-title {
+  margin: 0;
+  // `clamp` so the title scales between mid-size laptop (~5rem) and
+  // very wide monitors (~7rem) without us having to babysit
+  // breakpoints. Floors at 3rem on phones so it never collapses to
+  // something illegible.
+  font-size: clamp(3rem, 7.5vw, 7rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--white);
+  // Keep "Team {name}" on a single line so the mascot stays beside it
+  // instead of slipping under a wrapped title.
+  white-space: nowrap;
+}
+
+// Per-team hero mascot. Now lives inline with the title (no grid
+// placement) so the title + mascot center together as one unit. Scaled
+// up to keep optical balance with the larger title.
+.team-page__mascot {
+  flex-shrink: 0;
+  // Negative vertical margin lets the artwork breathe past the hero's
+  // padding without pushing the divider below it down. The image has
+  // a transparent background so this just lets the bike spill out.
+  margin: -1rem 0;
+  // A touch shorter than the title's clamp ceiling so the mascot
+  // reads as a sidekick to the wordmark rather than competing with
+  // it for visual weight.
+  height: clamp(7rem, 11vw, 10rem);
+  width: auto;
+  max-width: 15rem;
+  object-fit: contain;
+  // Subtle drop shadow so the cutout reads as floating above the dark
+  // hero rather than pasted onto it.
+  filter: drop-shadow(0 1rem 1.25rem rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+  user-select: none;
+}
+
+// Body container for everything below the team hero — sections,
+// roster, future widgets. Insets the content horizontally so it
+// visually "breaks" from the full-bleed hero above and reads as a
+// nested, slightly tighter zone. The inset shrinks proportionally
+// on narrow screens so phones don't lose all of their gutter.
+.team-page__body {
+  padding: 0 2rem;
+
+  @media (max-width: 720px) {
+    padding: 0 1rem;
+  }
+}
+
+// Stacks of independent sections (At a glance, CARR breakdown,
+// Pipeline, ...). Margin between siblings creates breathing room
+// without each section having to manage its own bottom margin.
+.team-page__section + .team-page__section {
+  margin-top: 2rem;
+}
+
+// Team-level summary tiles — Total CARR, Closed Opps, Avg Deal Size,
+// or in the You view: Tickets Closed / Estimation / Creation / AI
+// Demo. Column count is parameterized via `--tile-cols` so the same
+// rule serves both 3-tile and 4-tile call sites; defaults to 3 to
+// match the original Team-view layout. The breakpoints flatten to
+// 2-up and 1-up regardless of the variable so we never end up with
+// a single 4-tile row squeezed onto a phone screen.
+.team-page__totals {
+  display: grid;
+  grid-template-columns: repeat(var(--tile-cols, 3), minmax(0, 1fr));
+  gap: 1rem;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Inline hint shown in place of the metric tiles when the personal
+// Linear roll-up can't render — either the user hasn't been matched
+// to a Linear account yet, or the Linear API failed transiently.
+// Styled muted on purpose so it reads as a soft message rather than
+// a hard error and doesn't compete with the section heading.
+.team-page__linear-hint {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+// Section header above the AE roster: title block on the left,
+// segmented filter on the right. Flex row so they share a baseline;
+// wraps below 640px to keep the filter from being squeezed under the
+// title. Hairline at the bottom visually closes the header off from
+// the cards below — important once we stack multiple sections on
+// this page (Pipeline by AE, Activity by AE, etc.).
+.team-page__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  margin: 0 0 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+// Title + subtitle stack on the left side of the section header.
+// `min-width: 0` lets the subtitle ellipsis cleanly when the row
+// gets cramped instead of forcing a wrap that pushes the filter
+// pill onto a new line prematurely.
+.team-page__section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+// Page-section heading. Sized to read as the dominant element on the
+// row — bigger than a typical card title so future sibling sections
+// (Pipeline, Activity, etc.) inherit the same visual weight as
+// "CARR broken down by AE".
+.team-page__section-title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  color: var(--white);
+}
+
+// Quiet caption that says what the section is showing and which time
+// scope is active. Kept dim so the title is still clearly the lead;
+// updates live with the year / current-quarter filter so the user
+// always knows what scope the cards below are reporting on.
+.team-page__section-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.4;
+}
+
+// Page-level controls bar at the top of the body. Holds the primary
+// view toggle (Team / You) on the left and the secondary scope toggle
+// (Year / Current Quarter) on the right, so all the page-wide knobs
+// share one predictable row. Wraps below ~640px so the two pills
+// stack rather than squeezing into illegible widths.
+.team-page__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+}
+
+// Pill-style segmented control for the year / current-quarter scope.
+// Lives inside the section header on the right and toggles which
+// opps the AE roster renders. Visually inspired by the dashboard's
+// other quiet pill elements (.dashboard-source-pill, etc.) — dark
+// outer track, coral-tinted active state.
+.team-page__filter {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem;
+  gap: 0.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+.team-page__filter-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0.55rem 1.15rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  &.is-active {
+    background: rgba(255, 107, 74, 0.18);
+    color: var(--coral);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--coral);
+    outline-offset: 2px;
+  }
+}
+
+// Below ~720px the hero stacks: title on top, mascot below, both
+// centered. Title relaxes its `nowrap` so longer team names can wrap
+// onto two lines instead of overflowing.
+@media (max-width: 720px) {
+  .team-page__hero {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .team-page__hero-title {
+    white-space: normal;
+    text-align: center;
+  }
+  .team-page__mascot {
+    margin: 0.25rem 0 0;
+  }
+}
+
+
+// Single-row roster grid. Overrides the dashboard's default 2-column
+// `.dashboard-widgets` layout: column count is driven by a CSS custom
+// property (`--ae-count`) that the React component sets inline based on
+// how many AEs the team has, so 3 AEs render as 3 columns, 5 as 5,
+// etc. Falls back to the dashboard's default wrapped layout below
+// 1024px so narrow screens don't squeeze the cards into unreadable
+// slivers.
+.team-page__roster {
+  grid-template-columns: repeat(var(--ae-count, 1), minmax(0, 1fr));
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+
+  // Lock every AE card to the same compact, fixed height so the row
+  // reads as a uniform billboard regardless of how many closed opps
+  // each AE has. Sized to comfortably show ~4 opp rows + the head
+  // without scrolling; AEs with more opps inherit the dashboard
+  // panel's existing `overflow-y: auto` to scroll inside the card.
+  .dashboard-panel {
+    height: 15rem;
+  }
+}
+
+// "Total CARR" readout on the right side of an AE panel head. Uses the
+// same coral / tabular-nums treatment as the per-row CARR cell so the
+// total visually anchors the column of amounts below it. Sits in the
+// existing `.dashboard-panel__head` flex row — paired with the
+// `--stacked` head modifier so the head-text on the left can show the
+// AE name + "N closed opps" caption.
+.team-ae-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  flex-shrink: 0;
+}
+
+.team-ae-total__label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.team-ae-total__value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--coral);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+// Team-page list of closed-won opps for an AE. Lives inside the existing
+// .dashboard-panel surface so we inherit the dark navy fill, border, and
+// scroll-on-overflow behavior. Rows visually mirror the dashboard
+// calendar items (hairline divider, no border on the last row, comfy
+// vertical rhythm) without trying to share the calendar's grid.
+.team-ae-opp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.team-ae-opp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+  &:first-child {
+    padding-top: 0;
+  }
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+.team-ae-opp-name {
+  // Let the name take the freed space, truncate if it gets too long so
+  // the CARR column never wraps onto a new line.
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--white);
+}
+
+.team-ae-opp-carr {
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--coral);
+  font-variant-numeric: tabular-nums;
+}
+
+// Quiet status messages that sit inside an AE panel — "no closed opps
+// yet", "loading…", "couldn't load metrics". Kept dim so they read as
+// secondary content rather than a row item.
+.team-ae-status {
+  margin: 0;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+// Monthly-breakdown chart in the You view's "Monthly breakdown"
+// section. Inline SVG line chart — one polyline per category — so
+// the y-axis carries explicit count labels instead of leaving the
+// reader to mentally translate stacked-bar percentages. Hand-rolled
+// in SVG rather than pulling in a charting library because the
+// data shape is fixed (3 months × 4 categories) and the visual is
+// custom enough that any library would be more friction than help.
+.team-page__chart {
+  padding: 1.25rem 1.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+}
+
+// SVG fills its container width and scales height proportionally
+// so the chart geometry is responsive without any JS measurement.
+// `xMidYMid meet` keeps the plot centered when the container is
+// wider than the design ratio.
+.team-page__chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+// Background gridlines + axis labels. Drawn first so polylines
+// land on top. Quiet on purpose — they should orient the eye, not
+// compete with the data.
+.team-page__chart-grid {
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1;
+}
+
+.team-page__chart-axis {
+  fill: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+
+  &--x {
+    fill: rgba(255, 255, 255, 0.85);
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+// Per-category line + dots. The wrapper `<g>` carries the color
+// modifier so both the polyline and the dots inherit the same
+// hue without us repeating the color on each child element.
+.team-page__chart-series {
+  // `--muted` dims a category that contributed zero tickets in
+  // the active quarter, so a flat-zero line stays visible (for
+  // continuity) but doesn't compete with the categories that
+  // actually drove the quarter.
+  &--muted {
+    opacity: 0.3;
+  }
+}
+
+.team-page__chart-line {
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: stroke-width 0.15s ease;
+}
+
+.team-page__chart-dot {
+  stroke: var(--canvas-dark, #0b0f2a);
+  stroke-width: 1.5;
+  transition: r 0.15s ease;
+
+  &:hover {
+    r: 6;
+  }
+}
+
+// Category color modifiers. Both line stroke and dot fill share
+// the brand token so the colors stay locked to a single source
+// when the palette evolves.
+.team-page__chart-series--creation {
+  .team-page__chart-line { stroke: var(--coral); }
+  .team-page__chart-dot { fill: var(--coral); }
+}
+.team-page__chart-series--estimation {
+  .team-page__chart-line { stroke: var(--brand-teal); }
+  .team-page__chart-dot { fill: var(--brand-teal); }
+}
+.team-page__chart-series--aiDemo {
+  .team-page__chart-line { stroke: var(--brand-purple); }
+  .team-page__chart-dot { fill: var(--brand-purple); }
+}
+.team-page__chart-series--other {
+  .team-page__chart-line { stroke: rgba(255, 255, 255, 0.5); }
+  .team-page__chart-dot { fill: rgba(255, 255, 255, 0.65); }
+}
+
+// Color legend for the stacked-segment chart. Sits just below the
+// chart card and pairs each category color with its label and that
+// quarter's count. Wraps on narrow screens so we don't have to
+// chase a horizontal scroll. Categories with zero tickets in the
+// active quarter dim themselves so the eye gravitates to the
+// categories that actually contributed to the bars.
+.team-page__chart-legend {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.team-page__chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: opacity 0.2s ease;
+
+  &--muted {
+    opacity: 0.4;
+  }
+}
+
+.team-page__chart-legend-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 0.2rem;
+  flex-shrink: 0;
+
+  &--creation {
+    background: var(--coral);
+  }
+  &--estimation {
+    background: var(--brand-teal);
+  }
+  &--aiDemo {
+    background: var(--brand-purple);
+  }
+  &--other {
+    background: rgba(255, 255, 255, 0.35);
+  }
+}
+
+.team-page__chart-legend-count {
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 600;
+}
+
+// Inspector disclosure for the catch-all "Other" category. Closed
+// by default — the SE only opens it when they want to audit which
+// tickets fell through the classifier (potentially fixable by a
+// rename or a missing label in Linear). Native <details> means the
+// open/closed state lives in the DOM, no extra React state needed.
+.team-page__chart-other {
+  margin-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 0.75rem;
+}
+
+.team-page__chart-other-summary {
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  // Strip the default disclosure triangle so we can drive our own
+  // chevron via ::before — keeps focus styling and click target
+  // consistent across browsers.
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &::before {
+    content: '›';
+    display: inline-block;
+    font-size: 1.05rem;
+    line-height: 1;
+    color: rgba(255, 255, 255, 0.45);
+    transition: transform 0.15s ease;
+  }
+
+  &:hover {
+    color: var(--white);
+    background: rgba(255, 255, 255, 0.04);
+  }
+}
+
+.team-page__chart-other[open] .team-page__chart-other-summary::before {
+  transform: rotate(90deg);
+}
+
+.team-page__chart-other-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.team-page__chart-other-item {
+  display: grid;
+  // [identifier] [title (flex)] [date]
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 0.85rem;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+.team-page__chart-other-id {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+
+.team-page__chart-other-title {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+
+  &:hover {
+    color: var(--coral);
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--coral);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+.team-page__chart-other-date {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
