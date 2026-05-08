@@ -357,12 +357,17 @@ router.patch('/:teamId/aes/:aeId', authenticateToken, requireRole('admin'), asyn
   try {
     const prisma = await getPrisma();
     const { teamId, aeId } = req.params;
-    const { name, salesforceEmail, teamId: newTeamId } = req.body ?? {};
+    const { name, salesforceId, salesforceEmail, teamId: newTeamId } = req.body ?? {};
 
-    if (name === undefined && salesforceEmail === undefined && newTeamId === undefined) {
-      return res
-        .status(400)
-        .json({ error: 'Provide at least one of: name, salesforceEmail, teamId' });
+    if (
+      name === undefined &&
+      salesforceId === undefined &&
+      salesforceEmail === undefined &&
+      newTeamId === undefined
+    ) {
+      return res.status(400).json({
+        error: 'Provide at least one of: name, salesforceId, salesforceEmail, teamId',
+      });
     }
 
     const ae = await prisma.accountExecutive.findUnique({ where: { id: aeId } });
@@ -376,6 +381,30 @@ router.patch('/:teamId/aes/:aeId', authenticateToken, requireRole('admin'), asyn
         return res.status(400).json({ error: 'name must be a non-empty string' });
       }
       updates.name = name.trim();
+    }
+    if (salesforceId !== undefined) {
+      if (typeof salesforceId !== 'string' || salesforceId.trim().length === 0) {
+        return res.status(400).json({ error: 'salesforceId must be a non-empty string' });
+      }
+      const trimmedSfId = salesforceId.trim();
+      // Only enforce uniqueness if the value actually changed; otherwise
+      // an idempotent PATCH that re-sends the current id would 409 itself.
+      if (trimmedSfId !== ae.salesforceId) {
+        const conflict = await prisma.accountExecutive.findUnique({
+          where: { salesforceId: trimmedSfId },
+        });
+        if (conflict && conflict.id !== aeId) {
+          return res.status(409).json({
+            error: 'Account Executive with this Salesforce ID already exists',
+            existingAE: {
+              id: conflict.id,
+              name: conflict.name,
+              teamId: conflict.teamId,
+            },
+          });
+        }
+        updates.salesforceId = trimmedSfId;
+      }
     }
     if (salesforceEmail !== undefined) {
       updates.salesforceEmail = salesforceEmail === null ? null : String(salesforceEmail);
@@ -454,6 +483,14 @@ router.patch('/:teamId/aes/:aeId', authenticateToken, requireRole('admin'), asyn
     });
   } catch (error) {
     console.error('Error updating AE:', error);
+    if (error.code === 'P2002') {
+      const field = error.meta?.target?.[0];
+      if (field === 'salesforceId') {
+        return res
+          .status(409)
+          .json({ error: 'Account Executive with this Salesforce ID already exists' });
+      }
+    }
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

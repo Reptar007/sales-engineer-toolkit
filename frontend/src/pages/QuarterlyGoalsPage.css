@@ -168,18 +168,3 @@
 .quarterly-goals__message--error {
   color: #ffb09b;
 }
-
-.quarterly-goals__toast {
-  position: fixed;
-  right: 1.5rem;
-  bottom: 1.5rem;
-  background: var(--midnight-navy);
-  border: 1px solid rgba(20, 184, 166, 0.45);
-  color: var(--success-green-alt, #2dd4bf);
-  border-radius: 0.6rem;
-  padding: 0.7rem 0.95rem;
-  font-weight: 600;
-  font-size: 0.875rem;
-  box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.5);
-  z-index: 1100;
-}

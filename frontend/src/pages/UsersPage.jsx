@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { fetchUsers, resetUserPassword } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
 import UserModal from './UserModal';
 import EditUserModal from './EditUserModal';
 
 const UsersPage = () => {
+  const toast = useToast();
   const [users, setUsers] = useState([]);
   const [openCreateUserModal, setOpenCreateUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -24,6 +26,7 @@ const UsersPage = () => {
       setUsers(response.users);
     } catch (error) {
       console.error('Failed to load users:', error);
+      toast.error(error.message || 'Failed to load users.');
     }
   };
 
@@ -33,13 +36,15 @@ const UsersPage = () => {
 
   const handleUserCreated = (result) => {
     loadUsers();
+    const created = result?.user;
+    const fullName = created
+      ? `${created.firstName ?? ''} ${created.lastName ?? ''}`.trim() || created.email
+      : 'User';
+    toast.success(`${fullName} created.`);
     // When the backend auto-generated a temp password, surface it in the
     // same banner the reset-password flow uses so the admin can copy it
     // and pass it to the new user out-of-band.
-    if (result?.temporaryPassword && result?.user) {
-      const created = result.user;
-      const fullName =
-        `${created.firstName ?? ''} ${created.lastName ?? ''}`.trim() || created.email;
+    if (result?.temporaryPassword && created) {
       setCopied(false);
       setResetBanner({
         userId: created.id,
@@ -55,6 +60,7 @@ const UsersPage = () => {
 
   const handleUserUpdated = () => {
     loadUsers();
+    toast.success('User updated.');
   };
 
   async function handleCopyTempPassword() {
@@ -79,9 +85,10 @@ const UsersPage = () => {
       }
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
+      toast.success('Temporary password copied to clipboard.');
     } catch (err) {
       console.error('Failed to copy temporary password:', err);
-      window.alert('Could not copy to clipboard. Select the password manually instead.');
+      toast.error('Could not copy to clipboard. Select the password manually instead.');
     }
   }
 
@@ -102,8 +109,9 @@ const UsersPage = () => {
         email: user.email,
         temporaryPassword: result.temporaryPassword,
       });
+      toast.success(`Password reset for ${fullName}.`);
     } catch (error) {
-      window.alert(error.message || 'Failed to reset password.');
+      toast.error(error.message || 'Failed to reset password.');
     } finally {
       setResettingUserId(null);
     }

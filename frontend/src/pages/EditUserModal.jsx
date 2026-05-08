@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { updateUser } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
 
 /**
  * Admin: edit an existing user's profile fields.
@@ -15,6 +16,7 @@ import { updateUser } from '../services/api';
  * tool from the admin Users tab.
  */
 const EditUserModal = ({ isOpen, user, onClose, onSaved }) => {
+  const toast = useToast();
   const dialogRef = useRef(null);
 
   const [firstName, setFirstName] = useState('');
@@ -106,7 +108,9 @@ const EditUserModal = ({ isOpen, user, onClose, onSaved }) => {
       onSaved?.();
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to update user.');
+      const msg = err.message || 'Failed to update user.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }

@@ -404,25 +404,36 @@ const SalesforceMetrics = () => {
         <table>
           <caption>Closed Won Opportunities</caption>
           <thead>
+            {/*
+              Sales Score and Account Score are distinct columns in the
+              2026 SF report — Account Score is the ICP-uplifted version
+              (e.g. an AAR / geo signal can promote a Sales=C deal to
+              Account=E) and is what the team page now keys C-bucket
+              filtering off of. Surfacing both here lets admins audit
+              divergence between the raw and uplifted scores. Older
+              reports (e.g. 2025) only emitted Sales Score, so
+              `accountScore` will render as an empty cell for them.
+            */}
             <tr>
               <th> AE Name </th>
               <th> Opportunity Name </th>
               <th> CARR </th>
               <th> Close Date </th>
+              <th> Sales Score </th>
               <th> Account Score </th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>
+                <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>
                   Loading opportunities...
                 </td>
               </tr>
             ) : error ? (
               <tr>
                 <td
-                  colSpan="5"
+                  colSpan="6"
                   style={{ textAlign: 'center', padding: '2rem', color: 'var(--coral)' }}
                 >
                   Error loading data: {error}
@@ -436,11 +447,12 @@ const SalesforceMetrics = () => {
                   <td>{opportunity.carrAmountFormatted || formatNumber(opportunity.carrAmount)}</td>
                   <td>{opportunity.effectiveDate}</td>
                   <td>{opportunity.salesScore}</td>
+                  <td>{opportunity.accountScore}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>
+                <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>
                   No opportunities found for this quarter
                 </td>
               </tr>

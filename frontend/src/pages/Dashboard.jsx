@@ -1,6 +1,7 @@
 import React from 'react';
 import CurrentQuarterMetrics from '../components/widgets/CurrentQuarterMetrics';
 import DashboardWidgets from '../components/dashboard/DashboardWidgets';
+import HuntClock from '../components/dashboard/HuntClock';
 import PageHeader from '../components/layout/PageHeader';
 import useDashboardSummary from '../hooks/useDashboardSummary';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,6 +37,8 @@ function Dashboard() {
         summary={summary}
         team={teamName ? { name: teamName, quarter: getCurrentQuarterLabel() } : undefined}
       />
+
+      <HuntClock />
 
       <CurrentQuarterMetrics />
 

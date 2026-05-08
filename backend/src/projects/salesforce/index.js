@@ -6,6 +6,7 @@ import {
   SNAPSHOTS_DIR,
 } from './functions.js';
 import { createSnapshotForYear } from './snapshotService.js';
+import { detectHasAccountScore, getMetricsColumnIndices } from './reportShape.js';
 import { getGoalsByYearFromDb, getGoalsForYear, upsertGoalsForYear } from './goalsService.js';
 import { loadAssignedAENames, withQuarterlyDataForUser } from './userMetricsFilter.js';
 import { authenticateToken } from '../../middleware/auth.js';
@@ -197,6 +198,13 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
       const quarterlyData = {};
       const allOpportunities = [];
 
+      // Detect column layout once per fetch. The 2026 report inserted
+      // an "Account Score" column between Sales Score and Effective
+      // Date; earlier years (e.g. 2025) still use the original 6-col
+      // layout. See reportShape.js for the full layout reference.
+      const hasAccountScore = detectHasAccountScore(result.factMap);
+      const cols = getMetricsColumnIndices(hasAccountScore);
+
       Object.keys(result.factMap).forEach((quarterKey) => {
         const quarterData = result.factMap[quarterKey];
 
@@ -213,26 +221,25 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
           quarterData.rows.forEach((row) => {
             const dataCells = row.dataCells;
 
-            // Get AE ID from the opportunity
-            const aeId = dataCells[0]?.value || '';
+            const aeId = dataCells[cols.aeName]?.value || '';
 
-            // Parse each opportunity record.
-            // Report columns (0-based): AE, Opp, Sales Score, Effective Date, Gross ARR, CARR.
+            // Parse each opportunity record. Indices come from cols
+            // (which knows about the 2025 vs 2026 column layout) so
+            // both shapes parse correctly without any year plumbing.
             const opportunity = {
-              aeName: dataCells[0]?.label || '', // AE Name
-              opportunityName: dataCells[1]?.label || '', // Opportunity Name
-              salesScore: dataCells[2]?.label || '', // Account Score (letter grade)
-              effectiveDate: dataCells[3]?.label || '', // Effective date
-              grossARRAmount: dataCells[4]?.value?.amount || 0,
-              grossARRAmountFormatted: dataCells[4]?.label || '',
-              carrAmount: dataCells[5]?.value?.amount || 0, // CARR (after Gross ARR column)
-              carrAmountFormatted: dataCells[5]?.label || '',
+              aeName: dataCells[cols.aeName]?.label || '',
+              opportunityName: dataCells[cols.opportunityName]?.label || '',
+              salesScore: dataCells[cols.salesScore]?.label || '', // Letter grade (A/B/C/...)
+              accountScore: cols.accountScore >= 0 ? dataCells[cols.accountScore]?.label || '' : '', // ICP-uplifted score; '' on legacy reports
+              effectiveDate: dataCells[cols.effectiveDate]?.label || '',
+              grossARRAmount: dataCells[cols.grossARR]?.value?.amount || 0,
+              grossARRAmountFormatted: dataCells[cols.grossARR]?.label || '',
+              carrAmount: dataCells[cols.carr]?.value?.amount || 0,
+              carrAmountFormatted: dataCells[cols.carr]?.label || '',
 
-              // Additional IDs for reference
               aeId: aeId,
-              opportunityId: dataCells[1]?.value || '',
+              opportunityId: dataCells[cols.opportunityName]?.value || '',
 
-              // Quarter info
               quarter: quarterName,
             };
 

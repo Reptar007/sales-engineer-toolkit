@@ -108,17 +108,33 @@ function normalizeName(name) {
   return typeof name === 'string' ? name.trim().toLowerCase() : '';
 }
 
+// Decide whether an opp counts as a "C-scored" deal that should be
+// excluded from CARR goal math. We key off **Account Score** rather
+// than Sales Score because ICP signals (AAR, geo, engineer count,
+// etc.) can promote an opp from Sales=C to Account=E — those E deals
+// should still count toward the goal. Empty `accountScore` (legacy
+// 2025 reports + pre-2026 snapshots) returns false, which keeps
+// historical years' totals identical to what they were before this
+// feature shipped.
+function isCScore(opp) {
+  const raw = (opp?.accountScore || '').trim().toUpperCase();
+  return raw === 'C' || raw.startsWith('C ') || raw.startsWith('C-');
+}
+
 /**
  * Walk every closed-won opp in the metrics payload and bucket them by
  * AE name (case-insensitive, whitespace-trimmed — same comparison the
- * backend uses in `userMetricsFilter.js` for SE-scoped views).
+ * backend uses in `userMetricsFilter.js` for SE-scoped views), routing
+ * C-scored deals into a separate map so the team page can show them
+ * under their own panel without polluting the goal-eligible totals.
  *
- * Returns a Map keyed by the normalized AE name → array of opp rows
+ * Returns `{ goalEligibleByAE, cScoreByAE }`, each Map<aeKey, Opp[]>
  * sorted by effective date desc (most recent close first).
  */
 function groupOppsByAE(data) {
-  const byAE = new Map();
-  if (!data) return byAE;
+  const goalEligibleByAE = new Map();
+  const cScoreByAE = new Map();
+  if (!data) return { goalEligibleByAE, cScoreByAE };
   // Prefer the flat list when present; the per-quarter buckets are the
   // same source of truth either way.
   const opps = Array.isArray(data.allOpportunities)
@@ -130,19 +146,20 @@ function groupOppsByAE(data) {
   for (const opp of opps) {
     const key = normalizeName(opp.aeName);
     if (!key) continue;
-    if (!byAE.has(key)) byAE.set(key, []);
-    byAE.get(key).push(opp);
+    const target = isCScore(opp) ? cScoreByAE : goalEligibleByAE;
+    if (!target.has(key)) target.set(key, []);
+    target.get(key).push(opp);
   }
 
-  for (const list of byAE.values()) {
-    list.sort((a, b) => {
-      const da = a.effectiveDate ? Date.parse(a.effectiveDate) : 0;
-      const db = b.effectiveDate ? Date.parse(b.effectiveDate) : 0;
-      return db - da;
-    });
-  }
+  const sortByDateDesc = (a, b) => {
+    const da = a.effectiveDate ? Date.parse(a.effectiveDate) : 0;
+    const db = b.effectiveDate ? Date.parse(b.effectiveDate) : 0;
+    return db - da;
+  };
+  for (const list of goalEligibleByAE.values()) list.sort(sortByDateDesc);
+  for (const list of cScoreByAE.values()) list.sort(sortByDateDesc);
 
-  return byAE;
+  return { goalEligibleByAE, cScoreByAE };
 }
 
 // Format a CARR amount as "$48,000" with no decimals — matches the
@@ -491,7 +508,14 @@ function TeamPage() {
     return { prefix: raw.slice(0, idx), rest: raw.slice(idx + 1) };
   }, [team?.name]);
 
-  const oppsByAE = useMemo(() => groupOppsByAE(data), [data]);
+  // Bucket every opp into goal-eligible (A/B/E/...) vs C-scored. The
+  // team page renders these as two distinct sections — headline tiles
+  // and per-AE cards consume only the goal-eligible map; the new
+  // "Closed-won C opps" panel below the roster consumes the C map.
+  const { goalEligibleByAE, cScoreByAE } = useMemo(
+    () => groupOppsByAE(data),
+    [data],
+  );
 
   // Apply the year / current-quarter scope. When viewing the year the
   // groupings pass through untouched; when viewing the current quarter
@@ -499,14 +523,28 @@ function TeamPage() {
   // quarter key (the same shape the metrics report writes, e.g.
   // "Q2 CY2026"), so the totals + rows + counts all stay in lock-step.
   const filteredOppsByAE = useMemo(() => {
-    if (scope === SCOPE_YEAR) return oppsByAE;
+    if (scope === SCOPE_YEAR) return goalEligibleByAE;
     const currentKey = getCurrentQuarterKey();
     const next = new Map();
-    for (const [aeKey, opps] of oppsByAE.entries()) {
+    for (const [aeKey, opps] of goalEligibleByAE.entries()) {
       next.set(aeKey, opps.filter((opp) => opp.quarter === currentKey));
     }
     return next;
-  }, [oppsByAE, scope]);
+  }, [goalEligibleByAE, scope]);
+
+  // Same scope filter, applied to the C-scored bucket. Kept as a
+  // sibling memo (rather than parameterizing the one above) so each
+  // section renders from a stable reference and React doesn't
+  // re-render one panel just because the other's data churned.
+  const filteredCOppsByAE = useMemo(() => {
+    if (scope === SCOPE_YEAR) return cScoreByAE;
+    const currentKey = getCurrentQuarterKey();
+    const next = new Map();
+    for (const [aeKey, opps] of cScoreByAE.entries()) {
+      next.set(aeKey, opps.filter((opp) => opp.quarter === currentKey));
+    }
+    return next;
+  }, [cScoreByAE, scope]);
 
   // Roll up team-wide stats from the same filtered map that drives the
   // AE roster, restricted to the team's own AE roster so the at-a-glance
@@ -535,6 +573,44 @@ function TeamPage() {
       avgDealSize: count > 0 ? totalCarr / count : 0,
     };
   }, [filteredOppsByAE, team?.accountExecutives]);
+
+  // Same roll-up shape, restricted to C-scored opps for the team's
+  // own AEs. Drives the C-section subtitle ("X opps · $Y") and the
+  // empty-state branch when the team has no C deals in scope.
+  const cTeamTotals = useMemo(() => {
+    const teamAEs = team?.accountExecutives ?? [];
+    let totalCarr = 0;
+    let count = 0;
+    for (const ae of teamAEs) {
+      const opps = filteredCOppsByAE.get(normalizeName(ae.name)) ?? [];
+      for (const opp of opps) {
+        const amount = Number(opp?.carrAmount);
+        if (Number.isFinite(amount)) totalCarr += amount;
+        count += 1;
+      }
+    }
+    return { totalCarr, count };
+  }, [filteredCOppsByAE, team?.accountExecutives]);
+
+  // Flat list of C opps for the team's own AEs, sorted by close date
+  // desc (most recent first). Each row carries `aeName` so the table
+  // renders Opp / AE / CARR side-by-side without the consumer having
+  // to walk the per-AE map again. The per-AE bucket already sorts by
+  // date desc, but merging across AEs requires resorting the union.
+  const cOppsForTeam = useMemo(() => {
+    const teamAEs = team?.accountExecutives ?? [];
+    const rows = [];
+    for (const ae of teamAEs) {
+      const opps = filteredCOppsByAE.get(normalizeName(ae.name)) ?? [];
+      for (const opp of opps) rows.push({ opp, aeName: ae.name });
+    }
+    rows.sort((a, b) => {
+      const da = a.opp.effectiveDate ? Date.parse(a.opp.effectiveDate) : 0;
+      const db = b.opp.effectiveDate ? Date.parse(b.opp.effectiveDate) : 0;
+      return db - da;
+    });
+    return rows;
+  }, [filteredCOppsByAE, team?.accountExecutives]);
 
   if (!team) {
     return (
@@ -1279,6 +1355,152 @@ function TeamPage() {
           })}
             </div>
           </section>
+
+          {/*
+            Closed-won C opps. Account-Score-C deals don't count toward
+            the CARR goal (which is why they're absent from the tiles
+            and per-AE cards above), but they're still real revenue —
+            this panel surfaces every C opp on the team in a flat
+            Opp / AE / CARR layout so a single skim shows what was
+            closed and who closed it without the reader having to
+            unfold per-AE groups.
+
+            Year-gated to 2026+. Earlier years' reports don't have an
+            Account Score column at all (so `accountScore` is empty,
+            `isCScore` is always false, and `cTeamTotals.count` is
+            always 0). Hiding the section entirely on those years
+            keeps 2025 reading exactly as it did before this feature
+            shipped instead of always rendering an empty hint.
+          */}
+          {currentYear >= 2026 && (
+            <section className="team-page__section">
+              <div className="team-page__section-header">
+                <div className="team-page__section-heading">
+                  <h2 className="team-page__section-title">
+                    Closed-won C opps
+                  </h2>
+                  <p className="team-page__section-subtitle">
+                    Account Score C deals don&apos;t count toward the CARR
+                    goal, but are tracked here for visibility{' '}
+                    {scope === SCOPE_QUARTER
+                      ? `this quarter (${getCurrentQuarterShortLabel()})`
+                      : 'this year'}
+                    .
+                  </p>
+                </div>
+              </div>
+              {/*
+                Single panel that holds the flat row list. We render
+                the panel even when there are zero rows so the empty
+                / loading / error branches share the same surface as
+                the populated state — keeps the layout from jumping
+                around as data arrives.
+              */}
+              <section
+                className="dashboard-panel"
+                aria-labelledby="team-c-opps-title"
+              >
+                <div className="dashboard-panel__head">
+                  <div className="dashboard-panel__head-text">
+                    <h3
+                      className="dashboard-panel__title"
+                      id="team-c-opps-title"
+                    >
+                      C-scored opportunities
+                    </h3>
+                    <p className="dashboard-panel__subtitle">
+                      {data
+                        ? cTeamTotals.count === 0
+                          ? 'No C-scored deals in scope'
+                          : `${cTeamTotals.count} ${
+                              cTeamTotals.count === 1 ? 'opp' : 'opps'
+                            } across the team`
+                        : 'Loading…'}
+                    </p>
+                  </div>
+                  {data && cTeamTotals.count > 0 && (
+                    <div
+                      className="team-ae-total"
+                      aria-label="Total C-scored CARR for the team"
+                    >
+                      <span className="team-ae-total__label">Total CARR</span>
+                      <span className="team-ae-total__value">
+                        {formatTotalCarr(cTeamTotals.totalCarr)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/*
+                  Render branches mirror the AE roster's pattern above:
+                  populated list → empty hint → loading → error. The
+                  populated branch is a flat list — one row per opp,
+                  most recent close on top — with the AE responsible
+                  for the deal sitting in the middle column so the
+                  reader can attribute each row at a glance.
+                */}
+                {data && cOppsForTeam.length > 0 ? (
+                  <ul className="team-c-opps-list">
+                    {/*
+                      Header row uses the same grid layout as the data
+                      rows below so the columns line up exactly. Marked
+                      aria-hidden because the per-cell aria-labels and
+                      the panel's overall section labelling already
+                      carry the semantics for assistive tech.
+                    */}
+                    <li
+                      className="team-c-opps-row team-c-opps-row--head"
+                      aria-hidden="true"
+                    >
+                      <span className="team-c-opps-row__opp">Opportunity</span>
+                      <span className="team-c-opps-row__ae">AE</span>
+                      <span className="team-c-opps-row__carr">CARR</span>
+                    </li>
+                    {cOppsForTeam.map(({ opp, aeName }) => (
+                      <li
+                        key={
+                          opp.opportunityId ||
+                          `${opp.opportunityName}-${opp.effectiveDate}`
+                        }
+                        className="team-c-opps-row"
+                      >
+                        <span
+                          className="team-c-opps-row__opp"
+                          title={opp.opportunityName}
+                        >
+                          {opp.opportunityName || 'Untitled opportunity'}
+                        </span>
+                        <span
+                          className="team-c-opps-row__ae"
+                          title={aeName}
+                        >
+                          {aeName}
+                        </span>
+                        <span className="team-c-opps-row__carr">
+                          {formatCarr(opp)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : data ? (
+                  <p className="team-ae-status">
+                    No C-scored closed-won opps for this team{' '}
+                    {scope === SCOPE_QUARTER
+                      ? 'this quarter yet.'
+                      : 'yet this year.'}
+                  </p>
+                ) : loading ? (
+                  <p className="team-ae-status">Loading C-scored opps…</p>
+                ) : error ? (
+                  <p className="team-ae-status">
+                    Couldn&apos;t load metrics for C opps.
+                  </p>
+                ) : (
+                  <p className="team-ae-status">No C-scored opps yet.</p>
+                )}
+              </section>
+            </section>
+          )}
           </>
           )}
         </div>

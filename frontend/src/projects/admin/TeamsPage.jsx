@@ -9,6 +9,7 @@ import {
   updateAE,
   updateTeam,
 } from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
 
 // Small modal shell that reuses the existing .modal-backdrop / .modal styles
 // from App.css. Keeps focus trapping minimal — we close on Escape and on
@@ -51,6 +52,7 @@ function teamLabel(team) {
 }
 
 function CreateTeamModal({ isOpen, onClose, onCreated }) {
+  const toast = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -66,18 +68,22 @@ function CreateTeamModal({ isOpen, onClose, onCreated }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       setError('Team name is required.');
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      await createTeam({ name: name.trim(), description: description.trim() || null });
+      await createTeam({ name: trimmedName, description: description.trim() || null });
+      toast.success(`Team "${trimmedName}" created.`);
       onCreated();
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to create team.');
+      const msg = err.message || 'Failed to create team.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -132,6 +138,7 @@ function CreateTeamModal({ isOpen, onClose, onCreated }) {
 }
 
 function AttachSEModal({ isOpen, onClose, team, onAttached }) {
+  const toast = useToast();
   const [users, setUsers] = useState([]);
   const [userId, setUserId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -159,10 +166,17 @@ function AttachSEModal({ isOpen, onClose, team, onAttached }) {
     setError(null);
     try {
       await attachSEToTeam(team.id, { userId });
+      const picked = users.find((u) => u.id === userId);
+      const name = picked
+        ? `${picked.firstName ?? ''} ${picked.lastName ?? ''}`.trim() || picked.email
+        : 'Sales Engineer';
+      toast.success(`${name} attached to ${team?.name ?? 'team'}.`);
       onAttached();
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to attach SE.');
+      const msg = err.message || 'Failed to attach SE.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -217,6 +231,7 @@ function AttachSEModal({ isOpen, onClose, team, onAttached }) {
 }
 
 function AEModal({ isOpen, onClose, team, ae, allTeams, onSaved }) {
+  const toast = useToast();
   const isEdit = Boolean(ae);
   const [name, setName] = useState('');
   const [salesforceId, setSalesforceId] = useState('');
@@ -240,34 +255,51 @@ function AEModal({ isOpen, onClose, team, ae, allTeams, onSaved }) {
       setError('Name is required.');
       return;
     }
+    if (!salesforceId.trim()) {
+      setError('Salesforce ID is required.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
+      const trimmedName = name.trim();
+      const trimmedSfId = salesforceId.trim();
       if (isEdit) {
         const patch = {
-          name: name.trim(),
+          name: trimmedName,
           salesforceEmail: salesforceEmail.trim() || null,
         };
+        // Only include salesforceId when it actually changed so we
+        // don't trip the backend's uniqueness check on a no-op edit.
+        if (trimmedSfId !== (ae?.salesforceId ?? '')) {
+          patch.salesforceId = trimmedSfId;
+        }
+        let movedToTeamName = null;
         if (destinationTeamId && destinationTeamId !== team.id) {
           patch.teamId = destinationTeamId;
+          movedToTeamName =
+            allTeams.find((t) => t.id === destinationTeamId)?.name ?? null;
         }
         await updateAE(team.id, ae.id, patch);
+        toast.success(
+          movedToTeamName
+            ? `${trimmedName} updated and moved to ${movedToTeamName}.`
+            : `${trimmedName} updated.`,
+        );
       } else {
-        if (!salesforceId.trim()) {
-          setError('Salesforce ID is required when creating an AE.');
-          setSubmitting(false);
-          return;
-        }
         await createAE(team.id, {
-          name: name.trim(),
-          salesforceId: salesforceId.trim(),
+          name: trimmedName,
+          salesforceId: trimmedSfId,
           salesforceEmail: salesforceEmail.trim() || null,
         });
+        toast.success(`${trimmedName} added to ${team?.name ?? 'team'}.`);
       }
       onSaved();
       onClose();
     } catch (err) {
-      setError(err.message || 'Save failed.');
+      const msg = err.message || 'Save failed.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -306,17 +338,22 @@ function AEModal({ isOpen, onClose, team, ae, allTeams, onSaved }) {
             autoFocus
           />
         </label>
-        {!isEdit && (
-          <label className="admin-form-field">
-            <span>Salesforce ID</span>
-            <input
-              type="text"
-              value={salesforceId}
-              onChange={(e) => setSalesforceId(e.target.value)}
-              placeholder="0055f00000…"
-            />
-          </label>
-        )}
+        <label className="admin-form-field">
+          <span>Salesforce ID</span>
+          <input
+            type="text"
+            value={salesforceId}
+            onChange={(e) => setSalesforceId(e.target.value)}
+            placeholder="0055f00000…"
+          />
+          {isEdit && (
+            <small className="admin-form-hint">
+              Updating this re-keys the AE in Salesforce-derived metrics. Make sure the new ID
+              actually points at the same person.
+            </small>
+          )}
+        </label>
+
         <label className="admin-form-field">
           <span>Salesforce email (optional)</span>
           <input
@@ -349,6 +386,7 @@ function AEModal({ isOpen, onClose, team, ae, allTeams, onSaved }) {
 }
 
 function EditTeamModal({ isOpen, onClose, team, onSaved }) {
+  const toast = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -370,14 +408,18 @@ function EditTeamModal({ isOpen, onClose, team, onSaved }) {
     setSubmitting(true);
     setError(null);
     try {
+      const trimmedName = name.trim();
       await updateTeam(team.id, {
-        name: name.trim(),
+        name: trimmedName,
         description: description.trim() || null,
       });
+      toast.success(`Team "${trimmedName}" updated.`);
       onSaved();
       onClose();
     } catch (err) {
-      setError(err.message || 'Save failed.');
+      const msg = err.message || 'Save failed.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -430,6 +472,7 @@ function EditTeamModal({ isOpen, onClose, team, onSaved }) {
 }
 
 function TeamRow({ team, allTeams, onChanged }) {
+  const toast = useToast();
   const [expanded, setExpanded] = useState(false);
   const [editingTeam, setEditingTeam] = useState(false);
   const [attachingSE, setAttachingSE] = useState(false);
@@ -449,9 +492,10 @@ function TeamRow({ team, allTeams, onChanged }) {
     }
     try {
       await deleteAE(team.id, ae.id);
+      toast.success(`${ae.name} removed from ${team.name}.`);
       onChanged();
     } catch (err) {
-      window.alert(err.message || 'Failed to deactivate AE.');
+      toast.error(err.message || 'Failed to deactivate AE.');
     }
   }
 
@@ -577,23 +621,33 @@ function TeamRow({ team, allTeams, onChanged }) {
 }
 
 const TeamsPage = () => {
+  const toast = useToast();
   const [teams, setTeams] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // `initialLoading` only fires on the very first fetch so the table can
+  // render a placeholder before we have any data. Subsequent refreshes
+  // (after a CRUD action) flip `refreshing` instead, which leaves the
+  // table mounted — that's what preserves each TeamRow's local
+  // `expanded` state across edits/adds/removes.
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
 
   const loadTeams = useCallback(async () => {
-    setLoading(true);
+    setRefreshing(true);
     setError(null);
     try {
       const res = await fetchTeams();
       setTeams(res.teams || []);
     } catch (err) {
-      setError(err.message || 'Failed to load teams.');
+      const msg = err.message || 'Failed to load teams.';
+      setError(msg);
+      toast.error(msg);
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     loadTeams();
@@ -613,11 +667,14 @@ const TeamsPage = () => {
         </button>
       </div>
 
-      {loading && <p>Loading teams…</p>}
+      {initialLoading && <p>Loading teams…</p>}
       {error && <p className="admin-form-error">{error}</p>}
 
-      {!loading && !error && (
-        <table>
+      {!initialLoading && !error && (
+        <table
+          aria-busy={refreshing || undefined}
+          style={refreshing ? { opacity: 0.7, transition: 'opacity 120ms ease' } : undefined}
+        >
           <thead>
             <tr>
               <th>Team</th>

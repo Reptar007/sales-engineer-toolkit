@@ -44,16 +44,29 @@ function deriveStatus(state) {
   return { status: state.name || 'Backlog', tone: 'backlog' };
 }
 
-// Special-case label that elevates an issue to its own visual treatment
-// in the dashboard. When present, the row is highlighted pink and its
-// Status pill is replaced with "AI Demo" so the SE can spot demo work
-// at a glance regardless of where it sits in the workflow.
+// Special-case labels that elevate an issue to its own visual treatment
+// in the dashboard. When present, the row is highlighted (pink for
+// "AI Demo", purple for "AI Workshop") and its Status pill is replaced
+// with the matching label so the SE can spot prep-heavy work at a
+// glance regardless of where it sits in the workflow. The two are
+// rendered with different colors but otherwise share behavior — both
+// flip `isAiDemo` so aggregate counts (page header chrome, dashboard
+// summary) treat them as one "AI prep" bucket.
 const AI_DEMO_LABEL_RE = /^ai\s*demo$/i;
+const AI_WORKSHOP_LABEL_RE = /^ai\s*workshop$/i;
 
-function hasAiDemoLabel(issue) {
+// Returns 'demo' | 'workshop' | null. The first match wins, and the
+// label-name comparison is exact (anchored) so a label like "AI Demo
+// Prep" doesn't accidentally trigger the highlight.
+function classifyAiLabel(issue) {
   const nodes = issue?.labels?.nodes;
-  if (!Array.isArray(nodes)) return false;
-  return nodes.some((label) => AI_DEMO_LABEL_RE.test((label?.name || '').trim()));
+  if (!Array.isArray(nodes)) return null;
+  for (const label of nodes) {
+    const name = (label?.name || '').trim();
+    if (AI_DEMO_LABEL_RE.test(name)) return 'demo';
+    if (AI_WORKSHOP_LABEL_RE.test(name)) return 'workshop';
+  }
+  return null;
 }
 
 function mapIssue(issue) {
@@ -66,10 +79,18 @@ function mapIssue(issue) {
   }
 
   let { status, tone } = deriveStatus(state);
-  const isAiDemo = hasAiDemoLabel(issue);
-  if (isAiDemo) {
+  // `aiCategory` discriminates "AI Demo" (pink) from "AI Workshop"
+  // (purple). `isAiDemo` stays true for either so existing consumers
+  // (page-header "N AI demos coming up", dashboard summary counts)
+  // continue to treat AI prep work as a single bucket.
+  const aiCategory = classifyAiLabel(issue);
+  const isAiDemo = aiCategory !== null;
+  if (aiCategory === 'demo') {
     status = 'AI Demo';
     tone = 'ai-demo';
+  } else if (aiCategory === 'workshop') {
+    status = 'AI Workshop';
+    tone = 'ai-workshop';
   }
   const ae = extractDescriptionField(issue.description, 'Contract Owner');
   const dueDate = issue.dueDate || extractDescriptionField(issue.description, 'Due Date');
@@ -160,26 +181,23 @@ async function loadOrResolveLinearUserId(userId) {
   };
 }
 
+// Filter by state TYPE rather than an allowlist of state names. Linear
+// teams routinely add custom states ("Needs Access Check", "Access
+// Blocked", etc.) and even rename defaults ("To Do" vs "Todo"), so an
+// explicit name allowlist silently drops tickets whenever a team's
+// workflow drifts. The state types are a fixed enum (`triage`,
+// `backlog`, `unstarted`, `started`, `completed`, `canceled`), so
+// excluding the two terminal types is equivalent to "everything
+// currently in flight" regardless of how a team named the state.
+// `mapIssue` already redundantly filters completed/canceled client-side
+// in case Linear ever returns one through this filter.
 const TEAM_ISSUES_QUERY = `
   query MyTeamIssues($teamId: ID!, $assigneeId: ID!, $after: String) {
     issues(
       filter: {
         team: { id: { eq: $teamId } }
         assignee: { id: { eq: $assigneeId } }
-        state: {
-          name: {
-            in: [
-              "Blocked",
-              "Paused",
-              "In Progress",
-              "Needs Access Check",
-              "Access Check Completed",
-              "Access Blocked",
-              "To Do",
-              "Backlog"
-            ]
-          }
-        }
+        state: { type: { nin: ["completed", "canceled"] } }
       }
       first: 100
       after: $after
@@ -327,7 +345,13 @@ const AI_DEMO_TITLE_RE = /\bai\s+(?:demos?|workshops?)\b/i;
 function classifyClosedIssue(issue) {
   const projectName = issue?.project?.name || '';
   const labels = Array.isArray(issue?.labels?.nodes) ? issue.labels.nodes : [];
-  const hasAiDemoLabel = labels.some((label) => /^ai\s*demo$/i.test((label?.name || '').trim()));
+  // Mirrors AI_DEMO_LABEL_RE above — "AI Workshop" is treated as the
+  // same category as "AI Demo" for the team-page roll-up so a CSM
+  // workshop ticket counts toward the AI Demo bucket rather than
+  // landing in "Other".
+  const hasAiDemoLabel = labels.some((label) =>
+    /^ai\s*(?:demo|workshop)$/i.test((label?.name || '').trim()),
+  );
   const isCsmProject = /csm/i.test(projectName);
 
   const title = typeof issue?.title === 'string' ? issue.title : '';

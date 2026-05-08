@@ -1,0 +1,153 @@
+// =========================
+// Universal toast notifications
+// Stack lives at the app shell (rendered by ToastProvider) so any route
+// or component can surface CRUD feedback without per-page styling.
+// =========================
+
+.app-toast-stack {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  pointer-events: none;
+  max-width: min(28rem, calc(100vw - 2rem));
+}
+
+.app-toast {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.75rem 0.85rem 0.75rem 0.8rem;
+  border-radius: 0.65rem;
+  background: var(--midnight-navy, #020617);
+  color: var(--text-primary-dark, #ffffff);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left-width: 0.25rem;
+  box-shadow:
+    0 0.75rem 1.75rem rgba(0, 0, 0, 0.45),
+    0 0.125rem 0.5rem rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  min-width: 17rem;
+  animation: app-toast-in 200ms ease-out;
+}
+
+.app-toast__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  margin-top: 0.05rem;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.app-toast__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.app-toast__title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.app-toast__message {
+  margin: 0;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.app-toast__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: -0.25rem -0.25rem -0.25rem 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+
+  svg {
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary-dark, #ffffff);
+  }
+
+  &:focus-visible {
+    outline: 0.125rem solid rgba(255, 255, 255, 0.7);
+    outline-offset: 0.125rem;
+  }
+}
+
+// -------------------------
+// Variants — colored accent bar + icon tint per status
+// -------------------------
+.app-toast--success {
+  border-left-color: var(--success-green-alt, #2dd4bf);
+
+  .app-toast__icon {
+    color: var(--success-green-alt, #2dd4bf);
+  }
+}
+
+.app-toast--error {
+  border-left-color: #ff8a6e;
+
+  .app-toast__icon {
+    color: #ff8a6e;
+  }
+}
+
+.app-toast--warning {
+  border-left-color: #facc15;
+
+  .app-toast__icon {
+    color: #facc15;
+  }
+}
+
+.app-toast--info {
+  border-left-color: #60a5fa;
+
+  .app-toast__icon {
+    color: #60a5fa;
+  }
+}
+
+@keyframes app-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-toast {
+    animation: none;
+  }
+}

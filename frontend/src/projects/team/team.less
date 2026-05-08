@@ -353,6 +353,130 @@
   color: rgba(255, 255, 255, 0.55);
 }
 
+// "Closed-won C opps" section — single panel rendering a flat list
+// of every C-scored opp on the team in three columns: Opportunity
+// name (left), AE who closed it (centered), CARR (right-aligned).
+// Each cell carries an explicit text-align so the data rows and the
+// header row read as the same column system, and the column widths
+// are balanced (rather than letting AE float on intrinsic content
+// width) so the eye lands on the same horizontal positions in
+// every row.
+.team-c-opps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.team-c-opps-row {
+  display: grid;
+  // Two equal flex lanes flanking an intrinsic-width AE cell — that
+  // pins the AE column to the horizontal center of the row, while
+  // letting Opp (text-align: left) and CARR (text-align: right) hug
+  // the outer edges of the panel. Result: AE always lands dead
+  // center regardless of how long the opp name or dollar amount is.
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  // Header row sits above the data rows. Smaller, uppercased, dim —
+  // mirrors the `.team-ae-total__label` treatment so it reads as
+  // axis labels rather than a real entry. Inherits the same grid so
+  // header and data cells share one vertical rule per column.
+  &--head {
+    padding-top: 0;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+    .team-c-opps-row__opp,
+    .team-c-opps-row__ae,
+    .team-c-opps-row__carr {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: rgba(255, 255, 255, 0.55);
+    }
+  }
+}
+
+.team-c-opps-row__opp {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--white);
+}
+
+.team-c-opps-row__ae {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.team-c-opps-row__carr {
+  text-align: right;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--coral);
+  font-variant-numeric: tabular-nums;
+}
+
+// Below 720px the AE column collapses underneath the opp name so the
+// CARR amount keeps its own column on narrow viewports instead of
+// fighting two text columns for the same horizontal space.
+@media (max-width: 720px) {
+  .team-c-opps-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'opp carr'
+      'ae  ae';
+    row-gap: 0.2rem;
+    gap: 1rem;
+  }
+
+  .team-c-opps-row__opp {
+    grid-area: opp;
+  }
+
+  .team-c-opps-row__ae {
+    grid-area: ae;
+    text-align: left;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  .team-c-opps-row__carr {
+    grid-area: carr;
+  }
+
+  .team-c-opps-row--head {
+    // The compact two-column header row drops the AE label since the
+    // mobile layout puts AE under the opp name as a caption rather
+    // than in its own column. Keeps the header aligned with the
+    // visible CARR column.
+    grid-template-areas: 'opp carr';
+
+    .team-c-opps-row__ae {
+      display: none;
+    }
+  }
+}
+
 // Monthly-breakdown chart in the You view's "Monthly breakdown"
 // section. Inline SVG line chart — one polyline per category — so
 // the y-axis carries explicit count labels instead of leaving the
