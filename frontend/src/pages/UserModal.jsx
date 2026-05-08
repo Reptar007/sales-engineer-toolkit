@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { createUser, fetchTeams } from '../services/api';
 
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Admin' },
@@ -10,35 +10,72 @@ const ROLE_OPTIONS = [
 
 const SE_ROLES = new Set(['sales_engineer_1', 'sales_engineer_2', 'sales_engineer_lead']);
 
+// Sentinel values for the team picker. Plain strings (not the empty string)
+// so we can distinguish "no team" from "create a new one" without hitting
+// the same falsy guard.
+const TEAM_PICK_NONE = '__NONE__';
+const TEAM_PICK_NEW = '__NEW__';
+
 const UserModal = ({ isOpen, onClose, onSuccess }) => {
   const dialogRef = useRef(null);
-  const { register, error: authError, validationErrors, clearError } = useAuth();
 
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [roles, setRoles] = useState(['sales_engineer_1']);
-  const [teamName, setTeamName] = useState('');
-  const [teamDescription, setTeamDescription] = useState('');
+
+  // Team picker state. `teamPick` is either a sentinel
+  // (TEAM_PICK_NONE / TEAM_PICK_NEW) or the id of an existing team.
+  const [teamPick, setTeamPick] = useState(TEAM_PICK_NONE);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [newTeamDescription, setNewTeamDescription] = useState('');
+
+  // Existing-teams list, lazily loaded the first time the modal opens.
+  // Filtered down to teams that still need an SE so we never present an
+  // option that the backend would reject.
+  const [allTeams, setAllTeams] = useState([]);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
-  const [localError, setLocalError] = useState(null);
+  const [error, setError] = useState(null);
 
   const hasSERole = useMemo(() => roles.some((r) => SE_ROLES.has(r)), [roles]);
 
-  // Reset form whenever the modal opens, and clear stale auth errors.
+  const availableTeams = useMemo(
+    () => allTeams.filter((t) => t.isActive !== false && !t.salesEngineer),
+    [allTeams],
+  );
+
   useEffect(() => {
     if (!isOpen) return;
     setEmail('');
-    setPassword('');
     setFirstName('');
     setLastName('');
     setRoles(['sales_engineer_1']);
-    setTeamName('');
-    setTeamDescription('');
-    setLocalError(null);
-    clearError?.();
-  }, [isOpen, clearError]);
+    setTeamPick(TEAM_PICK_NONE);
+    setNewTeamName('');
+    setNewTeamDescription('');
+    setError(null);
+
+    setTeamsLoading(true);
+    fetchTeams()
+      .then((res) => setAllTeams(res.teams || []))
+      .catch((err) => {
+        console.error('Failed to load teams for picker:', err);
+        setAllTeams([]);
+      })
+      .finally(() => setTeamsLoading(false));
+  }, [isOpen]);
+
+  // If the admin removes all SE roles, reset the team picker — team
+  // assignment is meaningless without an SE role and the backend rejects it.
+  useEffect(() => {
+    if (!hasSERole && teamPick !== TEAM_PICK_NONE) {
+      setTeamPick(TEAM_PICK_NONE);
+      setNewTeamName('');
+      setNewTeamDescription('');
+    }
+  }, [hasSERole, teamPick]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -61,42 +98,47 @@ const UserModal = ({ isOpen, onClose, onSuccess }) => {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setLocalError(null);
+    setError(null);
 
-    if (!email.trim() || !password || !firstName.trim() || !lastName.trim()) {
-      setLocalError('Email, password, first name, and last name are all required.');
+    if (!email.trim() || !firstName.trim() || !lastName.trim()) {
+      setError('Email, first name, and last name are required.');
       return;
     }
     if (roles.length === 0) {
-      setLocalError('Pick at least one role.');
+      setError('Pick at least one role.');
       return;
     }
-    if (teamName.trim() && !hasSERole) {
-      setLocalError('Team name can only be set when at least one Sales Engineer role is selected.');
+    if (teamPick === TEAM_PICK_NEW && !newTeamName.trim()) {
+      setError('Provide a name for the new team or pick an existing one.');
       return;
+    }
+
+    const payload = {
+      email: email.trim(),
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      roles,
+    };
+    if (hasSERole) {
+      if (teamPick === TEAM_PICK_NEW) {
+        payload.teamName = newTeamName.trim();
+        if (newTeamDescription.trim()) payload.teamDescription = newTeamDescription.trim();
+      } else if (teamPick !== TEAM_PICK_NONE) {
+        payload.teamId = teamPick;
+      }
     }
 
     setSubmitting(true);
     try {
-      const result = await register(
-        email.trim(),
-        password,
-        firstName.trim(),
-        lastName.trim(),
-        roles,
-        teamName.trim() || null,
-        teamDescription.trim() || null,
-      );
-      // The current AuthProvider.register doesn't always return a result
-      // object on the failure path (it just sets the shared `error` state),
-      // so we treat "result missing or success !== true" as failure and let
-      // the auth error message render below.
-      if (result?.success) {
-        onSuccess?.();
-        onClose();
-      }
+      const result = await createUser(payload);
+      onSuccess?.({
+        user: result.user,
+        team: result.team,
+        temporaryPassword: result.temporaryPassword,
+      });
+      onClose();
     } catch (err) {
-      setLocalError(err.message || 'Failed to create user.');
+      setError(err.message || 'Failed to create user.');
     } finally {
       setSubmitting(false);
     }
@@ -150,19 +192,6 @@ const UserModal = ({ isOpen, onClose, onSuccess }) => {
             </label>
           </div>
 
-          <label className="admin-form-field">
-            <span>Initial password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            <small className="admin-form-hint">
-              The user will be prompted to change this on first login.
-            </small>
-          </label>
-
           <fieldset className="admin-form-field">
             <legend>Roles</legend>
             <div className="admin-form-checkbox-grid">
@@ -182,39 +211,63 @@ const UserModal = ({ isOpen, onClose, onSuccess }) => {
           {hasSERole && (
             <>
               <label className="admin-form-field">
-                <span>Team name (optional)</span>
-                <input
-                  type="text"
-                  value={teamName}
-                  onChange={(e) => setTeamName(e.target.value)}
-                  placeholder="Team Mario"
-                />
+                <span>Team</span>
+                <select
+                  value={teamPick}
+                  onChange={(e) => setTeamPick(e.target.value)}
+                  disabled={teamsLoading}
+                >
+                  <option value={TEAM_PICK_NONE}>
+                    {teamsLoading ? 'Loading teams…' : 'No team — attach later'}
+                  </option>
+                  {availableTeams.length > 0 && (
+                    <optgroup label="Existing teams (no SE assigned)">
+                      {availableTeams.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <option value={TEAM_PICK_NEW}>+ Create a new team…</option>
+                </select>
                 <small className="admin-form-hint">
-                  Leave blank to add the SE without a team — you can attach them from the Teams tab later.
+                  Existing teams that already have a Sales Engineer aren&apos;t shown here. Reassign
+                  from the Teams tab if needed.
                 </small>
               </label>
-              {teamName.trim() && (
-                <label className="admin-form-field">
-                  <span>Team description (optional)</span>
-                  <input
-                    type="text"
-                    value={teamDescription}
-                    onChange={(e) => setTeamDescription(e.target.value)}
-                  />
-                </label>
+
+              {teamPick === TEAM_PICK_NEW && (
+                <>
+                  <label className="admin-form-field">
+                    <span>New team name</span>
+                    <input
+                      type="text"
+                      value={newTeamName}
+                      onChange={(e) => setNewTeamName(e.target.value)}
+                      placeholder="Team Sonic"
+                      required
+                    />
+                  </label>
+                  <label className="admin-form-field">
+                    <span>Team description (optional)</span>
+                    <input
+                      type="text"
+                      value={newTeamDescription}
+                      onChange={(e) => setNewTeamDescription(e.target.value)}
+                    />
+                  </label>
+                </>
               )}
             </>
           )}
 
-          {localError && <p className="admin-form-error">{localError}</p>}
-          {authError && !localError && <p className="admin-form-error">{authError}</p>}
-          {validationErrors?.length > 0 && (
-            <ul className="admin-form-error">
-              {validationErrors.map((msg) => (
-                <li key={msg}>{msg}</li>
-              ))}
-            </ul>
-          )}
+          <p className="admin-form-hint">
+            A random temporary password will be generated and shown once after creation. The user
+            will be required to change it on their first login.
+          </p>
+
+          {error && <p className="admin-form-error">{error}</p>}
 
           <div className="modal-actions">
             <button

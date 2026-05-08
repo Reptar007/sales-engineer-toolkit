@@ -1,8 +1,10 @@
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import { authenticateToken } from './middleware/auth.js';
 import { requireRole } from './middleware/rbac.js';
 import { getPrisma } from './lib/prisma.js';
 import { resolveLinearUserByEmail, resolveLinearUserById } from './lib/linearClient.js';
+import generateRandomPassword from './utlis/generateRandomPassword.js';
 
 const router = express.Router();
 
@@ -101,6 +103,174 @@ router.get('/without-team', authenticateToken, requireRole('admin'), async (req,
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// Admin: update a user's profile fields (firstName, lastName, email) and
+// optionally their linked SalesEngineer.salesforceEmail. Used by the admin
+// Users tab so we can fix up records when an SE changes their name / email
+// without having to run a DB migration. Returns the same row shape as the
+// GET /users list endpoint so the frontend can drop the new value straight
+// into local state.
+router.patch('/:userId', authenticateToken, requireRole('admin'), async (req, res) => {
+  const { userId } = req.params;
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  const body = req.body ?? {};
+  const data = {};
+
+  if (typeof body.firstName === 'string') {
+    data.firstName = body.firstName.trim() || null;
+  }
+  if (typeof body.lastName === 'string') {
+    data.lastName = body.lastName.trim() || null;
+  }
+  if (typeof body.email === 'string') {
+    const email = body.email.trim();
+    if (!email) {
+      return res.status(400).json({ error: 'Email cannot be empty' });
+    }
+    data.email = email;
+  }
+
+  // salesforceEmail lives on SalesEngineer, not User. We accept it on this
+  // PATCH for ergonomics (admins think of "this person's email" as one
+  // concept) and apply it via a nested update only when the user has an
+  // SE record. Pass an empty string to clear it.
+  let salesforceEmailUpdate;
+  if (typeof body.salesforceEmail === 'string') {
+    salesforceEmailUpdate = body.salesforceEmail.trim() || null;
+  }
+
+  if (Object.keys(data).length === 0 && salesforceEmailUpdate === undefined) {
+    return res.status(400).json({ error: 'No updatable fields provided' });
+  }
+
+  try {
+    const prisma = await getPrisma();
+
+    // Guard against email collisions before we attempt the update so we can
+    // return a clean 409 instead of leaking the Prisma unique-constraint
+    // error shape to the frontend.
+    if (data.email) {
+      const existing = await prisma.user.findUnique({ where: { email: data.email } });
+      if (existing && existing.id !== userId) {
+        return res.status(409).json({ error: 'Another user already has this email' });
+      }
+    }
+
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, salesEngineer: { select: { id: true } } },
+    });
+    if (!target) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (salesforceEmailUpdate !== undefined && !target.salesEngineer) {
+      return res
+        .status(400)
+        .json({ error: 'Cannot set Salesforce email on a user without a Sales Engineer record' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      if (Object.keys(data).length > 0) {
+        await tx.user.update({ where: { id: userId }, data });
+      }
+      if (salesforceEmailUpdate !== undefined && target.salesEngineer) {
+        await tx.salesEngineer.update({
+          where: { id: target.salesEngineer.id },
+          data: { salesforceEmail: salesforceEmailUpdate },
+        });
+      }
+    });
+
+    const updated = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        isActive: true,
+        lastLoginAt: true,
+        createdAt: true,
+        updatedAt: true,
+        userRoles: { select: { role: true } },
+        salesEngineer: {
+          select: {
+            id: true,
+            teamId: true,
+            salesforceEmail: true,
+            salesforceId: true,
+            isActive: true,
+            team: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                isActive: true,
+                accountExecutives: {
+                  where: { isActive: true },
+                  select: { id: true, name: true, salesforceId: true, salesforceEmail: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return res.status(200).json({ message: 'User updated', user: updated });
+  } catch (error) {
+    console.error('PATCH /users/:userId error:', error);
+    return res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+// Admin: reset a user's password to a freshly generated random value. We set
+// `mustChangePassword: true` on the User row so the login flow forces them
+// through the change-password screen on next sign-in, regardless of what the
+// generated string looks like. The plaintext is returned ONCE in this
+// response so the admin UI can display + copy it; we do NOT persist or email
+// the plaintext anywhere else.
+router.post(
+  '/:userId/reset-password',
+  authenticateToken,
+  requireRole('admin'),
+  async (req, res) => {
+    const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    try {
+      const prisma = await getPrisma();
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true },
+      });
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const temporaryPassword = generateRandomPassword();
+      const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+      await prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash, mustChangePassword: true },
+      });
+
+      return res.status(200).json({
+        message: 'Password reset',
+        temporaryPassword,
+        mustChangeOnNextLogin: true,
+      });
+    } catch (error) {
+      console.error('POST /users/:userId/reset-password error:', error);
+      return res.status(500).json({ error: 'Failed to reset password' });
+    }
+  },
+);
 
 router.get('/me/linear', authenticateToken, async (req, res) => {
   try {

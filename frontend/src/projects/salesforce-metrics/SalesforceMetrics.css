@@ -1,4 +1,13 @@
-/* SalesforceMetrics Component Styles */
+/*
+ * SalesforceMetrics — dark navy + coral theme.
+ *
+ * Mirrors the design language used by the dashboard panels and the admin
+ * page: translucent white surfaces over the app's midnight-navy background,
+ * coral accents on the active state and headline numerals, uppercase
+ * micro-labels, and matching focus rings. Every selector is scoped to
+ * `.salesforce-metrics` (or `.salesforce-metrics ...`) so the table rules
+ * can't leak globally — same constraint that was on the previous version.
+ */
 
 .salesforce-metrics {
   width: 100%;
@@ -6,8 +15,8 @@
   border: none;
   border-radius: 0;
   padding: 0;
-  background-color: transparent;
-  color: #333333;
+  background: transparent;
+  color: var(--white);
   margin-bottom: 0;
   box-shadow: none;
   display: flex;
@@ -17,64 +26,82 @@
   overflow: visible;
 }
 
+/* =========================
+ * Hero header
+ * ========================= */
+
 .metrics-header {
-  text-align: center;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 1.5rem;
   padding: 0 0 1.5rem 0;
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .metrics-header-text {
   text-align: left;
   flex: 1;
+  min-width: 0;
+}
+
+.metrics-header-overline {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--coral);
+  margin-bottom: 0.5rem;
 }
 
 .metrics-header-text h1 {
-  font-size: 2.75rem;
+  font-size: 2.5rem;
   font-weight: 700;
-  margin: 0 0 0.5rem 0;
-  color: #333333;
+  margin: 0 0 0.4rem 0;
+  color: var(--white);
   letter-spacing: -0.02em;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
-.metrics-header-text p {
-  font-size: 1.1rem;
+.metrics-header-text > p {
+  font-size: 1rem;
   font-weight: 400;
-  color: #666666;
+  color: rgba(255, 255, 255, 0.65);
   margin: 0;
+}
+
+.metrics-header .error {
+  color: var(--coral);
 }
 
 .quarter-range {
   display: inline-flex;
   align-items: center;
   gap: 0.625rem;
-  margin-top: 0.75rem;
-  padding: 0.25rem 0.875rem 0.25rem 0.25rem;
-  background-color: #f4f6fa;
-  border: 1px solid #e4e8ef;
+  margin-top: 0.85rem;
+  padding: 0.3rem 0.875rem 0.3rem 0.3rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   width: fit-content;
-  box-shadow: 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.03);
 }
 
 .quarter-range-badge {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #ffffff;
-  background-color: #1e3a5f;
-  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--white);
+  background: rgba(255, 107, 74, 0.85);
+  padding: 0.3rem 0.7rem;
   border-radius: 999px;
-  letter-spacing: 0.02em;
   line-height: 1;
 }
 
 .quarter-range-dates {
   font-size: 0.875rem;
   font-weight: 500;
-  color: #4a5568;
+  color: rgba(255, 255, 255, 0.75);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -82,81 +109,59 @@
 .metrics-header-select {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.85rem;
   flex-shrink: 0;
   padding-top: 0.5rem;
 }
 
 .metrics-header-select p {
-  font-size: 1.1rem;
-  font-weight: 500;
-  color: #333333;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
   margin: 0;
 }
 
 .metrics-header select {
-  padding: 0.5rem 1.5rem;
+  padding: 0.5rem 0.85rem;
   border-radius: 0.5rem;
-  border: 1px solid #e0e0e0;
-  background-color: #ffffff;
-  color: #333333;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--white);
+  color-scheme: dark;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 1rem;
-  font-weight: 500;
-}
-
-.metrics-header select:hover {
-  background-color: #f5f5f5;
-  border-color: #1e3a5f;
-}
-
-.metrics-header select:focus {
-  outline: none;
-  border-color: #1e3a5f;
-  background-color: #ffffff;
-  box-shadow: 0 0 0 2px rgba(30, 58, 95, 0.1);
-}
-
-.metrics-actions {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
-  margin: 2rem 0 0 0;
-}
-
-.btn-metric {
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e0e0e0;
-  background-color: #ffffff;
-  color: #333333;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease,
+    box-shadow 0.15s ease;
   font-size: 0.9375rem;
+  font-weight: 500;
+  font-family: inherit;
 }
 
-.btn-metric:hover {
-  background-color: #f5f5f5;
-  border-color: #1e3a5f;
+.metrics-header select option {
+  background: var(--card-bg-navy);
+  color: var(--white);
 }
 
-.btn-metric.btn-primary {
-  background-color: #1e3a5f;
-  color: white;
-  border-color: #1e3a5f;
+.metrics-header select:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 107, 74, 0.4);
 }
 
-.btn-metric.btn-primary:hover {
-  background-color: #2a4a6f;
-  border-color: #2a4a6f;
+.metrics-header select:focus-visible {
+  outline: none;
+  border-color: var(--coral);
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.25);
 }
 
-.btn-metric:disabled {
+.metrics-header select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* =========================
+ * Metric cards grid
+ * ========================= */
 
 .metrics-content {
   display: grid;
@@ -164,195 +169,366 @@
   grid-template-rows: repeat(2, auto);
   gap: 1rem;
   width: 100%;
-  margin: 0 0 2rem 0;
+  margin: 0 0 2.25rem 0;
 }
 
-.metric-card {
+/*
+ * Cards are scoped under `.salesforce-metrics` because there's a separate
+ * (light-theme) `.metric-card` rule in SalesforceCalculator.css that
+ * wins the cascade tie when their CSS happens to be imported later — the
+ * extra `.salesforce-metrics` ancestor in the selector keeps us above
+ * that on specificity regardless of bundle order.
+ *
+ * Each card carries a `--card-accent` / `--card-accent-rgb` pair set via
+ * the `--goal`, `--carr`, `--progress` modifier classes below. Everything
+ * tinted (icon chip, corner glow, hover border, progress hero number)
+ * pulls from those vars, so adding a new card category is one selector.
+ */
+.salesforce-metrics .metric-card {
+  --card-accent: var(--coral);
+  --card-accent-rgb: 255, 107, 74;
+
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: .5rem;
-  border: 1px solid #e0e0e0;
-  background-color: #ffffff;
-  padding: 1.25rem;
-  border-radius: 0.75rem;
+  gap: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: var(--midnight-navy);
+  /*
+   * Two stacked layers:
+   *   1. soft radial in the top-right corner that picks up the card's
+   *      accent — gives each tile a tinted glow so the page doesn't
+   *      read as a wall of identical navy boxes.
+   *   2. light-from-top sheen that mirrors the dashboard panels.
+   */
+  background-image:
+    radial-gradient(
+      140% 110% at 100% 0%,
+      rgba(var(--card-accent-rgb), 0.18) 0%,
+      rgba(var(--card-accent-rgb), 0.04) 35%,
+      transparent 65%
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+  padding: 1.25rem 1.4rem;
+  border-radius: 0.85rem;
   width: 100%;
-  min-height: 10rem;
-  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
+  min-height: 9.5rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
-.metric-card:hover {
-  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.1);
-  transform: translateY(-0.0625rem);
+.salesforce-metrics .metric-card:hover {
+  border-color: rgba(var(--card-accent-rgb), 0.45);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(var(--card-accent-rgb), 0.18);
+  transform: translateY(-1px);
 }
 
-.metric-card-header h2 {
-  font-size: 1rem;
-  font-weight: 500;
-  color: #666666;
-  margin: 0 0 0.5rem 0;
+/* Goal cards — coral (the brand accent / target color). */
+.salesforce-metrics .metric-card--goal {
+  --card-accent: var(--coral);
+  --card-accent-rgb: 255, 107, 74;
 }
 
-.metric-card-body-text{
-  font-size: 2.5rem;
+/*
+ * CARR cards — teal. Conceptually "closed money / wins", and the
+ * complementary hue to coral keeps the row visually balanced when the
+ * Goal | CARR | Progress trio sits side-by-side.
+ */
+.salesforce-metrics .metric-card--carr {
+  --card-accent: #2dd4bf;
+  --card-accent-rgb: 45, 212, 191;
+}
+
+/*
+ * Progress cards adopt their accent from the same low/medium/high class
+ * already driving the progress bar fill — so a 12% card glows red, an
+ * 80%+ card glows teal, and the icon + numeral track the bar.
+ */
+.salesforce-metrics .metric-card--progress {
+  --card-accent: var(--coral);
+  --card-accent-rgb: 255, 107, 74;
+}
+
+.salesforce-metrics .metric-card.progress-bar-low {
+  --card-accent: #ff8a6e;
+  --card-accent-rgb: 255, 138, 110;
+}
+
+.salesforce-metrics .metric-card.progress-bar-medium {
+  --card-accent: #f59e0b;
+  --card-accent-rgb: 245, 158, 11;
+}
+
+.salesforce-metrics .metric-card.progress-bar-high {
+  --card-accent: #2dd4bf;
+  --card-accent-rgb: 45, 212, 191;
+}
+
+/*
+ * Hero number on progress cards picks up the same accent so the eye
+ * jumps straight to "12% / red — bad" or "92% / teal — done".
+ */
+.salesforce-metrics .metric-card--progress .metric-card-body-text {
+  color: var(--card-accent);
+}
+
+/*
+ * Header now lays out as label-on-left / coral icon chip on right —
+ * mirrors the `.metric-summary__head` pattern from the dashboard's
+ * detailed metric tiles.
+ */
+.salesforce-metrics .metric-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.salesforce-metrics .metric-card-header h2 {
+  font-size: 0.875rem;
   font-weight: 700;
-  color: #333333;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
   margin: 0;
 }
 
-p.quarterly-goal-text {
-  font-size: 0.8rem;
+.salesforce-metrics .metric-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.55rem;
+  background: rgba(var(--card-accent-rgb), 0.18);
+  color: var(--card-accent);
+  box-shadow: 0 0 0 1px rgba(var(--card-accent-rgb), 0.22);
+  flex-shrink: 0;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.salesforce-metrics .metric-card-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  stroke-width: 2.25;
+}
+
+.salesforce-metrics .metric-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.15rem;
+}
+
+.salesforce-metrics .metric-card-body-text {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--white);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.salesforce-metrics p.quarterly-goal-text {
+  font-size: 0.8125rem;
   font-weight: 400;
-  color: #666666;
+  color: rgba(255, 255, 255, 0.55);
   margin: 0;
   font-style: normal;
 }
 
-/* Progress Bar Styles */
+/* =========================
+ * Progress bars
+ * ========================= */
+
 .progress-bar {
   width: 100%;
-  height: 1rem;
-  background-color: #e0e0e0;
-  border-radius: 0.5rem;
+  height: 0.625rem;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
   overflow: hidden;
   position: relative;
-  margin: 0.5rem 0;
+  margin: 0.5rem 0 0;
 }
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4a90e2, #2c3e50);
-  border-radius: 0.5rem;
+  background: linear-gradient(90deg, rgba(255, 107, 74, 0.85), var(--coral));
+  border-radius: 999px;
   transition: width 0.6s ease-in-out;
-  position: relative;
-  overflow: hidden;
 }
 
+.progress-bar-small { height: 0.5rem; }
+.progress-bar-large { height: 1rem; }
 
-/* Progress Bar Variants */
-.progress-bar-small {
-  height: 0.5rem;
-}
-
-.progress-bar-large {
-  height: 1.5rem;
-}
-
-.progress-bar-success .progress-bar-fill {
-  background: linear-gradient(90deg, #27ae60, #2e7d32);
-}
-
-.progress-bar-warning .progress-bar-fill {
-  background: linear-gradient(90deg, #f39c12, #e67e22);
-}
-
+/*
+ * Goal-progress states. The dashboard convention is: red below ~30%,
+ * amber up to ~80%, then we hand it off to the success green so a fully-
+ * met goal reads as a clear win regardless of the coral palette.
+ */
+.progress-bar-low .progress-bar-fill,
 .progress-bar-danger .progress-bar-fill {
-  background: linear-gradient(90deg, #e74c3c, #c0392b);
+  background: linear-gradient(90deg, #ff6f6f, var(--error-red-alt));
 }
 
-/* Progress-based colors */
-.progress-bar-low .progress-bar-fill {
-  background: linear-gradient(90deg, #e74c3c, #c0392b);
+.progress-bar-medium .progress-bar-fill,
+.progress-bar-warning .progress-bar-fill {
+  background: linear-gradient(90deg, #ffb86b, #f59e0b);
 }
 
-.progress-bar-medium .progress-bar-fill {
-  background: linear-gradient(90deg, #f39c12, #e67e22);
+.progress-bar-high .progress-bar-fill,
+.progress-bar-success .progress-bar-fill {
+  background: linear-gradient(90deg, var(--success-green-alt), var(--success-green));
 }
 
-.progress-bar-high .progress-bar-fill {
-  background: linear-gradient(90deg, #27ae60, #2e7d32);
-}
+/* =========================
+ * Table separators + tables
+ * Scoped to .salesforce-metrics so these can't leak globally — same
+ * constraint that was on the original light-theme rules.
+ * ========================= */
 
 .table-separator {
   width: 100%;
   height: 1px;
-  background-color: #e0e0e0;
-  margin: 2rem 0;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 1.75rem 0;
 }
 
-/* Table Styles
- * IMPORTANT: every selector below is scoped to .salesforce-metrics so
- * these rules don't leak globally. Earlier these were unscoped (bare
- * `table`, `td`, `tbody tr`...) which clobbered every <table> in the
- * app — including the dashboard's Active Hunts table. Keep them
- * scoped to this component. */
+.salesforce-metrics .table-container,
+.salesforce-metrics .compensation-container {
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
+}
+
+.salesforce-metrics .table-container {
+  /*
+   * Keep the scroll behavior from the original: tall lists need to clip
+   * inside the panel rather than push the compensation table off-screen.
+   */
+  max-height: 24rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.salesforce-metrics .table-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.salesforce-metrics .table-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.salesforce-metrics .table-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.salesforce-metrics .table-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 .salesforce-metrics table {
   width: 100%;
-  margin: 0 0 2rem 0;
+  margin: 0;
   border-collapse: collapse;
-  background-color: #ffffff;
-  border-radius: 0.5rem;
-  overflow: hidden;
+  background: transparent;
   table-layout: fixed;
   box-sizing: border-box;
   caption-side: top;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.06);
 }
 
 .salesforce-metrics caption {
   text-align: left;
-  font-size: 1.75rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  color: #333333;
-  margin: 0 0 1rem 0;
+  color: var(--white);
+  margin: 0 0 0.85rem 0;
   padding: 0;
   letter-spacing: -0.01em;
   display: flex;
   align-items: baseline;
-  gap: 1rem;
+  gap: 0.85rem;
+  flex-wrap: wrap;
 }
 
 .salesforce-metrics caption .caption-subtitle {
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 400;
-  font-style: italic;
-  color: #666666;
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.salesforce-metrics caption .caption-subtitle strong {
+  color: var(--coral);
+  font-weight: 600;
 }
 
 .salesforce-metrics thead {
-  background-color: #f8f9fa;
+  background: transparent;
 }
 
 .salesforce-metrics th {
-  padding: 1rem;
+  padding: 0.65rem 1rem;
   text-align: center;
-  font-weight: 600;
-  color: #333333;
-  border-bottom: 2px solid #e0e0e0;
+  font-weight: 700;
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .salesforce-metrics td {
-  padding: 1rem;
+  padding: 0.85rem 1rem;
   text-align: center;
-  color: #333333;
-  border-bottom: 1px solid #f0f0f0;
+  color: var(--white);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.table-container {
-  max-height: 22rem;
-  overflow-y: auto;
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: #ccc transparent; /* Firefox */
+/*
+ * Sticky header so it doesn't disappear inside the scrolling
+ * `.table-container`. Layered colors recreate the panel's surface so
+ * scrolled rows don't bleed through behind the labels.
+ */
+.salesforce-metrics .table-container thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--midnight-navy);
 }
 
-.table-container::-webkit-scrollbar {
-  width: 8px; /* Narrower scrollbar */
+.salesforce-metrics .table-container thead::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0)
+  );
+  pointer-events: none;
 }
-
-.table-container::-webkit-scrollbar-track {
-  background: transparent; /* Invisible track */
-}
-
-.table-container::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 4px;
-}
-
 
 .salesforce-metrics thead,
 .salesforce-metrics tbody tr {
@@ -361,30 +537,92 @@ p.quarterly-goal-text {
   table-layout: fixed;
 }
 
+.salesforce-metrics tbody tr {
+  transition: background-color 0.15s ease;
+}
+
 .salesforce-metrics tbody tr:hover {
-  background-color: #f5f5f5;
+  background: rgba(255, 107, 74, 0.06);
 }
 
 .salesforce-metrics tbody tr:nth-child(even) {
-  background-color: #fafafa;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .salesforce-metrics tbody tr:nth-child(even):hover {
-  background-color: #f0f0f0;
+  background: rgba(255, 107, 74, 0.08);
 }
 
 .salesforce-metrics tbody tr:last-child td {
   border-bottom: none;
 }
 
-/* Column width controls (scoped — see note above) */
+/* Column widths kept identical to the previous build so headings line up
+   the same way across the existing screenshots/snapshots. */
 .salesforce-metrics th:nth-child(1),
-.salesforce-metrics td:nth-child(1) { width: 18%; } /* AE Name */
+.salesforce-metrics td:nth-child(1) { width: 18%; text-align: left; padding-left: 0.5rem; }
 .salesforce-metrics th:nth-child(2),
-.salesforce-metrics td:nth-child(2) { width: 30%; } /* Opportunity Name */
+.salesforce-metrics td:nth-child(2) { width: 30%; text-align: left; }
 .salesforce-metrics th:nth-child(3),
-.salesforce-metrics td:nth-child(3) { width: 22%; } /* CARR */
+.salesforce-metrics td:nth-child(3) { width: 22%; text-align: right; }
 .salesforce-metrics th:nth-child(4),
-.salesforce-metrics td:nth-child(4) { width: 22%; } /* Close Date */
+.salesforce-metrics td:nth-child(4) { width: 18%; }
 .salesforce-metrics th:nth-child(5),
-.salesforce-metrics td:nth-child(5) { width: 12%; } /* Account Score */
+.salesforce-metrics td:nth-child(5) { width: 12%; }
+
+/*
+ * Compensation table is wider on every column so override the closed-won
+ * column widths back to a balanced 4-column layout.
+ */
+.salesforce-metrics .compensation-container th:nth-child(1),
+.salesforce-metrics .compensation-container td:nth-child(1) { width: 28%; text-align: left; padding-left: 0.5rem; }
+.salesforce-metrics .compensation-container th:nth-child(2),
+.salesforce-metrics .compensation-container td:nth-child(2) { width: 22%; text-align: right; }
+.salesforce-metrics .compensation-container th:nth-child(3),
+.salesforce-metrics .compensation-container td:nth-child(3) { width: 24%; text-align: right; }
+.salesforce-metrics .compensation-container th:nth-child(4),
+.salesforce-metrics .compensation-container td:nth-child(4) { width: 26%; text-align: right; }
+
+/* =========================
+ * Status / loading / error rows
+ * ========================= */
+
+.salesforce-metrics tbody tr td[colspan] {
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  font-style: italic;
+}
+
+/* =========================
+ * Responsive
+ * ========================= */
+
+@media (max-width: 1100px) {
+  .metrics-content {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .metrics-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .metrics-header-select {
+    flex-wrap: wrap;
+  }
+
+  .metrics-content {
+    grid-template-columns: 1fr;
+  }
+
+  .metrics-header-text h1 {
+    font-size: 2rem;
+  }
+
+  .salesforce-metrics .table-container,
+  .salesforce-metrics .compensation-container {
+    padding: 1rem;
+  }
+}

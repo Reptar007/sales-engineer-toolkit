@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import { generateJWT } from '../utlis/jwt.js';
 import validatePassword from '../utlis/passwordValidation.js';
+import generateRandomPassword from '../utlis/generateRandomPassword.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireRole } from '../middleware/rbac.js';
 import { getPrisma } from '../lib/prisma.js';
@@ -73,7 +74,12 @@ router.post('/login', async (req, res) => {
 
     const roles = user.userRoles.map((ur) => ur.role);
     const token = generateJWT(user, roles);
-    const isDefaultPassword = password === 'password';
+    // Two ways a user can land in the must-change-password state:
+    //   1. The admin reset their password (sets `user.mustChangePassword`).
+    //   2. Legacy seed accounts whose stored hash matches the literal
+    //      "password" — kept for backwards compat with users that pre-date
+    //      the explicit flag and haven't been touched since.
+    const mustChangePassword = Boolean(user.mustChangePassword) || password === 'password';
 
     return res.json({
       message: 'Login successful',
@@ -90,7 +96,7 @@ router.post('/login', async (req, res) => {
       // first sign-in. Keep this field — the change-password endpoint now
       // returns the same `user.team` shape (with active AEs) so the
       // dashboard tiles stay populated across that hop.
-      mustChangePassword: isDefaultPassword,
+      mustChangePassword,
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -142,6 +148,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
         passwordHash: true,
         firstName: true,
         lastName: true,
+        mustChangePassword: true,
         userRoles: {
           select: {
             role: true,
@@ -154,11 +161,15 @@ router.post('/change-password', authenticateToken, async (req, res) => {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    // Check if user has default password (allow skipping current password verification)
+    // Allow skipping the "current password" challenge when:
+    //   1. Admin reset the password (mustChangePassword flag is set), OR
+    //   2. Legacy: stored hash still matches the literal seed default.
+    // Both signal that the user is being forced through this flow rather
+    // than proactively rotating a credential they already know.
     const hasDefaultPassword = await bcrypt.compare('password', user.passwordHash);
+    const skipCurrentPasswordCheck = user.mustChangePassword || hasDefaultPassword;
 
-    // If not default password, verify current password
-    if (!hasDefaultPassword) {
+    if (!skipCurrentPasswordCheck) {
       if (!currentPassword) {
         return res.status(400).json({ error: 'Current password is required' });
       }
@@ -188,7 +199,9 @@ router.post('/change-password', authenticateToken, async (req, res) => {
     // /auth/me).
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash: newPasswordHash },
+      // Clear the must-change-password flag once the user has actually picked
+      // a new credential, so subsequent logins land directly on the dashboard.
+      data: { passwordHash: newPasswordHash, mustChangePassword: false },
       include: {
         userRoles: true,
         salesEngineer: {
@@ -238,22 +251,28 @@ router.post('/register', authenticateToken, requireRole('admin'), async (req, re
       return res.status(400).json({ error: 'Request body is required' });
     }
 
-    const { email, password, firstName, lastName, roles, teamName, teamDescription } = req.body;
+    const { email, password, firstName, lastName, roles, teamId, teamName, teamDescription } =
+      req.body;
 
-    // Validate inputs
-    if (!email || !password || !firstName || !lastName) {
-      return res
-        .status(400)
-        .json({ error: 'Email, password, firstName, and lastName are required' });
+    // Validate inputs. `password` is now optional — when omitted we generate
+    // a cryptographically random temp password and force a change on first
+    // login (same flow the admin reset-password endpoint uses).
+    if (!email || !firstName || !lastName) {
+      return res.status(400).json({ error: 'Email, firstName, and lastName are required' });
     }
 
-    // Validate password
-    const validation = validatePassword(password);
-    if (!validation.valid) {
-      return res.status(400).json({
-        error: 'Password validation failed',
-        errors: validation.errors,
-      });
+    // If the caller DID provide a password, still enforce the policy. Skip
+    // the policy when we're auto-generating because our generator is
+    // guaranteed to satisfy it.
+    const wantsAutoPassword = !password;
+    if (!wantsAutoPassword) {
+      const validation = validatePassword(password);
+      if (!validation.valid) {
+        return res.status(400).json({
+          error: 'Password validation failed',
+          errors: validation.errors,
+        });
+      }
     }
 
     // Validate and normalize roles
@@ -279,6 +298,14 @@ router.post('/register', authenticateToken, requireRole('admin'), async (req, re
       });
     }
 
+    // Reject mutually-exclusive team payloads up front so we don't have to
+    // unwind a partially-created user later.
+    if (teamId && teamName) {
+      return res.status(400).json({
+        error: 'Provide either teamId (existing team) or teamName (new team), not both',
+      });
+    }
+
     // Check if email is already in use
     const prisma = await getPrisma();
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -286,25 +313,47 @@ router.post('/register', authenticateToken, requireRole('admin'), async (req, re
       return res.status(409).json({ error: 'User with this email already exists' });
     }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 12);
+    // Resolve / generate the plaintext password. We hold onto the plaintext
+    // only long enough to surface it in the response — it's never persisted
+    // anywhere besides the bcrypt hash.
+    const generatedPassword = wantsAutoPassword ? generateRandomPassword() : null;
+    const effectivePassword = generatedPassword ?? password;
+    const passwordHash = await bcrypt.hash(effectivePassword, 12);
 
     // Check if user has SE role (sales_engineer_1, sales_engineer_2, or sales_engineer_lead)
     const hasSERole = userRoles.some((role) =>
       ['sales_engineer_1', 'sales_engineer_2', 'sales_engineer_lead'].includes(role),
     );
 
-    // Validate: If teamName is provided, user must have SE role
-    if (teamName && !hasSERole) {
+    // Team affordances are only meaningful for SEs.
+    if ((teamName || teamId) && !hasSERole) {
       return res.status(400).json({
-        error: 'Team can only be created for users with sales engineer roles',
+        error: 'Team can only be assigned to users with sales engineer roles',
       });
     }
 
-    // Validate: If teamName is provided, check if it's already taken
+    // Pre-validate the team payload before we create the User row so a 409
+    // doesn't leave behind a half-provisioned account.
+    let existingTeam = null;
+    if (teamId) {
+      existingTeam = await prisma.team.findUnique({ where: { id: teamId } });
+      if (!existingTeam) {
+        return res.status(404).json({ error: 'Selected team not found' });
+      }
+      // Each team has exactly one SE; refuse to clobber the existing one.
+      const currentSE = await prisma.salesEngineer.findFirst({
+        where: { teamId, isActive: true },
+        select: { id: true },
+      });
+      if (currentSE) {
+        return res.status(409).json({
+          error: 'That team already has a Sales Engineer assigned',
+        });
+      }
+    }
     if (teamName) {
-      const existingTeam = await prisma.team.findUnique({ where: { name: teamName } });
-      if (existingTeam) {
+      const conflict = await prisma.team.findUnique({ where: { name: teamName } });
+      if (conflict) {
         return res.status(409).json({ error: 'Team with this name already exists' });
       }
     }
@@ -316,6 +365,9 @@ router.post('/register', authenticateToken, requireRole('admin'), async (req, re
         passwordHash,
         firstName,
         lastName,
+        // When the admin didn't pick a password we issued a random one and
+        // need the user to rotate it on first login.
+        mustChangePassword: wantsAutoPassword,
         userRoles: {
           create: userRoles.map((role) => ({ role })), // Create one UserRole per role
         },
@@ -326,18 +378,19 @@ router.post('/register', authenticateToken, requireRole('admin'), async (req, re
     let team = null;
     let salesEngineer = null;
 
-    // If user has SE role and teamName is provided, create Team and SalesEngineer
-    if (hasSERole && teamName) {
-      // Create team
-      team = await prisma.team.create({
-        data: {
-          name: teamName,
-          description: teamDescription || null,
-          isActive: true,
-        },
-      });
+    if (hasSERole && (teamName || teamId)) {
+      if (teamId) {
+        team = existingTeam;
+      } else {
+        team = await prisma.team.create({
+          data: {
+            name: teamName,
+            description: teamDescription || null,
+            isActive: true,
+          },
+        });
+      }
 
-      // Create SalesEngineer linking user to team
       salesEngineer = await prisma.salesEngineer.create({
         data: {
           userId: user.id,
@@ -350,12 +403,14 @@ router.post('/register', authenticateToken, requireRole('admin'), async (req, re
 
     // Extract roles from user
     const userRolesArray = user.userRoles.map((ur) => ur.role);
-    const token = generateJWT(user, userRolesArray);
 
-    // Build response
+    // Build response. We deliberately do NOT issue a JWT here anymore — this
+    // endpoint runs under the admin's token and the prior behavior of
+    // returning a token caused the AuthProvider on the client to swap the
+    // admin's session for the new user's. Callers that want to log in as
+    // the new user should hit /auth/login afterwards.
     const response = {
       message: 'User created successfully',
-      token,
       user: {
         id: user.id,
         email: user.email,
@@ -372,6 +427,13 @@ router.post('/register', authenticateToken, requireRole('admin'), async (req, re
         name: team.name,
         description: team.description,
       };
+    }
+
+    // Surface the generated plaintext exactly once so the admin UI can copy
+    // it. Omitted entirely when the admin supplied their own password.
+    if (generatedPassword) {
+      response.temporaryPassword = generatedPassword;
+      response.mustChangeOnNextLogin = true;
     }
 
     res.status(201).json(response);

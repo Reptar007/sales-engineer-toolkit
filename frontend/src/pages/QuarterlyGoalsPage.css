@@ -1,7 +1,10 @@
+/* QuarterlyGoalsPage — dark theme, matches the admin panel surface. */
+
 .quarterly-goals {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  color: var(--white);
 }
 
 .quarterly-goals__title {
@@ -10,13 +13,17 @@
 
 .quarterly-goals__intro {
   margin: 0 0 0.5rem 0;
-  color: #555;
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .quarterly-goals__hint {
   margin: -0.25rem 0 0.5rem 0;
-  color: #4b5563;
+  color: rgba(255, 255, 255, 0.55);
   font-size: 0.9rem;
+}
+
+.quarterly-goals__hint strong {
+  color: var(--coral);
 }
 
 .quarterly-goals__controls {
@@ -27,108 +34,152 @@
 
 .quarterly-goals__label {
   font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .quarterly-goals__select {
   padding: 0.5rem 0.75rem;
-  border: 1px solid #d7d7d7;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 0.5rem;
-  background-color: #fff;
-  color: #1f2937;
-  color-scheme: light;
+  background-color: rgba(255, 255, 255, 0.04);
+  color: var(--white);
+  color-scheme: dark;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.quarterly-goals__select option {
+  background: var(--card-bg-navy);
+  color: var(--white);
 }
 
 .quarterly-goals__loading {
   margin: 0.5rem 0;
-  color: #666;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .quarterly-goals__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.75rem;
+  gap: 0.85rem;
 }
 
 .quarterly-goals__card {
-  background: #fff;
-  border: 1px solid #e8e8e8;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.75rem;
-  padding: 0.75rem;
+  padding: 0.9rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.quarterly-goals__card:hover {
+  border-color: rgba(255, 107, 74, 0.3);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .quarterly-goals__card-label {
-  font-size: 0.9rem;
-  color: #444;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .quarterly-goals__card-subtext {
-  font-size: 0.82rem;
-  color: #6b7280;
+  font-size: 0.8125rem;
+  color: var(--coral);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .quarterly-goals__input {
-  padding: 0.55rem 0.7rem;
-  border: 1px solid #d4d4d4;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 0.5rem;
   width: 100%;
-  background-color: #fff;
-  color: #1f2937;
-  color-scheme: light;
+  background-color: rgba(255, 255, 255, 0.04);
+  color: var(--white);
+  color-scheme: dark;
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.quarterly-goals__input:hover,
+.quarterly-goals__select:hover {
+  border-color: rgba(255, 255, 255, 0.24);
 }
 
 .quarterly-goals__input:focus,
 .quarterly-goals__select:focus {
   outline: none;
-  border-color: #1e3a5f;
-  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.15);
+  border-color: var(--coral);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.18);
 }
 
 .quarterly-goals__total {
   margin: 0.25rem 0 0;
   font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  font-variant-numeric: tabular-nums;
 }
 
 .quarterly-goals__save {
   width: fit-content;
-  padding: 0.6rem 1rem;
-  border: none;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid rgba(255, 107, 74, 0.5);
   border-radius: 0.5rem;
-  background-color: #1e3a5f;
-  color: #fff;
+  background: rgba(255, 107, 74, 0.14);
+  color: var(--coral);
   cursor: pointer;
   font-weight: 600;
+  font-family: inherit;
+  font-size: 0.875rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.quarterly-goals__save:hover:not(:disabled) {
+  background: rgba(255, 107, 74, 0.24);
+  border-color: var(--coral);
 }
 
 .quarterly-goals__save:disabled {
-  opacity: 0.7;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .quarterly-goals__message {
   margin: 0;
   font-weight: 500;
+  font-size: 0.875rem;
 }
 
 .quarterly-goals__message--success {
-  color: #1f7a1f;
+  color: var(--success-green-alt, #2dd4bf);
 }
 
 .quarterly-goals__message--error {
-  color: #a21919;
+  color: #ffb09b;
 }
 
 .quarterly-goals__toast {
   position: fixed;
   right: 1.5rem;
   bottom: 1.5rem;
-  background: #116329;
-  color: #fff;
-  border-radius: 0.5rem;
-  padding: 0.7rem 0.9rem;
+  background: var(--midnight-navy);
+  border: 1px solid rgba(20, 184, 166, 0.45);
+  color: var(--success-green-alt, #2dd4bf);
+  border-radius: 0.6rem;
+  padding: 0.7rem 0.95rem;
   font-weight: 600;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  font-size: 0.875rem;
+  box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.5);
   z-index: 1100;
 }

@@ -1,0 +1,913 @@
+/*
+ * RatioEstimator — dark navy + coral theme.
+ *
+ * The page is rendered through the shared ProjectView wrapper, so this
+ * file re-skins:
+ *   1. The wrapping .project-header banner (only used by this project).
+ *   2. The .ratio-estimator panels and form controls (.section,
+ *      .upload-form, .file-controls, etc.).
+ *   3. The Review section's table, search bar, status pills, pagination,
+ *      empty / loading states, and modal — all originally written for
+ *      light mode in App.less.
+ *
+ * App.less wraps every legacy rule in `@layer components`. CSS layers
+ * are weaker than unlayered rules at every specificity, so this file
+ * doesn't live in any layer — that means even our 2-class selectors
+ * automatically beat the legacy `.section` / `.btn` rules without
+ * needing `!important` or specificity gymnastics.
+ */
+
+/* =========================
+ * Page wrapper
+ * ========================= */
+
+.project-view {
+  background: transparent;
+  color: var(--white);
+}
+
+.project-content {
+  padding: 0;
+  max-width: none;
+  margin: 0;
+}
+
+/* =========================
+ * Project header banner
+ *
+ * Mirrors the .page-header treatment used on Dashboard / Admin: coral
+ * overline-equivalent (icon chip), white title, muted subtitle, hairline
+ * divider underneath. The version pill is now a translucent navy chip.
+ * ========================= */
+
+.project-view .project-header {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 0 1.5rem 0;
+  margin: 0 0 1.75rem 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+
+.project-view .project-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.project-view .project-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.project-view .project-info .project-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.65rem;
+  background: rgba(255, 107, 74, 0.16);
+  color: var(--coral);
+  box-shadow: 0 0 0 1px rgba(255, 107, 74, 0.22);
+  font-size: 1.4rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.project-view .project-info .project-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--white);
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.project-view .project-info .project-subtitle {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0.15rem 0 0 0;
+}
+
+.project-view .project-header-right .project-version {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.55);
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================
+ * Page shell
+ * ========================= */
+
+.ratio-estimator {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  color: var(--white);
+}
+
+/* =========================
+ * Section panels
+ *
+ * Match the navy panel treatment used on the Calculator / Lookup pages.
+ * `will-change: transform` from the legacy base layer is fine to keep —
+ * we only swap the surface, padding, and typography.
+ * ========================= */
+
+.ratio-estimator .section {
+  background: var(--midnight-navy);
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 1.25rem 1.4rem;
+  margin: 0;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
+  /* Cancel the legacy `transition: all` which stutters on hover. */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ratio-estimator .section-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 1rem 0;
+}
+
+/* =========================
+ * Current Prompt
+ *
+ * Recessed dark tile with a coral left rule — visually marks the prompt
+ * as "this is the system input" (matches the quote / blockers blocks
+ * inside the lookup detail view).
+ * ========================= */
+
+.ratio-estimator .prompt-text {
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 3px solid var(--coral);
+  padding: 0.85rem 1.05rem;
+  border-radius: 0.55rem;
+  margin: 0;
+}
+
+/* =========================
+ * Upload form
+ * ========================= */
+
+.ratio-estimator .upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ratio-estimator .file-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.ratio-estimator .file-name {
+  flex: 1;
+  min-width: 12rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.9375rem;
+}
+
+.ratio-estimator .hint {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.ratio-estimator .error {
+  color: #ffb4ae;
+  font-size: 0.8125rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-left: 3px solid var(--error-red-alt);
+  border-radius: 0.5rem;
+}
+
+/* =========================
+ * Buttons
+ *
+ * `Choose CSV` (.file-btn) is the primary action that kicks off the
+ * flow → coral CTA. `Submit` (.primary) is destructive-adjacent (uploads
+ * the file and starts the AI run) but already framed by the coral CSV
+ * pick, so we render it as a secondary ghost button. Reusing the same
+ * .btn-calculator pattern from the calculator/lookup so all three
+ * project pages share one button language.
+ * ========================= */
+
+.ratio-estimator .btn {
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 0.55rem;
+  padding: 0.55rem 1.15rem;
+  min-height: 2.4rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.ratio-estimator .btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.35);
+}
+
+.ratio-estimator .btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ratio-estimator .btn.file-btn {
+  background: rgba(255, 107, 74, 0.18);
+  border-color: rgba(255, 107, 74, 0.45);
+  color: var(--white);
+}
+
+.ratio-estimator .btn.file-btn:hover:not(:disabled) {
+  background: rgba(255, 107, 74, 0.28);
+  border-color: rgba(255, 107, 74, 0.7);
+  transform: translateY(-1px);
+}
+
+.ratio-estimator .btn.primary {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--white);
+}
+
+.ratio-estimator .btn.primary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 107, 74, 0.4);
+  transform: translateY(-1px);
+}
+
+/* =========================
+ * Search bar (review section)
+ * ========================= */
+
+.ratio-estimator .search-container {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.ratio-estimator .search-container::before {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.ratio-estimator .search-input {
+  width: 100%;
+  padding: 0.65rem 1rem 0.65rem 2.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--white);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ratio-estimator .search-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.ratio-estimator .search-input:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ratio-estimator .search-input:focus {
+  outline: none;
+  border-color: var(--coral);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.25);
+}
+
+/* =========================
+ * Review header / stats / status badges
+ * ========================= */
+
+.ratio-estimator .review-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.ratio-estimator .review-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.ratio-estimator .results-count {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.ratio-estimator .page-info {
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+.ratio-estimator .results-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ratio-estimator .status-counts {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ratio-estimator .status-badge {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.ratio-estimator .status-badge:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
+.ratio-estimator .status-badge.pending.active {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--white);
+}
+
+.ratio-estimator .status-badge.approved {
+  color: #6ee7b7;
+  border-color: rgba(45, 212, 191, 0.3);
+  background: rgba(45, 212, 191, 0.08);
+}
+
+.ratio-estimator .status-badge.approved:hover,
+.ratio-estimator .status-badge.approved.active {
+  background: rgba(45, 212, 191, 0.18);
+  border-color: rgba(45, 212, 191, 0.5);
+  color: #d1fae5;
+}
+
+.ratio-estimator .status-badge.rejected {
+  color: #ffb4ae;
+  border-color: rgba(244, 67, 54, 0.3);
+  background: rgba(244, 67, 54, 0.08);
+}
+
+.ratio-estimator .status-badge.rejected:hover,
+.ratio-estimator .status-badge.rejected.active {
+  background: rgba(244, 67, 54, 0.18);
+  border-color: rgba(244, 67, 54, 0.5);
+  color: #ffd6d2;
+}
+
+/* =========================
+ * Review actions (Resubmit / Download)
+ * ========================= */
+
+.ratio-estimator .review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.ratio-estimator .review-actions .resubmit-rejected,
+.ratio-estimator .review-actions .download-estimate {
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 0.55rem;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.ratio-estimator .review-actions .resubmit-rejected {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--white);
+}
+
+.ratio-estimator .review-actions .resubmit-rejected:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 107, 74, 0.4);
+  transform: translateY(-1px);
+}
+
+.ratio-estimator .review-actions .download-estimate {
+  background: rgba(255, 107, 74, 0.18);
+  border: 1px solid rgba(255, 107, 74, 0.45);
+  color: var(--white);
+}
+
+.ratio-estimator .review-actions .download-estimate:hover {
+  background: rgba(255, 107, 74, 0.28);
+  border-color: rgba(255, 107, 74, 0.7);
+  transform: translateY(-1px);
+}
+
+/* =========================
+ * Review table
+ * ========================= */
+
+.ratio-estimator .table-wrapper {
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.ratio-estimator .table-wrapper.scrollable {
+  max-height: 28rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.ratio-estimator .table-wrapper.scrollable::-webkit-scrollbar { width: 8px; }
+.ratio-estimator .table-wrapper.scrollable::-webkit-scrollbar-track { background: transparent; }
+.ratio-estimator .table-wrapper.scrollable::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.ratio-estimator .review-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+  background: transparent;
+}
+
+.ratio-estimator .review-table th {
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ratio-estimator .review-table td {
+  padding: 0.85rem 1rem;
+  font-size: 0.9375rem;
+  color: var(--white);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+}
+
+.ratio-estimator .review-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.ratio-estimator .review-table tbody tr:hover {
+  background: rgba(255, 107, 74, 0.05);
+}
+
+.ratio-estimator .review-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Row state stripes — coral for approved, dim red for rejected. The
+   left bar mirrors the prompt-text accent so semantic rows visually
+   read as "tagged" rather than "tinted". */
+.ratio-estimator .review-table .row-approved {
+  background: rgba(45, 212, 191, 0.06) !important;
+  border-left: 3px solid #2dd4bf;
+}
+
+.ratio-estimator .review-table .row-rejected {
+  background: rgba(244, 67, 54, 0.06) !important;
+  border-left: 3px solid var(--error-red-alt);
+  opacity: 0.85;
+}
+
+/* =========================
+ * Approve / Reject circular buttons
+ * ========================= */
+
+.ratio-estimator .review-table .actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ratio-estimator .btn.circular {
+  width: 2rem;
+  height: 2rem;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--white);
+}
+
+.ratio-estimator .btn.circular.approve {
+  color: #6ee7b7;
+}
+
+.ratio-estimator .btn.circular.approve:hover:not(:disabled) {
+  background: rgba(45, 212, 191, 0.2);
+  border-color: rgba(45, 212, 191, 0.5);
+}
+
+.ratio-estimator .btn.circular.approve.active {
+  background: rgba(45, 212, 191, 0.85);
+  border-color: rgba(45, 212, 191, 0.85);
+  color: var(--midnight-navy);
+  box-shadow: 0 0.25rem 0.65rem -0.25rem rgba(45, 212, 191, 0.6);
+}
+
+.ratio-estimator .btn.circular.reject {
+  color: #ffb4ae;
+}
+
+.ratio-estimator .btn.circular.reject:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.5);
+}
+
+.ratio-estimator .btn.circular.reject.active {
+  background: rgba(244, 67, 54, 0.85);
+  border-color: rgba(244, 67, 54, 0.85);
+  color: var(--white);
+  box-shadow: 0 0.25rem 0.65rem -0.25rem rgba(244, 67, 54, 0.6);
+}
+
+/* =========================
+ * Empty / loading states (sit inside the review table shell)
+ * ========================= */
+
+.ratio-estimator .empty-message,
+.ratio-estimator .loading-message {
+  padding: 3rem 1rem !important;
+  background: transparent;
+  border-bottom: none !important;
+}
+
+.ratio-estimator .empty-content h3,
+.ratio-estimator .loading-content h3 {
+  color: var(--white);
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ratio-estimator .empty-content p,
+.ratio-estimator .loading-content p {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9375rem;
+  margin: 0;
+}
+
+.ratio-estimator .empty-icon {
+  filter: none;
+  opacity: 0.85;
+}
+
+.ratio-estimator .loading-subtext {
+  color: rgba(255, 255, 255, 0.45);
+  font-style: normal;
+  font-size: 0.8125rem;
+}
+
+.ratio-estimator .spinner-icon {
+  filter: none;
+}
+
+/* =========================
+ * Pagination
+ * ========================= */
+
+.ratio-estimator .pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.ratio-estimator .pagination-btn,
+.ratio-estimator .pagination-number {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--white);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.ratio-estimator .pagination-btn:hover:not(:disabled),
+.ratio-estimator .pagination-number:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 107, 74, 0.4);
+}
+
+.ratio-estimator .pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ratio-estimator .pagination-number {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ratio-estimator .pagination-number.active {
+  background: rgba(255, 107, 74, 0.18);
+  border-color: rgba(255, 107, 74, 0.55);
+  color: var(--white);
+}
+
+.ratio-estimator .pagination-number.active:hover {
+  background: rgba(255, 107, 74, 0.28);
+  border-color: rgba(255, 107, 74, 0.7);
+}
+
+/* =========================
+ * Reject modal
+ *
+ * Lives outside .ratio-estimator (mounted at body level) so we scope to
+ * .modal-backdrop / .reject-modal directly.
+ * ========================= */
+
+.modal-backdrop {
+  background: rgba(5, 13, 24, 0.7);
+  backdrop-filter: blur(0.5rem);
+}
+
+.modal {
+  background: var(--midnight-navy);
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 1.5rem 1.65rem;
+  color: var(--white);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 48px -16px rgba(0, 0, 0, 0.6);
+}
+
+.modal h3 {
+  color: var(--white);
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0 0 0.85rem 0;
+}
+
+.modal p {
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 1.25rem 0;
+  font-size: 0.9375rem;
+}
+
+.reject-modal h3 {
+  color: #ffb4ae;
+}
+
+.reject-modal h3::before {
+  filter: none;
+}
+
+.modal .form-group {
+  margin: 1rem 0;
+}
+
+.modal .form-label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.modal .required { color: var(--coral); }
+.modal .optional { color: rgba(255, 255, 255, 0.4); font-style: normal; }
+
+.modal .ratio-input,
+.modal .form-textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.55rem;
+  padding: 0.65rem 0.85rem;
+  color: var(--white);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.modal .ratio-input {
+  max-width: 8rem;
+  text-align: center;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+}
+
+.modal .ratio-input::placeholder,
+.modal .form-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+  font-style: normal;
+}
+
+.modal .ratio-input:focus,
+.modal .form-textarea:focus {
+  outline: none;
+  border-color: var(--coral);
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.25);
+  transform: none;
+}
+
+.modal .form-hint {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+.modal-actions .btn {
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 0.55rem;
+  padding: 0.55rem 1.15rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.modal-actions .btn.ghost {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--white);
+}
+
+.modal-actions .btn.ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 107, 74, 0.4);
+}
+
+.modal-actions .btn.reject.solid {
+  background: var(--error-red-alt);
+  border-color: var(--error-red-alt);
+  color: var(--white);
+  border-radius: 0.55rem;
+  padding: 0.55rem 1.15rem;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.modal-actions .btn.reject.solid:hover:not(:disabled) {
+  background: var(--error-red-hover);
+  border-color: var(--error-red-hover);
+  transform: translateY(-1px);
+}
+
+/* =========================
+ * Tooltips (rejection reason)
+ * ========================= */
+
+.ratio-estimator .rejection-indicator {
+  filter: none;
+}
+
+.ratio-estimator .tooltip {
+  background: var(--midnight-navy);
+  color: var(--white);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0.65rem 1.5rem -0.5rem rgba(0, 0, 0, 0.7);
+  font-size: 0.8125rem;
+}
+
+.ratio-estimator .tooltip strong {
+  color: var(--coral);
+  font-weight: 700;
+}
+
+.ratio-estimator .tooltip::after {
+  border-top-color: var(--midnight-navy);
+}
+
+.ratio-estimator .tooltip-below .tooltip::after {
+  border-top-color: transparent;
+  border-bottom-color: var(--midnight-navy);
+}
+
+/* =========================
+ * Responsive
+ * ========================= */
+
+@media (max-width: 48rem) {
+  .project-view .project-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .project-view .project-header-right {
+    align-self: flex-start;
+  }
+
+  .project-view .project-info .project-title {
+    font-size: 1.5rem;
+  }
+
+  .ratio-estimator .file-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ratio-estimator .file-name {
+    text-align: center;
+    order: -1;
+  }
+}

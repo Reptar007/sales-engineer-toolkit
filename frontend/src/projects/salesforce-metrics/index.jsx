@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { LuTarget, LuTrendingUp, LuActivity } from 'react-icons/lu';
 import './SalesforceMetrics.css';
 import {
   fetchSalesforceReport,
@@ -255,6 +256,7 @@ const SalesforceMetrics = () => {
     <div className="salesforce-metrics">
       <div className="metrics-header">
         <div className="metrics-header-text">
+          <div className="metrics-header-overline">TROPHY ROOM</div>
           <h1>Salesforce Metrics</h1>
           <p>Track and analyze your Salesforce performance</p>
           {dateRange?.label && (
@@ -297,9 +299,12 @@ const SalesforceMetrics = () => {
       </div>
 
       <div className="metrics-content">
-        <div className="metric-card">
+        <div className="metric-card metric-card--goal">
           <div className="metric-card-header">
             <h2>Current Quarter Goal</h2>
+            <span className="metric-card-icon" aria-hidden="true">
+              <LuTarget />
+            </span>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">$ {formatNumber(quarterlyGoal)}</h3>
@@ -307,9 +312,12 @@ const SalesforceMetrics = () => {
           </div>
         </div>
 
-        <div className="metric-card">
+        <div className="metric-card metric-card--carr">
           <div className="metric-card-header">
             <h2>Current Quarter CARR</h2>
+            <span className="metric-card-icon" aria-hidden="true">
+              <LuTrendingUp />
+            </span>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">$ {formatNumber(currentQuarterCARR)}</h3>
@@ -317,9 +325,19 @@ const SalesforceMetrics = () => {
           </div>
         </div>
 
-        <div className="metric-card">
+        {/*
+          The progress class (low / medium / high) is applied to BOTH the
+          card and the inner bar so the same coral / amber / teal accent
+          drives the icon chip, the corner glow, AND the progress fill.
+        */}
+        <div
+          className={`metric-card metric-card--progress ${getProgressClass(progressPercentage)}`}
+        >
           <div className="metric-card-header">
             <h2>Quarterly Goal Progress</h2>
+            <span className="metric-card-icon" aria-hidden="true">
+              <LuActivity />
+            </span>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">{progressPercentage.toFixed(2)}%</h3>
@@ -329,9 +347,12 @@ const SalesforceMetrics = () => {
           </div>
         </div>
 
-        <div className="metric-card">
+        <div className="metric-card metric-card--goal">
           <div className="metric-card-header">
             <h2>Yearly Goal</h2>
+            <span className="metric-card-icon" aria-hidden="true">
+              <LuTarget />
+            </span>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">$ {formatNumber(yearlyGoal)}</h3>
@@ -339,9 +360,12 @@ const SalesforceMetrics = () => {
           </div>
         </div>
 
-        <div className="metric-card">
+        <div className="metric-card metric-card--carr">
           <div className="metric-card-header">
             <h2>Yearly CARR</h2>
+            <span className="metric-card-icon" aria-hidden="true">
+              <LuTrendingUp />
+            </span>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">$ {formatNumber(currentYearCARR)}</h3>
@@ -349,9 +373,14 @@ const SalesforceMetrics = () => {
           </div>
         </div>
 
-        <div className="metric-card">
+        <div
+          className={`metric-card metric-card--progress ${getProgressClass(calculateGoalProgress(currentYearCARR, yearlyGoal))}`}
+        >
           <div className="metric-card-header">
             <h2>Yearly Goal Progress</h2>
+            <span className="metric-card-icon" aria-hidden="true">
+              <LuActivity />
+            </span>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">
@@ -392,7 +421,10 @@ const SalesforceMetrics = () => {
               </tr>
             ) : error ? (
               <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#e74c3c' }}>
+                <td
+                  colSpan="5"
+                  style={{ textAlign: 'center', padding: '2rem', color: 'var(--coral)' }}
+                >
                   Error loading data: {error}
                 </td>
               </tr>

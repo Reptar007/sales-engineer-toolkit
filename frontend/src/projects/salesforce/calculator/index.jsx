@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
+  LuTrendingUp,
+  LuCirclePlus,
+  LuTarget,
+  LuActivity,
+  LuTrophy,
+} from 'react-icons/lu';
+import {
   fetchSalesforceReport,
   getSalesforceConfig,
   fetchSalesforceSnapshotMetrics,
@@ -18,6 +25,12 @@ function getCurrentQuarter() {
   else quarter = 4;
   return `Q${quarter} CY${year}`;
 }
+
+const COMPENSATION_ROLE_META = {
+  'sales engineer 1': { accentClass: 'compensation-card--se1' },
+  'sales engineer 2': { accentClass: 'compensation-card--se2' },
+  'sales engineer Lead': { accentClass: 'compensation-card--lead' },
+};
 
 const SalesforceCalculator = () => {
   const [config, setConfig] = useState(null);
@@ -192,7 +205,8 @@ const SalesforceCalculator = () => {
   if (configError) {
     return (
       <div className="salesforce-calculator">
-        <div className="error-state">
+        <div className="calculator-state calculator-state--error">
+          <div className="calculator-header-overline">BOUNTY CALCULATOR</div>
           <h1>Salesforce Calculator</h1>
           <p>Failed to load config: {configError}</p>
         </div>
@@ -203,9 +217,10 @@ const SalesforceCalculator = () => {
   if (loading) {
     return (
       <div className="salesforce-calculator">
-        <div className="loading-state">
+        <div className="calculator-state">
+          <div className="calculator-header-overline">BOUNTY CALCULATOR</div>
           <h1>Salesforce Calculator</h1>
-          <p>Loading opportunities...</p>
+          <p>Loading opportunities…</p>
         </div>
       </div>
     );
@@ -214,7 +229,8 @@ const SalesforceCalculator = () => {
   if (error) {
     return (
       <div className="salesforce-calculator">
-        <div className="error-state">
+        <div className="calculator-state calculator-state--error">
+          <div className="calculator-header-overline">BOUNTY CALCULATOR</div>
           <h1>Salesforce Calculator</h1>
           <p>Error: {error}</p>
         </div>
@@ -224,51 +240,69 @@ const SalesforceCalculator = () => {
 
   const progressPercentage = quarterlyGoal > 0 ? (projectedTotalCARR / quarterlyGoal) * 100 : 0;
   const goalFormatted = `$${(quarterlyGoal / 1000000).toFixed(2)}M`;
+  const progressClass = getProgressClass(progressPercentage);
+  const isBelowThreshold = quarterlyGoal > 0 && projectedTotalCARR / quarterlyGoal < 0.8;
 
   return (
     <div className="salesforce-calculator">
       <div className="calculator-header">
         <div className="calculator-header-text">
+          <div className="calculator-header-overline">BOUNTY CALCULATOR</div>
           <h1>Salesforce Calculator</h1>
           <p>Calculate projected totals and compensation for {currentQuarter}</p>
         </div>
       </div>
 
       <div className="calculator-content">
-        <div className="metric-card">
+        <div className="metric-card metric-card--carr">
           <div className="metric-card-header">
             <h2>Current Quarter CARR</h2>
+            <span className="metric-card-icon" aria-hidden="true">
+              <LuTrendingUp />
+            </span>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">{currentQuarterCARRFormatted}</h3>
             <p className="quarterly-goal-text">Closed won for {currentQuarter}</p>
           </div>
         </div>
-        <div className="metric-card">
+
+        <div className="metric-card metric-card--added">
           <div className="metric-card-header">
             <h2>Added Opportunities</h2>
+            <span className="metric-card-icon" aria-hidden="true">
+              <LuCirclePlus />
+            </span>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">{addedTotalCARRFormatted}</h3>
             <p className="quarterly-goal-text">{selectedOpps.length} selected</p>
           </div>
         </div>
-        <div className="metric-card" style={{ backgroundColor: '#f0f8ff' }}>
+
+        <div className="metric-card metric-card--projected">
           <div className="metric-card-header">
             <h2>Projected Total</h2>
+            <span className="metric-card-icon" aria-hidden="true">
+              <LuTarget />
+            </span>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">{projectedTotalCARRFormatted}</h3>
             <p className="quarterly-goal-text">If selected opportunities close</p>
           </div>
         </div>
-        <div className="metric-card">
+
+        <div className={`metric-card metric-card--progress ${progressClass}`}>
           <div className="metric-card-header">
             <h2>Quarterly Goal Progress</h2>
+            <span className="metric-card-icon" aria-hidden="true">
+              <LuActivity />
+            </span>
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">{progressPercentage.toFixed(2)}%</h3>
-            <div className={`progress-bar ${getProgressClass(progressPercentage)}`}>
+            <div className={`progress-bar ${progressClass}`}>
               <div
                 className="progress-bar-fill"
                 style={{ width: `${Math.min(progressPercentage, 100)}%` }}
@@ -284,26 +318,24 @@ const SalesforceCalculator = () => {
       <div className="calculator-compensation-container">
         {Object.keys(compensation).map((role) => {
           const compData = calculateCompensation(role, projectedTotalCARR, quarterlyGoal);
-          const roleClass =
-            role === 'sales engineer 1'
-              ? 'compensation-card-se1'
-              : role === 'sales engineer 2'
-                ? 'compensation-card-se2'
-                : 'compensation-card-lead';
+          const accentClass = COMPENSATION_ROLE_META[role]?.accentClass || '';
           return (
-            <div key={role} className={`compensation-card ${roleClass}`}>
+            <div key={role} className={`compensation-card ${accentClass}`}>
               <div className="metric-card-header">
                 <h2>{role.toUpperCase()}</h2>
+                <span className="metric-card-icon" aria-hidden="true">
+                  <LuTrophy />
+                </span>
               </div>
               <div className="metric-card-body">
-                <h3 className="metric-card-body-text" style={{ fontSize: '2rem' }}>
+                <h3 className="metric-card-body-text compensation-card-amount">
                   ${compData.compensation.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </h3>
                 <p className="quarterly-goal-text">
                   Quarterly: ${compData.quarterlyCompensation.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
-                {quarterlyGoal > 0 && projectedTotalCARR / quarterlyGoal < 0.8 && (
-                  <p style={{ fontSize: '0.75rem', color: '#d32f2f', marginTop: '0.5rem' }}>
+                {isBelowThreshold && (
+                  <p className="compensation-card-warning">
                     Must hit 80% of goal to earn compensation
                   </p>
                 )}
@@ -317,7 +349,7 @@ const SalesforceCalculator = () => {
 
       <div className="calculator-actions">
         <button
-          className="btn-calculator"
+          className="btn-calculator btn-calculator--primary"
           onClick={selectAll}
           disabled={opportunities.length === 0 || selectedOpps.length === opportunities.length}
         >
@@ -368,7 +400,7 @@ const SalesforceCalculator = () => {
           <tbody>
             {opportunities.length === 0 ? (
               <tr>
-                <td colSpan="6" style={{ padding: '2rem', textAlign: 'center' }}>
+                <td colSpan="6" className="empty-row">
                   No opportunities found
                 </td>
               </tr>
@@ -380,11 +412,11 @@ const SalesforceCalculator = () => {
                     key={opportunity.opportunityId}
                     className={isSelected ? 'selected' : ''}
                     onClick={() => toggleSelection(opportunity.opportunityId)}
-                    style={{ cursor: 'pointer' }}
                   >
                     <td>
                       <input
                         type="checkbox"
+                        className="calculator-checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelection(opportunity.opportunityId)}
                         onClick={(e) => e.stopPropagation()}

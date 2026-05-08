@@ -28,6 +28,22 @@ const TEAM_MASCOTS = {
     src: '/yoshi_header.png',
     alt: 'Yoshi riding a dirt bike',
   },
+  'team-kirby': {
+    src: '/kirby_header.png',
+    alt: 'Kirby in a pink hoodie at a gaming setup',
+  },
+  'team-sonic': {
+    src: '/sonic_header.png',
+    alt: 'Sonic bench-pressing 300 lbs in a QA Wolf tracksuit',
+  },
+  'team-bowser': {
+    src: '/bowser_header.png',
+    alt: 'Bowser snowboarding in tactical gear on a Chronic-branded board',
+  },
+  'team-zelda': {
+    src: '/zelda_header.png',
+    alt: 'Link leaning on a Chronic-branded supercar with sword on his back',
+  },
 };
 
 // We share localStorage keys with `<CurrentQuarterMetrics />` on purpose —
@@ -493,12 +509,20 @@ function TeamPage() {
   }, [oppsByAE, scope]);
 
   // Roll up team-wide stats from the same filtered map that drives the
-  // AE roster, so the at-a-glance tiles and the per-AE cards always
-  // tell a consistent story (sum of AE totals === team total, etc.).
+  // AE roster, restricted to the team's own AE roster so the at-a-glance
+  // tiles and the per-AE cards always tell a consistent story
+  // (sum of AE totals === team total, etc.).
+  //
+  // Previously this iterated `filteredOppsByAE.values()` directly, which
+  // included every AE bucket in the pack-wide payload — that meant teams
+  // whose AEs hadn't closed anything (e.g. Team Sonic on launch day) saw
+  // pack-wide pipeline numbers in the tiles but $0 per-AE in the cards.
   const teamTotals = useMemo(() => {
+    const teamAEs = team?.accountExecutives ?? [];
     let totalCarr = 0;
     let count = 0;
-    for (const opps of filteredOppsByAE.values()) {
+    for (const ae of teamAEs) {
+      const opps = filteredOppsByAE.get(normalizeName(ae.name)) ?? [];
       for (const opp of opps) {
         const amount = Number(opp?.carrAmount);
         if (Number.isFinite(amount)) totalCarr += amount;
@@ -510,7 +534,7 @@ function TeamPage() {
       count,
       avgDealSize: count > 0 ? totalCarr / count : 0,
     };
-  }, [filteredOppsByAE]);
+  }, [filteredOppsByAE, team?.accountExecutives]);
 
   if (!team) {
     return (

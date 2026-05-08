@@ -1,4 +1,21 @@
-/* Admin Page Component Styles */
+/* =========================================================================
+   Admin Panel — Dark Navy Theme
+
+   The Admin Panel matches the rest of the app's dark navy aesthetic:
+   - Page canvas inherits the global navy from .app
+   - Hero header mirrors PageHeader: coral overline, white title, hairline
+     divider underneath
+   - Tab nav uses pill-style segmented control (coral active state) like
+     team-page filters
+   - Each section sits inside a dashboard-panel-style card (midnight navy
+     fill, hairline white border, layered drop shadow)
+   - Tables, forms, and modals are recolored for the dark surface so admin
+     content reads as part of the same product, not a bolt-on portal
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   Page shell
+   ------------------------------------------------------------------------- */
 
 .admin-page {
   width: 100%;
@@ -7,7 +24,7 @@
   border-radius: 0;
   padding: 0;
   background-color: transparent;
-  color: #333333;
+  color: var(--white);
   margin-bottom: 0;
   box-shadow: none;
   display: flex;
@@ -17,13 +34,16 @@
   overflow: visible;
 }
 
+/* -------------------------------------------------------------------------
+   Hero header — mirrors the .page-header treatment used on Dashboard so
+   the admin landing reads as a first-class top-level page.
+   ------------------------------------------------------------------------- */
+
 .admin-header {
-  text-align: center;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 0 0 1.5rem 0;
-  margin-bottom: 2rem;
+  display: block;
+  padding: 1.25rem 0 1.5rem;
+  margin: 0 0 1.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .admin-header-text {
@@ -31,35 +51,65 @@
   flex: 1;
 }
 
-.admin-header-text h1 {
-  font-size: 2.75rem;
+.admin-header-overline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--coral);
+  font-size: 0.75rem;
   font-weight: 700;
-  margin: 0 0 0.5rem 0;
-  color: #333333;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 0.625rem;
+}
+
+.admin-header-overline::before {
+  content: '';
+  display: inline-block;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background-color: var(--coral);
+  box-shadow: 0 0 0.5rem rgba(255, 107, 74, 0.55);
+}
+
+.admin-header-text h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--white);
   letter-spacing: -0.02em;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 .admin-header-text p {
-  font-size: 1.1rem;
-  font-weight: 400;
-  color: #666666;
-  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--muted-gray);
+  margin: 0.625rem 0 0;
 }
 
-/* Admin Tabs Navigation */
+/* -------------------------------------------------------------------------
+   Tab nav — pill-style segmented control. Visually echoes the team-page
+   filter so navigating between admin sections feels like the rest of the
+   product rather than a separate skin.
+   ------------------------------------------------------------------------- */
+
 .admin-tabs {
-  margin-bottom: 2rem;
-  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 1.5rem;
+  border-bottom: none;
 }
 
 .admin-tabs-list {
   list-style: none;
-  padding: 0;
+  padding: 0.3rem;
   margin: 0;
-  display: flex;
-  gap: 0.5rem;
+  display: inline-flex;
   flex-wrap: wrap;
+  gap: 0.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
 }
 
 .admin-tab-item {
@@ -67,88 +117,262 @@
 }
 
 .admin-tab-button {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: none;
+  padding: 0.55rem 1.15rem;
+  background: transparent;
   border: none;
-  border-bottom: 3px solid transparent;
-  color: #666666;
+  border-radius: 9999px;
+  color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.9375rem;
-  font-weight: 500;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  font-size: 0.9rem;
+  font-weight: 600;
   font-family: inherit;
-  margin-bottom: -1px;
+  margin-bottom: 0;
 }
 
 .admin-tab-button:hover {
-  color: #333333;
-  background-color: #f5f5f5;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .admin-tab-button.active {
-  color: #1e3a5f;
-  border-bottom-color: #1e3a5f;
-  font-weight: 600;
+  background: rgba(255, 107, 74, 0.18);
+  color: var(--coral);
+}
+
+.admin-tab-button:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
 }
 
 .admin-tab-icon {
-  font-size: 1.125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/*
+ * react-icons SVGs render at the parent's font-size when sized with `1em`,
+ * and inherit `currentColor` from the button — so the icon picks up the
+ * coral active state automatically without any per-icon styling.
+ */
+.admin-tab-icon svg {
+  width: 1.05em;
+  height: 1.05em;
+  display: block;
 }
 
 .admin-tab-label {
   white-space: nowrap;
 }
 
+/* -------------------------------------------------------------------------
+   Content + sections
+   ------------------------------------------------------------------------- */
+
 .admin-content {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.5rem;
   width: 100%;
 }
 
-/* Section styles to match other project pages */
-.section {
+/* Override the global .section card-section() mixin so admin sections
+   render as dark dashboard panels instead of white cards. */
+.admin-page .section {
   width: 100%;
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  padding: 1.5rem 1.75rem;
+  box-shadow:
+    0 1.25rem 2.5rem rgba(0, 0, 0, 0.55),
+    0 0.5rem 1rem rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--white);
 }
 
-.section-title {
+.admin-page .section-title {
   font-size: 1.5rem;
-  font-weight: 600;
-  color: #333333;
-  margin: 0 0 1.5rem 0;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: -0.01em;
+  margin: 0 0 1rem 0;
 }
+
+/* -------------------------------------------------------------------------
+   Section header (Users / Teams page header rows)
+   ------------------------------------------------------------------------- */
 
 .users-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 1rem 1.5rem;
+  margin: 0 0 1.25rem 0;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.users-header button {
-  background-color: #1e3a5f;
-  color: white;
-  border: none;
+.users-header .section-title {
+  margin: 0;
+}
+
+.users-header button,
+.admin-page .btn-metric.btn-primary {
+  background: rgba(255, 107, 74, 0.14);
+  border: 1px solid rgba(255, 107, 74, 0.5);
+  color: var(--coral);
   padding: 0.5rem 1rem;
-  border-radius: 0.40rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.users-header button:hover {
-  opacity: 0.5;
-  font-weight: 500;
-  transition: all 0.2s ease;
+.users-header button:hover,
+.admin-page .btn-metric.btn-primary:hover {
+  background: rgba(255, 107, 74, 0.24);
+  border-color: var(--coral);
+  color: var(--coral);
+  opacity: 1;
 }
 
 .empty-state {
   text-align: center;
   padding: 2rem;
+  color: rgba(255, 255, 255, 0.55);
 }
 
-/* ------- Admin shared form styles (Teams, AE, Attach SE, User modals) ----- */
+/* -------------------------------------------------------------------------
+   Reset-password success banner
+   Sits between the section header and the users table after an admin
+   resets a password. Surfaces the temporary credential prominently so it
+   can be copied + sent out-of-band before the admin moves on.
+   ------------------------------------------------------------------------- */
+
+.admin-reset-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0 0 1.25rem 0;
+  padding: 0.9rem 1rem;
+  background: rgba(20, 184, 166, 0.08);
+  border: 1px solid rgba(20, 184, 166, 0.4);
+  border-radius: 0.6rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.admin-reset-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.admin-reset-banner__text strong {
+  font-size: 0.95rem;
+  color: var(--success-green-alt, #2dd4bf);
+}
+
+.admin-reset-banner__text span {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Inline row that pairs the credential code chip with the copy button so
+   they read as a single "label + value + action" cluster. Wraps on narrow
+   widths so the copy button drops below the code instead of overflowing. */
+.admin-reset-banner__credential {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-reset-banner__copy {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  /* Slightly tighter than the standard btn-ghost so it sits comfortably
+     next to the inline code chip instead of dwarfing it. */
+  line-height: 1.2;
+}
+
+.admin-reset-banner__text small {
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.admin-reset-banner__code {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  margin: 0 0.15rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.35rem;
+  color: var(--coral);
+  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+  font-size: 0.875rem;
+  font-weight: 600;
+  user-select: all;
+}
+
+/* -------------------------------------------------------------------------
+   Tables (Users / Teams / AE roster)
+
+   The admin tables ship without a dedicated wrapper class, so we scope
+   styling to `.admin-page table` and `.admin-ae-table` to avoid leaking
+   into the global table styles used elsewhere (e.g. review-table).
+   ------------------------------------------------------------------------- */
+
+.admin-page table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  color: var(--white);
+}
+
+.admin-page table thead th {
+  text-align: left;
+  padding: 0.75rem 0.875rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.admin-page table tbody td {
+  padding: 0.85rem 0.875rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  vertical-align: middle;
+}
+
+.admin-page table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-page table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* -------------------------------------------------------------------------
+   Shared form styles for admin modals (Teams, AE, Attach SE, User)
+   ------------------------------------------------------------------------- */
 
 .admin-form {
   display: flex;
@@ -165,9 +389,9 @@
 .admin-form-field {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: 0.4rem;
   font-size: 0.875rem;
-  color: #333333;
+  color: var(--white);
   border: 0;
   padding: 0;
   margin: 0;
@@ -176,154 +400,275 @@
 .admin-form-field > span,
 .admin-form-field > legend {
   font-weight: 600;
-  color: #333333;
+  color: rgba(255, 255, 255, 0.85);
   padding: 0;
+  font-size: 0.8125rem;
+  letter-spacing: 0.01em;
 }
 
 .admin-form-field input[type='text'],
 .admin-form-field input[type='email'],
 .admin-form-field input[type='password'],
 .admin-form-field select {
-  padding: 0.5rem 0.625rem;
-  border: 1px solid #cccccc;
-  border-radius: 0.375rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.5rem;
   font-size: 0.9375rem;
   font-family: inherit;
-  background: #ffffff;
-  color: #333333;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--white);
+  color-scheme: dark;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.admin-form-field input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.admin-form-field input:hover,
+.admin-form-field select:hover {
+  border-color: rgba(255, 255, 255, 0.24);
 }
 
 .admin-form-field input:focus,
 .admin-form-field select:focus {
-  outline: 2px solid #1e3a5f;
-  outline-offset: 1px;
-  border-color: #1e3a5f;
+  outline: none;
+  border-color: var(--coral);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.18);
+}
+
+.admin-form-field select option {
+  background: var(--card-bg-navy);
+  color: var(--white);
 }
 
 .admin-form-checkbox-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem 1rem;
-  margin-top: 0.25rem;
+  margin-top: 0.4rem;
 }
 
 .admin-form-checkbox {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-weight: 400;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
+}
+
+.admin-form-checkbox input[type='checkbox'] {
+  accent-color: var(--coral);
 }
 
 .admin-form-hint {
   margin: 0;
   font-size: 0.8125rem;
-  color: #666666;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .admin-form-error {
   margin: 0;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
-  background: #fdecea;
-  color: #b71c1c;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 107, 74, 0.12);
+  border: 1px solid rgba(255, 107, 74, 0.35);
+  color: #ffb09b;
   font-size: 0.875rem;
 }
 
 ul.admin-form-error {
   list-style: disc;
-  padding-left: 1.5rem;
+  padding-left: 2rem;
 }
 
-/* ------- Teams page row styles ------------------------------------------- */
+/* -------------------------------------------------------------------------
+   Admin modal — overrides the light .modal/.modal-backdrop look
+   ------------------------------------------------------------------------- */
+
+.modal.admin-modal {
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--white);
+  box-shadow:
+    0 1.5rem 3rem rgba(0, 0, 0, 0.65),
+    0 0.5rem 1rem rgba(0, 0, 0, 0.45);
+}
+
+.modal.admin-modal h3 {
+  color: var(--white);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modal.admin-modal p {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.modal.admin-modal .modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* -------------------------------------------------------------------------
+   Teams page rows — keep the inline-action affordances but recolor for
+   the dark surface.
+   ------------------------------------------------------------------------- */
 
 .admin-row-toggle {
   background: none;
   border: 0;
   cursor: pointer;
   padding: 0 0.5rem 0 0;
-  font-size: 0.75rem;
-  color: #666666;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 0.15s ease;
+}
+
+.admin-row-toggle:hover {
+  color: var(--coral);
 }
 
 .admin-row-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
 }
 
 .btn-ghost {
-  background: transparent;
-  border: 1px solid #cccccc;
-  padding: 0.25rem 0.625rem;
-  border-radius: 0.375rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 0.35rem 0.7rem;
+  border-radius: 0.4rem;
   cursor: pointer;
   font-size: 0.8125rem;
   font-family: inherit;
-  color: #333333;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: #f5f5f5;
-  border-color: #999999;
+  background: rgba(255, 107, 74, 0.08);
+  border-color: rgba(255, 107, 74, 0.55);
+  color: var(--coral);
 }
 
 .btn-ghost:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .btn-ghost.btn-danger {
-  color: #b71c1c;
-  border-color: #f5b6b1;
+  color: #ffb09b;
+  border-color: rgba(255, 107, 74, 0.35);
 }
 
 .btn-ghost.btn-danger:hover:not(:disabled) {
-  background: #fdecea;
-  border-color: #ef9a9a;
+  background: rgba(255, 107, 74, 0.14);
+  border-color: var(--coral);
+  color: var(--coral);
 }
 
 .btn-primary {
-  background: #1e3a5f;
-  color: #ffffff;
-  border: 0;
-  padding: 0.45rem 0.85rem;
-  border-radius: 0.375rem;
+  background: rgba(255, 107, 74, 0.14);
+  color: var(--coral);
+  border: 1px solid rgba(255, 107, 74, 0.5);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
   cursor: pointer;
   font-size: 0.875rem;
   font-family: inherit;
-  font-weight: 500;
+  font-weight: 600;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #16304f;
+  background: rgba(255, 107, 74, 0.24);
+  border-color: var(--coral);
 }
 
 .btn-primary:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .admin-team-detail-row > td {
-  background: #fafafa;
+  background: rgba(255, 255, 255, 0.03);
   padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 
 .admin-ae-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.875rem;
+  color: var(--white);
 }
 
 .admin-ae-table th,
 .admin-ae-table td {
   text-align: left;
   padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid #eeeeee;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-ae-table th {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+}
+
+.admin-ae-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .admin-ae-table code {
   font-size: 0.8125rem;
-  color: #555555;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.3rem;
+  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+}
+
+/* -------------------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------------------- */
+
+@media (max-width: 48rem) {
+  .admin-header-text h1 {
+    font-size: 2rem;
+  }
+
+  .admin-tabs-list {
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  .admin-tab-button {
+    padding: 0.5rem 0.85rem;
+    font-size: 0.8125rem;
+  }
+
+  .admin-page .section {
+    padding: 1.25rem;
+  }
+
+  .admin-form-row {
+    grid-template-columns: 1fr;
+  }
 }

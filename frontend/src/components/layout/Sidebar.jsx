@@ -25,13 +25,23 @@ import {
 // Wolf-themed label + icon overrides keyed by project id, so we can rebrand the
 // sidebar without touching the project registry (which other surfaces consume).
 const PROJECT_LABEL_OVERRIDES = {
-  'ratio-estimator': 'Howl Sheet',
+  'flow-doc-generator': 'Howl Sheet',
 };
 
 const PROJECT_ICON_OVERRIDES = {
-  'ratio-estimator': <GoFile />,
+  'flow-doc-generator': <GoFile />,
   'salesforce-metrics': <GoGoal />,
 };
+
+// Projects intentionally hidden from the sidebar even though they're still
+// registered in the project registry (and reachable via direct URL). The
+// Salesforce Metrics tile is surfaced under the Hunt Pipeline submenu, and
+// the Ratio Estimator (Opp PDF Builder) is currently parked — Howl Sheet
+// now points at the Flow Doc Generator instead.
+const SIDEBAR_HIDDEN_PROJECT_IDS = new Set([
+  'salesforce-metrics',
+  'ratio-estimator',
+]);
 
 function Sidebar({ isSidebarOpen, toggleSidebar }) {
   const projects = getAllProjects();
@@ -48,12 +58,12 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
 
   const navItems = [
     ...projects
-      .filter((project) => project.id !== 'salesforce-metrics')
+      .filter((project) => !SIDEBAR_HIDDEN_PROJECT_IDS.has(project.id))
       .map((project) => ({
-      path: `/projects/${project.id}`,
-      label: PROJECT_LABEL_OVERRIDES[project.id] || project.name,
-      icon: PROJECT_ICON_OVERRIDES[project.id] || project.icon,
-    })),
+        path: `/projects/${project.id}`,
+        label: PROJECT_LABEL_OVERRIDES[project.id] || project.name,
+        icon: PROJECT_ICON_OVERRIDES[project.id] || project.icon,
+      })),
   ];
 
   const salesforceSubItems = [
