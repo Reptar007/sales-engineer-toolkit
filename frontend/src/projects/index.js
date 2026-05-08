@@ -19,17 +19,6 @@ export const projects = {
     version: '1.0.0',
     features: ['Data Analysis', 'Reporting', 'Visualization', 'Export Results'],
   },
-  'ratio-estimator': {
-    id: 'ratio-estimator',
-    name: 'Ratio Estimator',
-    description: 'Estimate and review ratios for sales opportunities',
-    icon: '📊',
-    component: RatioEstimator,
-    path: '/ratio-estimator',
-    category: 'Tools',
-    version: '1.0.0',
-    features: ['File Upload', 'AI Estimation', 'Review & Approval', 'Export Results'],
-  },
   'flow-doc-generator': {
     id: 'flow-doc-generator',
     name: 'Flow Doc Generator',
@@ -39,9 +28,19 @@ export const projects = {
     path: '/flow-doc-generator',
     category: 'Tools',
     version: '1.0.0',
-    features: ['QAW Integration', 'AI Summary', 'Test Step Extraction', 'Leave-Behind Doc'],
+    features: ['Flow Parsing', 'AI Summary', 'Inline Editing', 'PDF Export'],
   },
-  // Add more projects here as you create them
+  'ratio-estimator': {
+    id: 'ratio-estimator',
+    name: 'Opp PDF Builder',
+    description: 'Build a polished PDF brief for an opportunity',
+    icon: '📄',
+    component: RatioEstimator,
+    path: '/ratio-estimator',
+    category: 'Tools',
+    version: '1.0.0',
+    features: ['File Upload', 'AI Estimation', 'Review & Approval', 'Export Results'],
+  },
 };
 
 export const getProject = (projectId) => projects[projectId];

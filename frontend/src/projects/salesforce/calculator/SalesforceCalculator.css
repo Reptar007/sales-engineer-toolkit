@@ -1,4 +1,14 @@
-/* SalesforceCalculator Component Styles */
+/*
+ * SalesforceCalculator — dark navy + coral theme.
+ *
+ * Mirrors the design language used by SalesforceMetrics, the Admin
+ * panel, and the dashboard tiles: translucent surfaces over the app's
+ * midnight-navy canvas, coral accents on the active state and headline
+ * numerals, uppercase micro-labels, and matching focus rings.
+ *
+ * Every rule is scoped under `.salesforce-calculator` so table styles
+ * can't leak globally and clobber other tables in the app.
+ */
 
 .salesforce-calculator {
   width: 100%;
@@ -6,8 +16,8 @@
   border: none;
   border-radius: 0;
   padding: 0;
-  background-color: transparent;
-  color: #333333;
+  background: transparent;
+  color: var(--white);
   margin-bottom: 0;
   box-shadow: none;
   display: flex;
@@ -17,365 +27,703 @@
   overflow: visible;
 }
 
+/* =========================
+ * Hero header
+ * ========================= */
+
 .calculator-header {
-  text-align: center;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 1.5rem;
   padding: 0 0 1.5rem 0;
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .calculator-header-text {
   text-align: left;
   flex: 1;
+  min-width: 0;
+}
+
+.calculator-header-overline {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--coral);
+  margin-bottom: 0.5rem;
 }
 
 .calculator-header-text h1 {
-  font-size: 2.75rem;
+  font-size: 2.5rem;
   font-weight: 700;
-  margin: 0 0 0.5rem 0;
-  color: #333333;
+  margin: 0 0 0.4rem 0;
+  color: var(--white);
   letter-spacing: -0.02em;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .calculator-header-text p {
-  font-size: 1.1rem;
-  font-weight: 400;
-  color: #666666;
-  margin: 0;
-}
-
-.calculator-header-select {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-shrink: 0;
-  padding-top: 0.5rem;
-}
-
-.calculator-header-select p {
-  font-size: 1.1rem;
-  font-weight: 500;
-  color: #333333;
-  margin: 0;
-}
-
-.calculator-header select {
-  padding: 0.5rem 1.5rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e0e0e0;
-  background-color: #ffffff;
-  color: #333333;
-  cursor: pointer;
-  transition: all 0.3s ease;
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0;
 }
 
-.calculator-header select:hover {
-  background-color: #f5f5f5;
-  border-color: #1e3a5f;
+/* =========================
+ * Loading / error states
+ * ========================= */
+
+.calculator-state {
+  padding: 2rem 0 3rem;
 }
 
-.calculator-header select:focus {
-  outline: none;
-  border-color: #1e3a5f;
-  background-color: #ffffff;
-  box-shadow: 0 0 0 2px rgba(30, 58, 95, 0.1);
+.calculator-state h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--white);
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.02em;
 }
+
+.calculator-state p {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0;
+}
+
+.calculator-state--error p {
+  color: var(--coral);
+}
+
+/* =========================
+ * Metric cards grid
+ *
+ * Each card carries a `--card-accent` / `--card-accent-rgb` pair set via
+ * the `--carr`, `--added`, `--projected`, `--progress` modifier classes
+ * below. Everything tinted (icon chip, corner glow, hover border, hero
+ * number on progress) pulls from those vars, so adding a new card
+ * category is a one-selector change.
+ * ========================= */
 
 .calculator-content {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
   width: 100%;
-  margin: 0 0 2rem 0;
+  margin: 0 0 2.25rem 0;
 }
 
-.metric-card {
+.salesforce-calculator .metric-card {
+  --card-accent: var(--coral);
+  --card-accent-rgb: 255, 107, 74;
+
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  border: 1px solid #e0e0e0;
-  background-color: #ffffff;
-  padding: 1.25rem;
-  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: var(--midnight-navy);
+  /*
+   * Two stacked layers:
+   *   1. soft radial in the top-right corner picking up the card's
+   *      accent — gives each tile a tinted glow so the row doesn't
+   *      read as four identical navy boxes.
+   *   2. light-from-top sheen that mirrors the dashboard panels.
+   */
+  background-image:
+    radial-gradient(
+      140% 110% at 100% 0%,
+      rgba(var(--card-accent-rgb), 0.18) 0%,
+      rgba(var(--card-accent-rgb), 0.04) 35%,
+      transparent 65%
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+  padding: 1.25rem 1.4rem;
+  border-radius: 0.85rem;
   width: 100%;
-  min-height: 10rem;
-  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
+  min-height: 9.5rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
-.metric-card:hover {
-  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.1);
-  transform: translateY(-0.0625rem);
+.salesforce-calculator .metric-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
 }
 
-.metric-card-header h2 {
-  font-size: 1rem;
-  font-weight: 500;
-  color: #666666;
-  margin: 0 0 0.5rem 0;
+/* Progress card keeps an accent-tinted hover so the state color
+   carries through the full interaction. */
+.salesforce-calculator .metric-card--progress:hover {
+  border-color: rgba(var(--card-accent-rgb), 0.4);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(var(--card-accent-rgb), 0.18);
 }
 
-.metric-card-body-text {
-  font-size: 2.5rem;
+/*
+ * Calculator cards lean neutral on purpose — color is reserved for
+ * state on the progress card (low / medium / high). The non-progress
+ * tiles share a single muted coral icon-chip treatment with no corner
+ * accent gradient, so the row doesn't read as a rainbow of competing
+ * hues next to the compensation strip.
+ */
+.salesforce-calculator .metric-card--carr,
+.salesforce-calculator .metric-card--added,
+.salesforce-calculator .metric-card--projected {
+  --card-accent: var(--coral);
+  --card-accent-rgb: 255, 107, 74;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+}
+
+/* Progress card keeps the state-colored corner glow because here the
+   color literally encodes the data — red = behind, amber = catching up,
+   teal = on track. */
+.salesforce-calculator .metric-card--progress {
+  --card-accent: var(--coral);
+  --card-accent-rgb: 255, 107, 74;
+}
+
+.salesforce-calculator .metric-card.progress-bar-low {
+  --card-accent: #ff8a6e;
+  --card-accent-rgb: 255, 138, 110;
+}
+
+.salesforce-calculator .metric-card.progress-bar-medium {
+  --card-accent: #f59e0b;
+  --card-accent-rgb: 245, 158, 11;
+}
+
+.salesforce-calculator .metric-card.progress-bar-high {
+  --card-accent: #2dd4bf;
+  --card-accent-rgb: 45, 212, 191;
+}
+
+.salesforce-calculator .metric-card--progress .metric-card-body-text {
+  color: var(--card-accent);
+}
+
+/* Header — uppercase label on left, accent icon chip on right. */
+.salesforce-calculator .metric-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.salesforce-calculator .metric-card-header h2 {
+  font-size: 0.8125rem;
   font-weight: 700;
-  color: #333333;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
   margin: 0;
 }
 
-p.quarterly-goal-text {
-  font-size: 0.8rem;
+.salesforce-calculator .metric-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* Only the progress card inherits the accent on its icon chip — that
+   color is meaningful (state of the goal), not decorative. */
+.salesforce-calculator .metric-card--progress .metric-card-icon {
+  background: rgba(var(--card-accent-rgb), 0.16);
+  color: var(--card-accent);
+  box-shadow: 0 0 0 1px rgba(var(--card-accent-rgb), 0.22);
+}
+
+.salesforce-calculator .metric-card-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  stroke-width: 2.25;
+}
+
+.salesforce-calculator .metric-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.15rem;
+}
+
+.salesforce-calculator .metric-card-body-text {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--white);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+  word-break: break-word;
+}
+
+.salesforce-calculator p.quarterly-goal-text {
+  font-size: 0.8125rem;
   font-weight: 400;
-  color: #666666;
+  color: rgba(255, 255, 255, 0.55);
   margin: 0;
   font-style: normal;
 }
 
-/* Progress Bar Styles */
-.progress-bar {
+/* =========================
+ * Progress bars
+ * ========================= */
+
+.salesforce-calculator .progress-bar {
   width: 100%;
-  height: 1rem;
-  background-color: #e0e0e0;
-  border-radius: 0.5rem;
+  height: 0.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
   overflow: hidden;
   position: relative;
-  margin: 0.5rem 0;
+  margin: 0.25rem 0;
 }
 
-.progress-bar-fill {
+.salesforce-calculator .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4a90e2, #2c3e50);
-  border-radius: 0.5rem;
+  background: linear-gradient(90deg, rgba(255, 107, 74, 0.85), var(--coral));
+  border-radius: 999px;
   transition: width 0.6s ease-in-out;
+}
+
+.salesforce-calculator .progress-bar-low .progress-bar-fill,
+.salesforce-calculator .progress-bar-danger .progress-bar-fill {
+  background: linear-gradient(90deg, #ff6f6f, var(--error-red-alt));
+}
+
+.salesforce-calculator .progress-bar-medium .progress-bar-fill,
+.salesforce-calculator .progress-bar-warning .progress-bar-fill {
+  background: linear-gradient(90deg, #ffb86b, #f59e0b);
+}
+
+.salesforce-calculator .progress-bar-high .progress-bar-fill,
+.salesforce-calculator .progress-bar-success .progress-bar-fill {
+  background: linear-gradient(90deg, var(--success-green-alt), var(--success-green));
+}
+
+/* =========================
+ * Compensation cards
+ * ========================= */
+
+.calculator-compensation-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  width: 100%;
+  margin: 0 0 1.25rem 0;
+}
+
+/*
+ * Compensation cards intentionally share one neutral treatment. Earlier
+ * builds tiered the SE roles by color (teal / amber / coral) but with
+ * the four-card metric row already up top the page started reading as
+ * a rainbow. The comp number is the focal point here — keep the cards
+ * quiet and let typography do the work.
+ */
+.salesforce-calculator .compensation-card {
   position: relative;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: var(--midnight-navy);
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+  padding: 1.25rem 1.4rem;
+  border-radius: 0.85rem;
+  width: 100%;
+  min-height: 10.5rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
-/* Progress Bar Variants */
-.progress-bar-low .progress-bar-fill {
-  background: linear-gradient(90deg, #e74c3c, #c0392b);
+.salesforce-calculator .compensation-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
 }
 
-.progress-bar-medium .progress-bar-fill {
-  background: linear-gradient(90deg, #f39c12, #e67e22);
+.salesforce-calculator .compensation-card-amount {
+  color: var(--white);
 }
 
-.progress-bar-high .progress-bar-fill {
-  background: linear-gradient(90deg, #27ae60, #2e7d32);
+.salesforce-calculator .compensation-card-warning {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--coral);
+  margin: 0.35rem 0 0 0;
+  letter-spacing: 0.01em;
 }
+
+/* =========================
+ * Action buttons
+ * ========================= */
 
 .calculator-actions {
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  gap: 1rem;
-  margin: 0 0 2rem 0;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem 0;
 }
 
-.btn-calculator {
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e0e0e0;
-  background-color: #ffffff;
-  color: #333333;
+.salesforce-calculator .btn-calculator {
+  padding: 0.55rem 1.1rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--white);
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.9375rem;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: inherit;
 }
 
-.btn-calculator:hover {
-  background-color: #f5f5f5;
-  border-color: #1e3a5f;
+.salesforce-calculator .btn-calculator:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 107, 74, 0.4);
+  transform: translateY(-1px);
 }
 
-.btn-calculator:disabled {
-  opacity: 0.5;
+.salesforce-calculator .btn-calculator:focus-visible {
+  outline: none;
+  border-color: var(--coral);
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.25);
+}
+
+.salesforce-calculator .btn-calculator:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
-.calculator-compensation-container {
-  display: flex;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  width: 100%;
-  margin: 0 0 2rem 0;
+.salesforce-calculator .btn-calculator--primary {
+  background: rgba(255, 107, 74, 0.18);
+  border-color: rgba(255, 107, 74, 0.45);
+  color: var(--white);
 }
 
-.compensation-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  border: 1px solid #e0e0e0;
-  background-color: #ffffff;
-  padding: 1.25rem;
-  border-radius: 0.75rem;
-  width: 100%;
-  min-height: 10rem;
-  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
+.salesforce-calculator .btn-calculator--primary:hover:not(:disabled) {
+  background: rgba(255, 107, 74, 0.28);
+  border-color: rgba(255, 107, 74, 0.7);
 }
 
+/* =========================
+ * Separators + tables
+ * ========================= */
 
-.compensation-card:hover {
-  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.1);
-  transform: translateY(-0.0625rem);
-}
-
-.table-separator {
+.salesforce-calculator .table-separator {
   width: 100%;
   height: 1px;
-  background-color: #e0e0e0;
-  margin: 2rem 0;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 1.75rem 0;
 }
 
-/* Table Styles */
-table {
+.salesforce-calculator .table-container {
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
+  max-height: 24rem;
+  overflow-y: auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.salesforce-calculator .table-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.salesforce-calculator .table-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.salesforce-calculator .table-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.salesforce-calculator .table-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.salesforce-calculator table {
   width: 100%;
-  margin: 0 0 2rem 0;
+  margin: 0;
   border-collapse: collapse;
-  background-color: #ffffff;
-  border-radius: 0.5rem;
-  overflow: hidden;
+  background: transparent;
   table-layout: fixed;
   box-sizing: border-box;
   caption-side: top;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.06);
 }
 
-caption {
+.salesforce-calculator caption {
   text-align: left;
-  font-size: 1.75rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  color: #333333;
-  margin: 0 0 1rem 0;
+  color: var(--white);
+  margin: 0 0 0.85rem 0;
   padding: 0;
   letter-spacing: -0.01em;
 }
 
-thead {
-  background-color: #f8f9fa;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-th {
-  padding: 1rem;
-  text-align: center;
-  font-weight: 600;
-  color: #333333;
-  border-bottom: 2px solid #e0e0e0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  background-color: #f8f9fa;
-}
-
-th.sortable {
-  cursor: pointer;
-  user-select: none;
-  transition: background-color 0.2s ease;
-}
-
-th.sortable:hover {
-  background-color: #e9ecef !important;
-}
-
-.sort-indicator {
-  margin-left: 0.25rem;
-  color: #666666;
-  font-size: 0.75rem;
-}
-
-td {
-  padding: 1rem;
-  text-align: center;
-  color: #333333;
-  border-bottom: 1px solid #f0f0f0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Column width controls for Calculator opportunities table only */
-.salesforce-calculator .table-container th:nth-child(1), 
-.salesforce-calculator .table-container td:nth-child(1) { width: 8%; } /* Select checkbox */
-.salesforce-calculator .table-container th:nth-child(2), 
-.salesforce-calculator .table-container td:nth-child(2) { width: 30%; } /* Opportunity Name */
-.salesforce-calculator .table-container th:nth-child(3), 
-.salesforce-calculator .table-container td:nth-child(3) { width: 15%; } /* Stage */
-.salesforce-calculator .table-container th:nth-child(4), 
-.salesforce-calculator .table-container td:nth-child(4) { width: 20%; } /* AE Name */
-.salesforce-calculator .table-container th:nth-child(5), 
-.salesforce-calculator .table-container td:nth-child(5) { width: 12%; } /* Probability */
-.salesforce-calculator .table-container th:nth-child(6), 
-.salesforce-calculator .table-container td:nth-child(6) { width: 15%; } /* CARR */
-
-.table-container {
-  max-height: 22rem;
-  overflow-y: auto;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #ccc transparent;
-}
-
-.table-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.table-container::-webkit-scrollbar-track {
+.salesforce-calculator thead {
   background: transparent;
 }
 
-.table-container::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 4px;
+.salesforce-calculator th {
+  padding: 0.65rem 1rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: transparent;
 }
 
-tbody tr:hover {
-  background-color: #f5f5f5;
+.salesforce-calculator th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
 }
 
-tbody tr:nth-child(even) {
-  background-color: #fafafa;
+.salesforce-calculator th.sortable:hover {
+  color: var(--coral);
 }
 
-tbody tr:nth-child(even):hover {
-  background-color: #f0f0f0;
+.salesforce-calculator .sort-indicator {
+  margin-left: 0.25rem;
+  color: var(--coral);
+  font-size: 0.6875rem;
 }
 
-tbody tr.selected {
-  background-color: #e8f5e9;
+.salesforce-calculator td {
+  padding: 0.85rem 1rem;
+  text-align: center;
+  color: var(--white);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-tbody tr.selected:hover {
-  background-color: #c8e6c9;
+/* Sticky header so it stays put while the body scrolls. Layered colors
+   recreate the panel surface so scrolling rows don't bleed through. */
+.salesforce-calculator .table-container thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--midnight-navy);
 }
 
-tbody tr:last-child td {
+.salesforce-calculator .table-container thead::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0)
+  );
+  pointer-events: none;
+}
+
+.salesforce-calculator thead,
+.salesforce-calculator tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.salesforce-calculator tbody tr {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.salesforce-calculator tbody tr:hover {
+  background: rgba(255, 107, 74, 0.06);
+}
+
+.salesforce-calculator tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.salesforce-calculator tbody tr:nth-child(even):hover {
+  background: rgba(255, 107, 74, 0.08);
+}
+
+.salesforce-calculator tbody tr.selected {
+  background: rgba(45, 212, 191, 0.12);
+}
+
+.salesforce-calculator tbody tr.selected:hover {
+  background: rgba(45, 212, 191, 0.2);
+}
+
+.salesforce-calculator tbody tr:last-child td {
   border-bottom: none;
 }
 
-/* Loading and Error States */
-.loading-state,
-.error-state {
+.salesforce-calculator td.empty-row,
+.salesforce-calculator tbody tr td[colspan] {
   text-align: center;
-  padding: 3rem 1rem;
+  padding: 2rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+  background: transparent;
 }
 
-.loading-state h1,
-.error-state h1 {
-  font-size: 2rem;
-  font-weight: 600;
-  color: #333333;
-  margin: 0 0 1rem 0;
+/* Custom checkbox so the native widget doesn't render as the OS default
+   light checkbox sitting on a dark row — it should pick up the brand
+   coral when selected. */
+.salesforce-calculator .calculator-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 0.3rem;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+  vertical-align: middle;
 }
 
-.error-state p {
-  color: #d32f2f;
-  font-size: 1rem;
+.salesforce-calculator .calculator-checkbox:hover {
+  border-color: var(--coral);
 }
 
+.salesforce-calculator .calculator-checkbox:checked {
+  background: var(--coral);
+  border-color: var(--coral);
+}
+
+.salesforce-calculator .calculator-checkbox:checked::after {
+  content: '';
+  width: 0.3rem;
+  height: 0.55rem;
+  border: solid var(--white);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.salesforce-calculator .calculator-checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.35);
+}
+
+/* =========================
+ * Column widths — opportunities table
+ * ========================= */
+
+.salesforce-calculator .table-container th:nth-child(1),
+.salesforce-calculator .table-container td:nth-child(1) { width: 8%; }
+.salesforce-calculator .table-container th:nth-child(2),
+.salesforce-calculator .table-container td:nth-child(2) { width: 28%; text-align: left; }
+.salesforce-calculator .table-container th:nth-child(3),
+.salesforce-calculator .table-container td:nth-child(3) { width: 14%; }
+.salesforce-calculator .table-container th:nth-child(4),
+.salesforce-calculator .table-container td:nth-child(4) { width: 20%; text-align: left; }
+.salesforce-calculator .table-container th:nth-child(5),
+.salesforce-calculator .table-container td:nth-child(5) { width: 12%; }
+.salesforce-calculator .table-container th:nth-child(6),
+.salesforce-calculator .table-container td:nth-child(6) { width: 18%; text-align: right; }
+
+/* Match left-alignment on the headers for the columns that align left. */
+.salesforce-calculator .table-container th:nth-child(2),
+.salesforce-calculator .table-container th:nth-child(4) {
+  text-align: left;
+}
+
+.salesforce-calculator .table-container th:nth-child(6) {
+  text-align: right;
+}
+
+/* =========================
+ * Responsive
+ * ========================= */
+
+@media (max-width: 1200px) {
+  .calculator-content {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .calculator-compensation-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .calculator-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .calculator-content {
+    grid-template-columns: 1fr;
+  }
+
+  .calculator-header-text h1 {
+    font-size: 2rem;
+  }
+
+  .salesforce-calculator .table-container {
+    padding: 1rem;
+  }
+}

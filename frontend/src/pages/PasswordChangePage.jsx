@@ -42,7 +42,7 @@ const PasswordChangePage = () => {
       <div className="login-header">
         <div className="logo-container">
           <h2>Change Password</h2>
-          <img src="/saleswolf-icon.png" alt="SalesWolf" className="logo" />
+          <img src="/saleswolf-icon-v2.png" alt="SalesWolf" className="logo" />
         </div>
         {mustChangePassword && (
           <p>You must change your password before continuing</p>

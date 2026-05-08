@@ -517,7 +517,7 @@ const SalesforceLookup = () => {
             return (
                 <div className="lookup-detail-section">
                     <h3 className="lookup-detail-section-title">Gong Conversations</h3>
-                    <p style={{ color: '#666', fontSize: '0.9375rem' }}>Loading conversations...</p>
+                    <p className="lookup-gong-loading">Loading conversations…</p>
                 </div>
             );
         }
@@ -824,6 +824,7 @@ const SalesforceLookup = () => {
         <div className={`salesforce-lookup ${hasSearched ? 'salesforce-lookup-has-results' : ''}`}>
             <div className={`lookup-header ${hasSearched ? 'lookup-header-compact' : ''}`}>
                 <div className="lookup-header-content">
+                    {!hasSearched && <div className="lookup-header-overline">SCENT TRACKER</div>}
                     <h1>Salesforce Lookup</h1>
                     {!hasSearched && <p>Search for opportunities by name or account</p>}
                 </div>

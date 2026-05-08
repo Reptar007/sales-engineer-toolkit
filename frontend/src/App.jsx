@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import './styles/App.less';
 import './styles/themes.less';
-import Header from './components/Header';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
+import BootstrapGate from './components/BootstrapGate';
 import Dashboard from './pages/Dashboard';
 import ProjectView from './pages/ProjectView';
 import LoginPage from './pages/LoginPage';
@@ -16,6 +16,7 @@ import Admin from './projects/admin';
 import SalesforceCalculator from './projects/salesforce/calculator';
 import SalesforceLookup from './projects/salesforce/lookup';
 import SalesforceMetrics from './projects/salesforce-metrics';
+import TeamPage from './projects/team';
 
 /**
  * Main App Component with Routing
@@ -35,12 +36,12 @@ function AppContent() {
     location.pathname === '/change-password' ||
     location.pathname === '/forgot-password';
 
-  return (
-    <div className="app">
-      <Header toggleSidebar={toggleSidebar} />
+  const isCollapsed = !isAuthPage && !isSidebarOpen;
 
+  return (
+    <div className={`app ${isCollapsed ? 'app--sidebar-collapsed' : ''}`}>
       <div className="app-layout">
-        {!isAuthPage && <Sidebar isSidebarOpen={isSidebarOpen} />}
+        {!isAuthPage && <Sidebar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />}
         <main
           className={`main-content ${isAuthPage ? 'auth-page' : ''} ${!isAuthPage && !isSidebarOpen ? 'sidebar-closed' : ''}`}
         >
@@ -81,6 +82,14 @@ function AppContent() {
               element={
                 <ProtectedRoute>
                   <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teams/:slug"
+              element={
+                <ProtectedRoute>
+                  <TeamPage />
                 </ProtectedRoute>
               }
             />
@@ -127,6 +136,14 @@ function AppContent() {
       <footer>
         <p>SalesWolf - Sales Engineer Toolkit</p>
       </footer>
+
+      {/*
+        Session-level post-login splash. Lives at the app shell so it
+        plays once per login regardless of which route the user lands
+        on (e.g. coming back to /alpha-pack after re-auth still gets
+        the splash + dashboard prewarm).
+      */}
+      <BootstrapGate />
     </div>
   );
 }

@@ -37,7 +37,7 @@ function SignupForm({ onSwitchToLogin }) {
       <div className="login-header">
         <div className="logo-container">
           <h2>Join SalesWolf</h2>
-          <img src="/saleswolf-icon.png" alt="SalesWolf" className="logo" />
+          <img src="/saleswolf-icon-v2.png" alt="SalesWolf" className="logo" />
         </div>
         <p>Create your account to get started</p>
       </div>

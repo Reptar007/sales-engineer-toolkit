@@ -8,6 +8,7 @@ import { usePagination } from './hooks/usePagination';
 import { parseCSVFile } from '../../utils/csvParser';
 import { setupTooltipListeners } from '../../utils/tooltipPositioning';
 import { processCSVWithChatGPT, fixRejections } from './services/api';
+import './RatioEstimator.css';
 
 /**
  * Ratio Estimator Project

@@ -3,6 +3,9 @@ import {
   getLinearProfile,
   saveLinearProfile,
   disconnectLinearProfile,
+  fetchDashboardCalendar,
+  startGoogleCalendarOAuth,
+  disconnectGoogleCalendar,
 } from '../services/api';
 import './ProfilePage.less';
 
@@ -17,6 +20,20 @@ function classifyIdentifier(raw) {
   return { kind: 'unknown', value };
 }
 
+// Initial state for the Google Calendar integration card. Mirrors the
+// shape we expect from `fetchDashboardCalendar` plus a few UI flags.
+const GOOGLE_CAL_INITIAL = {
+  loading: true,
+  configured: false,
+  // 'oauth'  → user-connected via OAuth (we can disconnect from here)
+  // 'service_account' → shared env-level calendar (NOT user-controllable)
+  // null     → not connected
+  source: null,
+  busy: false,
+  message: null,
+  error: null,
+};
+
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
@@ -24,6 +41,8 @@ export default function ProfilePage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
+
+  const [googleCal, setGoogleCal] = useState(GOOGLE_CAL_INITIAL);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,9 +57,31 @@ export default function ProfilePage() {
     }
   }, []);
 
+  const loadGoogleCal = useCallback(async () => {
+    setGoogleCal((prev) => ({ ...prev, loading: true, error: null }));
+    try {
+      const data = await fetchDashboardCalendar();
+      setGoogleCal((prev) => ({
+        ...prev,
+        loading: false,
+        configured: Boolean(data?.configured),
+        source: data?.source ?? null,
+      }));
+    } catch (err) {
+      setGoogleCal((prev) => ({
+        ...prev,
+        loading: false,
+        configured: false,
+        source: null,
+        error: err?.message || 'Failed to load Google Calendar status',
+      }));
+    }
+  }, []);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadGoogleCal();
+  }, [load, loadGoogleCal]);
 
   const handleAutoConnect = async () => {
     if (!profile?.appEmail) return;
@@ -105,6 +146,52 @@ export default function ProfilePage() {
     }
   };
 
+  const handleConnectGoogleCal = async () => {
+    setGoogleCal((prev) => ({ ...prev, busy: true, message: null, error: null }));
+    try {
+      const data = await startGoogleCalendarOAuth();
+      if (data?.authorizationUrl) {
+        // Redirect to Google's consent screen. On return, the dashboard
+        // route handles the `?google_calendar=…` callback and refreshes.
+        window.location.href = data.authorizationUrl;
+        return;
+      }
+      setGoogleCal((prev) => ({
+        ...prev,
+        busy: false,
+        error: 'Could not start Google Calendar connection',
+      }));
+    } catch (err) {
+      setGoogleCal((prev) => ({
+        ...prev,
+        busy: false,
+        error: err?.message || 'Could not start Google Calendar connection',
+      }));
+    }
+  };
+
+  const handleDisconnectGoogleCal = async () => {
+    setGoogleCal((prev) => ({ ...prev, busy: true, message: null, error: null }));
+    try {
+      await disconnectGoogleCalendar();
+      await loadGoogleCal();
+      setGoogleCal((prev) => ({ ...prev, busy: false, message: 'Disconnected.' }));
+    } catch (err) {
+      setGoogleCal((prev) => ({
+        ...prev,
+        busy: false,
+        error: err?.message || 'Could not disconnect Google Calendar',
+      }));
+    }
+  };
+
+  // Once a user is OAuth-connected, we expose a Disconnect control.
+  // For service-account-backed calendars there's nothing for them to
+  // disconnect (it's an env-level setup), so we just label it as such.
+  const googleConnectedViaOauth = googleCal.configured && googleCal.source === 'oauth';
+  const googleConnectedViaServiceAccount =
+    googleCal.configured && googleCal.source === 'service_account';
+
   return (
     <div className="profile-page">
       <header className="profile-page__header">
@@ -114,6 +201,7 @@ export default function ProfilePage() {
         </p>
       </header>
 
+      <div className="profile-page__sections">
       <section className="profile-card" aria-labelledby="linear-heading">
         <div className="profile-card__head">
           <h2 id="linear-heading">Linear</h2>
@@ -215,6 +303,85 @@ export default function ProfilePage() {
             </div>
           )}
       </section>
+
+      <section className="profile-card" aria-labelledby="google-cal-heading">
+        <div className="profile-card__head">
+          <h2 id="google-cal-heading">Google Calendar</h2>
+          <span className="profile-card__meta">
+            Connect your Google account so today&apos;s meetings appear on your dashboard.
+          </span>
+        </div>
+
+        {googleCal.loading && <p className="profile-card__status">Loading…</p>}
+
+        {!googleCal.loading && googleCal.error && (
+          <p
+            className="profile-card__status profile-card__status--error"
+            role="alert"
+          >
+            {googleCal.error}
+          </p>
+        )}
+
+        {!googleCal.loading && googleCal.message && (
+          <p
+            className="profile-card__status profile-card__status--ok"
+            role="status"
+          >
+            {googleCal.message}
+          </p>
+        )}
+
+        {!googleCal.loading && googleConnectedViaOauth && (
+          <div className="profile-card__body">
+            <p>
+              <strong>Connected.</strong> Today&apos;s events from your primary
+              Google Calendar will appear on your dashboard.
+            </p>
+            <div className="profile-card__actions">
+              <button
+                type="button"
+                className="btn btn--danger"
+                onClick={handleDisconnectGoogleCal}
+                disabled={googleCal.busy}
+              >
+                {googleCal.busy ? 'Working…' : 'Disconnect Google Calendar'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!googleCal.loading && googleConnectedViaServiceAccount && (
+          <div className="profile-card__body">
+            <p>
+              Calendar events are loaded via a shared, admin-configured service
+              account. There&apos;s nothing to disconnect here — reach out to
+              your admin to change the calendar source.
+            </p>
+          </div>
+        )}
+
+        {!googleCal.loading && !googleCal.configured && (
+          <div className="profile-card__body">
+            <p>
+              You haven&apos;t connected Google Calendar yet. Connect to surface
+              today&apos;s meetings (with Zoom / Meet / Teams join links) on
+              your dashboard.
+            </p>
+            <div className="profile-card__actions">
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={handleConnectGoogleCal}
+                disabled={googleCal.busy}
+              >
+                {googleCal.busy ? 'Redirecting…' : 'Connect Google Calendar'}
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+      </div>
     </div>
   );
 }

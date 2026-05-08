@@ -19,15 +19,21 @@ enum Role {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String
-  firstName    String?
-  lastName     String?
-  isActive     Boolean   @default(true)
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  passwordHash        String
+  firstName           String?
+  lastName            String?
+  isActive            Boolean   @default(true)
+  // When true, the next successful login will force the user through the
+  // /change-password flow before any other route renders. Set by the admin
+  // reset-password action so we can issue a random temporary credential
+  // (instead of relying on string-matching the literal "password") and
+  // still guarantee the user picks a new one immediately.
+  mustChangePassword  Boolean   @default(false)
+  lastLoginAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   // Relations
   salesEngineer     SalesEngineer?

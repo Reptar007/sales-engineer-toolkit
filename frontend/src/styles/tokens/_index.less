@@ -12,7 +12,36 @@
 // CSS Custom Properties for Browser Compatibility
 // These maintain compatibility with existing CSS while providing LESS benefits
 :root {
-  // Colors
+  // Brand palette — raw named colors (Dark Blue SaaS)
+  --midnight-navy: @midnight-navy;
+  --deep-blue: @deep-blue;
+  --dark-indigo: @dark-indigo;
+  --card-bg-navy: @card-bg-navy;
+  --electric-blue: @electric-blue;
+  --bright-azure: @bright-azure;
+  --neon-cyan: @neon-cyan;
+  --brand-teal: @brand-teal;
+  --brand-purple: @brand-purple;
+  --coral: @coral;
+  --soft-yellow: @soft-yellow;
+  --light-gray: @light-gray;
+  --muted-gray: @muted-gray;
+  --border-gray: @border-gray;
+
+  // Neutral scale
+  --neutral-50: @neutral-50;
+  --neutral-100: @neutral-100;
+  --neutral-200: @neutral-200;
+  --neutral-300: @neutral-300;
+  --neutral-400: @neutral-400;
+  --neutral-500: @neutral-500;
+  --neutral-600: @neutral-600;
+  --neutral-700: @neutral-700;
+  --neutral-800: @neutral-800;
+  --neutral-900: @neutral-900;
+  --neutral-950: @neutral-950;
+
+  // Semantic colors (variable names preserved for backwards compatibility)
   --white: @white;
   --canvas-light: @canvas-light;
   --canvas-dark: @canvas-dark;
@@ -128,6 +157,10 @@
   --btn-gradient-success: @btn-gradient-success;
   --btn-gradient-error: @btn-gradient-error;
   --btn-gradient-artist: @btn-gradient-artist;
+  --btn-gradient-primary: @btn-gradient-primary;
+  --accent-gradient: @accent-gradient;
+  --accent-gradient-cool: @accent-gradient-cool;
+  --accent-gradient-vivid: @accent-gradient-vivid;
 
   // Enhanced shadow tokens
   --artist-shadow-hover: @artist-shadow-hover;
@@ -140,8 +173,8 @@
 
   // Modern color space support
   @supports (color: oklch(0.7 0.15 180)) {
-    --primary-green: oklch(0.45 0.15 140);
-    --success-green: oklch(0.5 0.15 140);
-    --error-red: oklch(0.55 0.2 25);
+    --primary-green: oklch(0.62 0.18 258); // Electric Blue
+    --success-green: oklch(0.72 0.12 178); // Teal
+    --error-red: oklch(0.7 0.18 32); // Coral
   }
 }

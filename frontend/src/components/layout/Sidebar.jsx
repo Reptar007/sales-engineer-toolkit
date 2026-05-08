@@ -1,12 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { getAllProjects } from '../../projects';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { toTeamSlug } from '../../projects/team/slug';
+import {
+  GoHome,
+  GoStar,
+  GoGoal,
+  GoTrophy,
+  GoNumber,
+  GoSearch,
+  GoFile,
+  GoPerson,
+  GoOrganization,
+  GoSignOut,
+  GoChevronLeft,
+  GoChevronRight,
+  GoChevronDown,
+} from 'react-icons/go';
+
 /**
  * Sidebar Navigation Component
  */
-function Sidebar({ isSidebarOpen }) {
+// Wolf-themed label + icon overrides keyed by project id, so we can rebrand the
+// sidebar without touching the project registry (which other surfaces consume).
+const PROJECT_LABEL_OVERRIDES = {
+  'flow-doc-generator': 'Howl Sheet',
+};
+
+const PROJECT_ICON_OVERRIDES = {
+  'flow-doc-generator': <GoFile />,
+  'salesforce-metrics': <GoGoal />,
+};
+
+// Projects intentionally hidden from the sidebar even though they're still
+// registered in the project registry (and reachable via direct URL). The
+// Salesforce Metrics tile is surfaced under the Hunt Pipeline submenu, and
+// the Ratio Estimator (Opp PDF Builder) is currently parked — Howl Sheet
+// now points at the Flow Doc Generator instead.
+const SIDEBAR_HIDDEN_PROJECT_IDS = new Set([
+  'salesforce-metrics',
+  'ratio-estimator',
+]);
+
+function Sidebar({ isSidebarOpen, toggleSidebar }) {
   const projects = getAllProjects();
   const navigate = useNavigate();
   const location = useLocation();
@@ -17,38 +54,35 @@ function Sidebar({ isSidebarOpen }) {
   };
 
   // Separate Home from other nav items
-  const homeItem = { path: '/', label: 'Home', icon: '🏠' };
+  const homeItem = { path: '/', label: 'The Den', icon: <GoHome /> };
 
   const navItems = [
     ...projects
-      .filter((project) => project.id !== 'salesforce-metrics')
+      .filter((project) => !SIDEBAR_HIDDEN_PROJECT_IDS.has(project.id))
       .map((project) => ({
-      path: `/projects/${project.id}`,
-      label: project.name,
-      icon: project.icon,
-    })),
+        path: `/projects/${project.id}`,
+        label: PROJECT_LABEL_OVERRIDES[project.id] || project.name,
+        icon: PROJECT_ICON_OVERRIDES[project.id] || project.icon,
+      })),
   ];
 
   const salesforceSubItems = [
-    { 
-      path: '/projects/salesforce-metrics', 
-      label: 'Metrics', 
-      icon: '📈' // from registry
+    {
+      path: '/projects/salesforce-metrics',
+      label: 'Trophies',
+      icon: <GoTrophy />,
     },
-    { 
-      path: '/projects/salesforce/calculator', 
-      label: 'Calculator', 
-      icon: '🧮' // hardcoded for now
+    {
+      path: '/projects/salesforce/calculator',
+      label: 'Bounty Calc',
+      icon: <GoNumber />,
     },
-    { 
-      path: '/projects/salesforce/lookup', 
-      label: 'Lookup', 
-      icon: '🔍' // hardcoded for now
-    }
+    {
+      path: '/projects/salesforce/lookup',
+      label: 'Scent Tracker',
+      icon: <GoSearch />,
+    },
   ];
-
-  // Get Salesforce project from registry for icon/name
-  const salesforceProject = projects.find(project => project.id === 'salesforce-metrics');
 
   // Auto-expand dropdown when on Salesforce routes
   useEffect(() => {
@@ -57,15 +91,49 @@ function Sidebar({ isSidebarOpen }) {
     }
   }, [location.pathname]);
 
+  // Force the dropdown closed when the rail collapses to icon-only.
+  useEffect(() => {
+    if (!isSidebarOpen) {
+      setOpenDropdown(false);
+    }
+  }, [isSidebarOpen]);
+
   const { user,logout } = useAuth();
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
   const isAdmin = user?.roles?.includes('admin');
+  // The "Team {name}" entry is only meaningful when the logged-in user is
+  // actually attached to a team (i.e. they're an SE on a team). For
+  // everyone else (admins without an SE record, fresh users) we just
+  // hide it rather than render a dead link.
+  const teamName = user?.team?.name;
+  const teamSlug = teamName ? toTeamSlug(teamName) : null;
 
   return (
     <aside className={`sidebar ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
+      <div className="top-header">
+        <Link to="/" className="header-logo">
+          <img src="/saleswolf-icon-v2.png" alt="SalesWolf" className="header-logo-icon" />
+          <div className="header-text">
+            <h1>
+              Sales<span className="header-wolf">Wolf</span>
+            </h1>
+            {/*
+              Bullets get their own span so they can pick up the coral
+              accent and visually echo the brand mark in the icon.
+            */}
+            <p className="header-tagline">
+              HUNT
+              <span className="header-tagline-dot" aria-hidden="true">•</span>
+              CLOSE
+              <span className="header-tagline-dot" aria-hidden="true">•</span>
+              DOMINATE
+            </p>
+          </div>
+        </Link>
+      </div>
       <nav className="sidebar-nav">
         <ul className="nav-list">
           {/* Home - Always at the top */}
@@ -79,24 +147,37 @@ function Sidebar({ isSidebarOpen }) {
               <span className="nav-label">{homeItem.label}</span>
             </NavLink>
           </li>
-          {isAdmin && (
+          {teamSlug && (
             <li className="nav-item">
-              <NavLink to="/admin" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span className="nav-icon">👑</span>
-                <span className="nav-label">Admin</span>
+              <NavLink
+                to={`/teams/${teamSlug}`}
+                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+              >
+                <span className="nav-icon"><GoOrganization /></span>
+                <span className="nav-label">{teamName}</span>
               </NavLink>
             </li>
           )}
-          {/* Salesforce Dropdown */}
+          {isAdmin && (
+            <li className="nav-item">
+              <NavLink to="/admin" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                <span className="nav-icon"><GoStar /></span>
+                <span className="nav-label">Alpha Pack</span>
+              </NavLink>
+            </li>
+          )}
+          {/* Salesforce Dropdown — wolf-rebranded as "Hunt Pipeline" */}
           <li className="nav-item">
             <button
               type="button"
               className={`nav-link nav-link-dropdown ${location.pathname.startsWith('/projects/salesforce') || location.pathname === '/projects/salesforce-metrics' ? 'active' : ''}`}
               onClick={toggleDropdown}
             >
-              <span className="nav-icon">{salesforceProject?.icon || '📊'}</span>
-              <span className="nav-label">Salesforce</span>
-              <span className="nav-chevron">{openDropdown ? '▼' : '▶'}</span>
+              <span className="nav-icon"><GoGoal /></span>
+              <span className="nav-label">Hunt Pipeline</span>
+              <span className="nav-chevron">
+                {openDropdown ? <GoChevronDown /> : <GoChevronRight />}
+              </span>
             </button>
             {openDropdown && (
               <ul className="nav-submenu">
@@ -138,13 +219,27 @@ function Sidebar({ isSidebarOpen }) {
             to="/profile"
             className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           >
-            <span className="nav-icon">⚙️</span>
-            <span className="nav-label">Profile</span>
+            <span className="nav-icon"><GoPerson /></span>
+            <span className="nav-label">My Wolf</span>
           </NavLink>
           <button className="nav-link" type="button" onClick={handleLogout}>
-            <span className="nav-icon">🚪</span>
-            <span className="nav-label">Log out</span>
+            <span className="nav-icon"><GoSignOut /></span>
+            <span className="nav-label">Leave the Pack</span>
           </button>
+
+          {toggleSidebar && (
+            <button
+              type="button"
+              className="sidebar-collapse"
+              onClick={toggleSidebar}
+              aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            >
+              <span className="sidebar-collapse__icon" aria-hidden>
+                {isSidebarOpen ? <GoChevronLeft /> : <GoChevronRight />}
+              </span>
+              <span className="sidebar-collapse__label">Collapse</span>
+            </button>
+          )}
         </div>
       </nav>
     </aside>

@@ -4,7 +4,6 @@ import {
   fetchDashboardCalendar,
   fetchDashboardLinear,
   startGoogleCalendarOAuth,
-  disconnectGoogleCalendar,
 } from '../../services/api';
 import { MOCK_LINEAR_BOARD } from './dashboardWidgetMockData';
 import './DashboardWidgets.less';
@@ -17,70 +16,167 @@ const LINEAR_INITIAL_STATE = {
   projects: [],
 };
 
-const CALENDAR_OPEN_URL = 'https://calendar.google.com';
+// Compact Google Calendar glyph used in the source-pill at the top-right
+// of the calendar panel. Mirrors the LINEAR pill on the hunts widget so
+// the two panels share the same "this data comes from X" treatment.
+function GoogleCalendarGlyph() {
+  return (
+    <svg
+      className="dashboard-source-pill__icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        fill="currentColor"
+        d="M19.5 3H18V1.5a.75.75 0 0 0-1.5 0V3h-9V1.5a.75.75 0 0 0-1.5 0V3H4.5A1.5 1.5 0 0 0 3 4.5v15A1.5 1.5 0 0 0 4.5 21h15a1.5 1.5 0 0 0 1.5-1.5v-15A1.5 1.5 0 0 0 19.5 3Zm0 16.5h-15V9h15v10.5Zm0-12h-15V4.5h2.25V6a.75.75 0 0 0 1.5 0V4.5h9V6a.75.75 0 0 0 1.5 0V4.5h.75v3Z"
+      />
+      <path
+        fill="currentColor"
+        d="M9.75 12.75h1.5v1.5a1.5 1.5 0 1 1-1.5-1.5Zm3 1.5v-1.5h1.5v3.75a.75.75 0 0 1-1.5 0v-2.25Z"
+      />
+    </svg>
+  );
+}
+
+// Tiny "people" icon used next to the attendee count chip on each
+// meeting row. Outline style so it sits quietly inside the chip.
+function AttendeesGlyph() {
+  return (
+    <svg
+      className="dashboard-calendar__chip-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+// Outline video-camera glyph used inside the "Join" link button so it
+// reads as "open the video conference" at a glance.
+function VideoGlyph() {
+  return (
+    <svg
+      className="dashboard-calendar__join-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <polygon points="23 7 16 12 23 17 23 7" />
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+    </svg>
+  );
+}
+
+// Hide all-day events that are NOT out-of-office. Things like "Home",
+// recurring focus blocks, lunch schedules, etc. show up as all-day on
+// the team calendar but aren't useful in a "today's hunts" view. OOO
+// blocks are intentionally kept so the SE can spot teammates / customer
+// AEs who are out today.
+function isVisibleCalendarEvent(ev) {
+  if (ev?.isAllDay && !ev?.isOoo) return false;
+  return true;
+}
 
 function DashboardCalendarCard({
   events,
-  openUrl = CALENDAR_OPEN_URL,
   showEmptyHint,
   showConnect,
   onConnect,
-  onDisconnect,
   connectLoading,
-  oauthConnected,
 }) {
+  const visibleEvents = events.filter(isVisibleCalendarEvent);
   return (
     <section className="dashboard-panel" aria-labelledby="dash-cal-title">
       <div className="dashboard-panel__head">
-        <h2 className="dashboard-panel__title" id="dash-cal-title">
-          Today&apos;s calendar
-        </h2>
-        <a
-          className="dashboard-panel__link"
-          href={openUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Open
-        </a>
+        <div className="dashboard-panel__head-text">
+          <h2 className="dashboard-panel__title" id="dash-cal-title">
+            Today&apos;s Hunts
+          </h2>
+        </div>
+        <span className="dashboard-source-pill dashboard-source-pill--google">
+          <GoogleCalendarGlyph />
+          Google Cal
+        </span>
       </div>
       <div className="dashboard-calendar">
-        {events.length === 0 && showEmptyHint ? (
+        {visibleEvents.length === 0 && showEmptyHint ? (
           <p className="dashboard-calendar__empty">No events scheduled today.</p>
         ) : (
-          events.map((ev) => (
+          visibleEvents.map((ev) => (
             <div key={ev.id} className="dashboard-calendar__item">
               <span
                 className="dashboard-calendar__dot"
                 style={{ background: ev.color }}
                 aria-hidden
               />
-              <div>
-                <p className="dashboard-calendar__time">{ev.time}</p>
-                <p className="dashboard-calendar__title">{ev.title}</p>
+              <div className="dashboard-calendar__body">
+                <p className="dashboard-calendar__heading">
+                  <span className="dashboard-calendar__time">{ev.time}</span>
+                  <span className="dashboard-calendar__title">{ev.title}</span>
+                </p>
                 <p className="dashboard-calendar__meta">{ev.meta}</p>
               </div>
+              {(ev.attendeeCount > 0 || ev.videoUrl) && (
+                <div className="dashboard-calendar__row-actions">
+                  {ev.attendeeCount > 0 && (
+                    <span
+                      className="dashboard-calendar__chip"
+                      title={`${ev.attendeeCount} ${
+                        ev.attendeeCount === 1 ? 'attendee' : 'attendees'
+                      }`}
+                    >
+                      <AttendeesGlyph />
+                      {ev.attendeeCount}
+                    </span>
+                  )}
+                  {ev.videoUrl && (
+                    <a
+                      className="dashboard-calendar__join"
+                      href={ev.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={
+                        ev.videoProvider
+                          ? `Join via ${ev.videoProvider}`
+                          : 'Join video call'
+                      }
+                    >
+                      <VideoGlyph />
+                      Join
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           ))
         )}
       </div>
-      {(showConnect || oauthConnected) && (
+      {showConnect && (
         <div className="dashboard-calendar__actions">
-          {showConnect && (
-            <button
-              type="button"
-              className="dashboard-calendar__btn dashboard-calendar__btn--primary"
-              disabled={connectLoading}
-              onClick={onConnect}
-            >
-              {connectLoading ? 'Redirecting…' : 'Connect Google Calendar'}
-            </button>
-          )}
-          {oauthConnected && (
-            <button type="button" className="dashboard-calendar__btn" onClick={onDisconnect}>
-              Disconnect Google
-            </button>
-          )}
+          <button
+            type="button"
+            className="dashboard-calendar__btn dashboard-calendar__btn--primary"
+            disabled={connectLoading}
+            onClick={onConnect}
+          >
+            {connectLoading ? 'Redirecting…' : 'Connect Google Calendar'}
+          </button>
         </div>
       )}
     </section>
@@ -97,13 +193,138 @@ function LinearCallout({ title, message, action }) {
   );
 }
 
+// Linear issues commonly follow the convention "Opp Name — ask description"
+// (or "Opp Name: ask"). Split on the first separator we recognize so the
+// table can render the opportunity name on the primary line and the
+// underlying ask as a secondary "↳" sub-line. Falls back to the full
+// title as the opportunity name when no separator is found.
+const HUNT_TITLE_SEPARATORS = [' — ', ' – ', ' - ', ': '];
+
+function parseHuntTitle(title) {
+  const raw = (title || '').trim();
+  if (!raw) return { opp: 'Untitled hunt', ask: '' };
+  for (const sep of HUNT_TITLE_SEPARATORS) {
+    const idx = raw.indexOf(sep);
+    if (idx > 0) {
+      return {
+        opp: raw.slice(0, idx).trim(),
+        ask: raw.slice(idx + sep.length).trim(),
+      };
+    }
+  }
+  return { opp: raw, ask: '' };
+}
+
+// Flatten the project-grouped Linear payload into a single ordered list of
+// rows for the table view. Each row is tagged with its project name so
+// the Project column can render a per-row pill.
+function flattenHuntRows(projects) {
+  if (!Array.isArray(projects)) return [];
+  const rows = [];
+  for (const project of projects) {
+    for (const issue of project.issues ?? []) {
+      rows.push({
+        id: issue.id,
+        title: issue.title,
+        status: issue.status,
+        tone: issue.tone,
+        ae: issue.ae ?? null,
+        dueDate: issue.dueDate ?? null,
+        oppName: issue.oppName ?? null,
+        typeOfAsk: issue.typeOfAsk ?? null,
+        accountScore: issue.accountScore ?? null,
+        priority: issue.priority ?? null,
+        isAiDemo: Boolean(issue.isAiDemo),
+        projectName: project.name,
+      });
+    }
+  }
+  return rows;
+}
+
+// Pick the strings rendered in the Opportunity column. Prefer the
+// structured `oppName` / `typeOfAsk` extracted from the issue's SE
+// template description; fall back to title parsing when the issue
+// hasn't been filled in with the template (legacy / ad-hoc tickets).
+function resolveHuntDisplay(row) {
+  if (row.oppName || row.typeOfAsk) {
+    return {
+      opp: row.oppName || row.title || 'Untitled hunt',
+      ask: row.typeOfAsk || '',
+    };
+  }
+  return parseHuntTitle(row.title);
+}
+
+// Format a Linear `dueDate` (YYYY-MM-DD or ISO string) into the short
+// "MMM D" representation used in the table. Falls back to the raw value
+// when the input can't be parsed so manually-typed strings still surface.
+function formatDueDate(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  // Linear `dueDate` is a date-only string; appending a time keeps it
+  // anchored to local TZ so we don't render the day-before in negative
+  // UTC offsets.
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+    ? new Date(`${raw}T00:00:00`)
+    : new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Tiny robot glyph used inside the AI Demo status pill. Pure outline so
+// it inherits the pill's pink text color via `currentColor`.
+function RobotGlyph() {
+  return (
+    <svg
+      className="dashboard-linear__status-icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="4" y="8" width="16" height="11" rx="2" />
+      <path d="M12 4v4" />
+      <circle cx="12" cy="3" r="1" />
+      <circle cx="9" cy="13" r="1" />
+      <circle cx="15" cy="13" r="1" />
+      <path d="M9 17h6" />
+      <path d="M2 13v3" />
+      <path d="M22 13v3" />
+    </svg>
+  );
+}
+
+// Compact Linear glyph used in the source-pill at the top-right of the
+// hunts panel. Mirrors the SALESFORCE pill on the Salesforce widget.
+function LinearGlyph() {
+  return (
+    <svg
+      className="dashboard-source-pill__icon"
+      viewBox="0 0 100 100"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        fill="currentColor"
+        d="M1.22 61.27 38.73 98.78a50.05 50.05 0 0 1-37.5-37.51zm-1.16-13.7L52.43 99.94a50.41 50.41 0 0 0 11.93-2.42L2.48 35.64A50.41 50.41 0 0 0 .06 47.57zM6.16 26.05 73.95 93.84a50.36 50.36 0 0 0 9.4-7.08L13.24 16.65a50.36 50.36 0 0 0-7.08 9.4zm10.5-12.81L86.76 83.34a50 50 0 1 0-70.1-70.1z"
+      />
+    </svg>
+  );
+}
+
 function DashboardLinearCard({ state }) {
-  const { status, openUrl, projects } = state;
+  const { status, projects } = state;
 
   const renderBody = () => {
     if (status === 'loading') {
       return (
-        <p className="dashboard-linear__callout-message">Loading your issues…</p>
+        <p className="dashboard-linear__callout-message">Loading your hunts…</p>
       );
     }
 
@@ -139,40 +360,111 @@ function DashboardLinearCard({ state }) {
       );
     }
 
-    if (status === 'ok' && projects.length === 0) {
+    const rows = flattenHuntRows(projects);
+
+    if (status === 'ok' && rows.length === 0) {
       return (
         <LinearCallout
           title="You're all caught up"
-          message="No open issues assigned to you right now."
+          message="No open hunts assigned to you right now."
         />
       );
     }
 
     return (
-      <div className="dashboard-linear__projects">
-        {projects.map((project) => (
-          <div key={project.id} className="dashboard-linear__project">
-            <h3 className="dashboard-linear__project-name">
-              {project.name}
-              <span className="dashboard-linear__project-count">
-                {project.issues?.length ?? 0}{' '}
-                {(project.issues?.length ?? 0) === 1 ? 'issue' : 'issues'}
-              </span>
-            </h3>
-            <ul className="dashboard-linear__issue-list">
-              {(project.issues ?? []).map((issue) => (
-                <li key={issue.id} className="dashboard-linear__row">
-                  <p className="dashboard-linear__task">{issue.title}</p>
-                  <span
-                    className={`dashboard-linear__status dashboard-linear__status--${issue.tone}`}
+      <div className="dashboard-hunts">
+        <table className="dashboard-hunts__table">
+          <colgroup>
+            <col className="dashboard-hunts__col--opp" />
+            <col className="dashboard-hunts__col--ae" />
+            <col className="dashboard-hunts__col--due" />
+            <col className="dashboard-hunts__col--score" />
+            <col className="dashboard-hunts__col--status" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col" className="dashboard-hunts__th">Opportunity</th>
+              <th scope="col" className="dashboard-hunts__th">AE</th>
+              <th scope="col" className="dashboard-hunts__th">Due Date</th>
+              <th scope="col" className="dashboard-hunts__th">Score</th>
+              <th scope="col" className="dashboard-hunts__th">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const { opp, ask } = resolveHuntDisplay(row);
+              const dueLabel = formatDueDate(row.dueDate);
+              // AI Demo takes precedence over priority highlighting so
+              // demo work always reads as "demo" rather than red/orange.
+              let rowModifier = '';
+              let rowTitle;
+              if (row.isAiDemo) {
+                rowModifier = ' dashboard-hunts__row--ai-demo';
+                rowTitle = 'AI Demo';
+              } else if (row.priority === 'urgent' || row.priority === 'high') {
+                rowModifier = ` dashboard-hunts__row--${row.priority}`;
+                rowTitle = row.priority === 'urgent' ? 'Urgent priority' : 'High priority';
+              }
+              return (
+                <tr
+                  key={row.id}
+                  className={`dashboard-hunts__row${rowModifier}`}
+                  title={rowTitle}
+                >
+                  <td className="dashboard-hunts__cell dashboard-hunts__cell--opp">
+                    <p className="dashboard-hunts__opp" title={opp}>{opp}</p>
+                    {ask && (
+                      <p className="dashboard-hunts__ask" title={ask}>
+                        <span className="dashboard-hunts__ask-arrow" aria-hidden="true">↳</span>
+                        <span className="dashboard-hunts__ask-text">{ask}</span>
+                      </p>
+                    )}
+                  </td>
+                  <td
+                    className={`dashboard-hunts__cell dashboard-hunts__cell--ae${
+                      row.ae ? '' : ' dashboard-hunts__cell--muted'
+                    }`}
+                    title={row.ae || undefined}
                   >
-                    {issue.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+                    {row.ae || '—'}
+                  </td>
+                  <td
+                    className={`dashboard-hunts__cell dashboard-hunts__cell--due${
+                      dueLabel ? '' : ' dashboard-hunts__cell--muted'
+                    }`}
+                    title={dueLabel || undefined}
+                  >
+                    {dueLabel || '—'}
+                  </td>
+                  <td className="dashboard-hunts__cell dashboard-hunts__cell--score">
+                    {row.accountScore ? (
+                      <span
+                        className={`dashboard-hunts__score dashboard-hunts__score--${row.accountScore
+                          .trim()
+                          .charAt(0)
+                          .toLowerCase()}`}
+                        title={`Account Score: ${row.accountScore}`}
+                      >
+                        {row.accountScore}
+                      </span>
+                    ) : (
+                      <span className="dashboard-hunts__cell--muted">—</span>
+                    )}
+                  </td>
+                  <td className="dashboard-hunts__cell dashboard-hunts__cell--status">
+                    <span
+                      className={`dashboard-linear__status dashboard-linear__status--${row.tone}`}
+                      title={row.status}
+                    >
+                      {row.tone === 'ai-demo' && <RobotGlyph />}
+                      <span className="dashboard-linear__status-label">{row.status}</span>
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     );
   };
@@ -180,17 +472,15 @@ function DashboardLinearCard({ state }) {
   return (
     <section className="dashboard-panel" aria-labelledby="dash-linear-title">
       <div className="dashboard-panel__head">
-        <h2 className="dashboard-panel__title" id="dash-linear-title">
-          Linear workload
-        </h2>
-        <a
-          className="dashboard-panel__link"
-          href={openUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Open
-        </a>
+        <div className="dashboard-panel__head-text">
+          <h2 className="dashboard-panel__title" id="dash-linear-title">
+            Active Hunts
+          </h2>
+        </div>
+        <span className="dashboard-source-pill dashboard-source-pill--linear">
+          <LinearGlyph />
+          Linear
+        </span>
       </div>
       {renderBody()}
     </section>
@@ -201,7 +491,6 @@ export function DashboardWidgets() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarLive, setCalendarLive] = useState(false);
-  const [calendarSource, setCalendarSource] = useState(null);
   const [connectLoading, setConnectLoading] = useState(false);
   const [linearState, setLinearState] = useState(LINEAR_INITIAL_STATE);
 
@@ -212,51 +501,98 @@ export function DashboardWidgets() {
       if (data.configured) {
         setCalendarLive(true);
         setCalendarEvents(Array.isArray(data.events) ? data.events : []);
-        setCalendarSource(data.source ?? null);
       } else {
         setCalendarLive(false);
         setCalendarEvents([]);
-        setCalendarSource(null);
       }
     } catch {
       setCalendarLive(false);
       setCalendarEvents([]);
-      setCalendarSource(null);
     }
   }, []);
+
+  // Force-mock toggle for previewing the Active Hunts table without
+  // depending on real Linear data. Triggered by either:
+  //   - URL param: `?mock_hunts=1` (handy for one-off screenshots)
+  //   - localStorage: `dashboardMockHunts=1` (sticks across reloads)
+  // Dev-only so it can never accidentally swap real data in prod.
+  const previewMockHunts =
+    import.meta.env.DEV &&
+    (searchParams.get('mock_hunts') === '1' ||
+      (typeof window !== 'undefined' &&
+        window.localStorage?.getItem('dashboardMockHunts') === '1'));
 
   useEffect(() => {
     let cancelled = false;
 
     loadCalendar().catch(() => {});
 
+    // In dev, fall back to MOCK_LINEAR_BOARD whenever the backend can't
+    // surface real data (Linear unconfigured, request failed, empty
+    // payload), OR whenever the dev-only `previewMockHunts` toggle is
+    // on. This lets us iterate on the table layout without standing up
+    // Linear locally. Production keeps the original callouts so users
+    // see real connect/error states.
+    const withMockFallback = (currentState, openUrl) => {
+      if (!import.meta.env.DEV) return currentState;
+      return {
+        status: 'ok',
+        openUrl: openUrl || LINEAR_DEFAULT_OPEN_URL,
+        projects: MOCK_LINEAR_BOARD.projects,
+      };
+    };
+
+    if (previewMockHunts) {
+      setLinearState({
+        status: 'ok',
+        openUrl: LINEAR_DEFAULT_OPEN_URL,
+        projects: MOCK_LINEAR_BOARD.projects,
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     fetchDashboardLinear()
       .then((data) => {
         if (cancelled || !data) return;
         const openUrl = data.openUrl || LINEAR_DEFAULT_OPEN_URL;
-        if (data.configured && Array.isArray(data.projects)) {
+        if (data.configured && Array.isArray(data.projects) && data.projects.length > 0) {
           setLinearState({ status: 'ok', openUrl, projects: data.projects });
         } else if (data.needsLinearProfile) {
-          setLinearState({ status: 'needs_profile', openUrl, projects: [] });
+          setLinearState(
+            withMockFallback({ status: 'needs_profile', openUrl, projects: [] }, openUrl),
+          );
         } else if (data.reason === 'no_sales_engineer') {
-          setLinearState({ status: 'no_sales_engineer', openUrl, projects: [] });
+          setLinearState(
+            withMockFallback({ status: 'no_sales_engineer', openUrl, projects: [] }, openUrl),
+          );
+        } else if (data.configured && Array.isArray(data.projects)) {
+          setLinearState({ status: 'ok', openUrl, projects: data.projects });
         } else {
-          setLinearState({ status: 'unavailable', openUrl, projects: [] });
+          setLinearState(
+            withMockFallback({ status: 'unavailable', openUrl, projects: [] }, openUrl),
+          );
         }
       })
       .catch(() => {
         if (cancelled) return;
-        setLinearState({
-          status: 'unavailable',
-          openUrl: LINEAR_DEFAULT_OPEN_URL,
-          projects: [],
-        });
+        setLinearState(
+          withMockFallback(
+            {
+              status: 'unavailable',
+              openUrl: LINEAR_DEFAULT_OPEN_URL,
+              projects: [],
+            },
+            LINEAR_DEFAULT_OPEN_URL,
+          ),
+        );
       });
 
     return () => {
       cancelled = true;
     };
-  }, [loadCalendar]);
+  }, [loadCalendar, previewMockHunts]);
 
   useEffect(() => {
     const g = searchParams.get('google_calendar');
@@ -287,18 +623,7 @@ export function DashboardWidgets() {
     }
   };
 
-  const handleDisconnectGoogle = async () => {
-    try {
-      await disconnectGoogleCalendar();
-      await loadCalendar();
-    } catch (err) {
-      console.error(err);
-      alert(err?.message || 'Could not disconnect');
-    }
-  };
-
   const showConnect = !calendarLive;
-  const oauthConnected = calendarSource === 'oauth';
 
   return (
     <div className="dashboard-widgets">
@@ -308,9 +633,7 @@ export function DashboardWidgets() {
         showEmptyHint={calendarLive}
         showConnect={showConnect}
         onConnect={handleConnectGoogle}
-        onDisconnect={handleDisconnectGoogle}
         connectLoading={connectLoading}
-        oauthConnected={oauthConnected}
       />
     </div>
   );

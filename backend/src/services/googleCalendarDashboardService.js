@@ -44,21 +44,94 @@ function formatTime(isoOrDate, allDay, timeZone) {
   }).format(d);
 }
 
-function eventMeta(event) {
+// Map a video-conference URL to the friendly provider name we want to
+// display in the UI (and on the Join button).
+function videoProviderFromUrl(uri) {
+  if (!uri) return null;
+  if (/zoom/i.test(uri)) return 'Zoom';
+  if (/meet\.google|google\.com\/meet/i.test(uri)) return 'Google Meet';
+  if (/teams\.microsoft/i.test(uri)) return 'Microsoft Teams';
+  if (/whereby\.com/i.test(uri)) return 'Whereby';
+  return 'Video call';
+}
+
+// Regex used to spot a video-conference URL in free-form fields (location,
+// description) when Google didn't attach proper conferenceData. Capture
+// group 1 is the URL itself so we can hand it to the Join button on the
+// frontend.
+const VIDEO_URL_RE =
+  /(https?:\/\/[^\s]*(?:zoom\.us|meet\.google|google\.com\/meet|teams\.microsoft|whereby\.com)[^\s)>"']*)/i;
+
+// Pull the best available video-conference URL out of an event, in
+// priority order: structured conferenceData → hangoutLink → URL pasted
+// into location → URL pasted into description. Returns null when no
+// video link can be found.
+function extractVideoConference(event) {
   const conf = event.conferenceData?.entryPoints?.find((e) => e.entryPointType === 'video');
   if (conf?.uri) {
-    if (/zoom/i.test(conf.uri)) return 'Zoom';
-    if (/meet\.google|google\.com\/meet/i.test(conf.uri)) return 'Google Meet';
-    if (/teams\.microsoft/i.test(conf.uri)) return 'Microsoft Teams';
-    return 'Video call';
+    return { url: conf.uri, provider: videoProviderFromUrl(conf.uri) };
   }
   if (event.hangoutLink) {
-    return 'Google Meet';
+    return { url: event.hangoutLink, provider: 'Google Meet' };
   }
+  for (const field of [event.location, event.description]) {
+    if (typeof field !== 'string') continue;
+    const m = field.match(VIDEO_URL_RE);
+    if (m?.[1]) {
+      return { url: m[1], provider: videoProviderFromUrl(m[1]) };
+    }
+  }
+  return null;
+}
+
+function eventMeta(event, video) {
+  if (video?.provider) return video.provider;
   if (event.location) {
     return event.location.length > 48 ? `${event.location.slice(0, 45)}…` : event.location;
   }
   return 'Calendar';
+}
+
+/**
+ * Decide whether an event is a real "meeting" vs a personal time block
+ * (focus time, lunch, "Home", solo blocks, etc.).
+ *
+ * Heuristic — true if ANY of:
+ *   1. Has a video conference attached (Meet / Zoom / Teams / hangoutLink).
+ *   2. Has a Zoom/Meet/Teams URL in the location field.
+ *   3. Has more than one human attendee (room/resource attendees ignored).
+ *
+ * All-day events are never meetings.
+ */
+function isMeetingEvent(event) {
+  const allDay = Boolean(event.start?.date && !event.start?.dateTime);
+  if (allDay) return false;
+
+  // 1. Proper conference data
+  const hasVideoConf = Boolean(
+    event.hangoutLink ||
+    event.conferenceData?.entryPoints?.some((e) => e.entryPointType === 'video'),
+  );
+  if (hasVideoConf) return true;
+
+  // 2. Video URL pasted into location (or, as a fallback, description)
+  if (VIDEO_URL_RE.test(event.location || '')) return true;
+  if (VIDEO_URL_RE.test(event.description || '')) return true;
+
+  // 3. More than one human attendee. Google includes the organizer themselves
+  // in this list, so we look for >1 non-resource attendees.
+  const attendees = Array.isArray(event.attendees) ? event.attendees : [];
+  const humanAttendees = attendees.filter((a) => !a.resource);
+  if (humanAttendees.length > 1) return true;
+
+  return false;
+}
+
+// Count humans (excluding rooms / resources) on the invite. Used by the
+// frontend to render a "👥 N" attendee chip on each meeting.
+function countHumanAttendees(event) {
+  const attendees = Array.isArray(event.attendees) ? event.attendees : [];
+  return attendees.filter((a) => !a.resource).length;
 }
 
 function durationMeta(event) {
@@ -81,9 +154,14 @@ function durationMeta(event) {
 function mapItemsToEvents(items, timeZone) {
   return items.map((event, index) => {
     const allDay = Boolean(event.start?.date && !event.start?.dateTime);
+    // Google marks Out-of-Office events with eventType === 'outOfOffice'.
+    // The dashboard surfaces these even when they're all-day so the SE
+    // (and viewers of the team calendar) can still see "PTO" blocks.
+    const isOoo = event.eventType === 'outOfOffice';
     const startIso = event.start?.dateTime || event.start?.date;
     const time = formatTime(startIso, allDay, timeZone);
-    let meta = eventMeta(event);
+    const video = extractVideoConference(event);
+    let meta = eventMeta(event, video);
     const dur = durationMeta(event);
     if (dur && meta) {
       meta = `${meta} · ${dur}`;
@@ -97,6 +175,12 @@ function mapItemsToEvents(items, timeZone) {
       title: event.summary || '(No title)',
       meta,
       color: EVENT_COLORS[index % EVENT_COLORS.length],
+      isMeeting: isMeetingEvent(event),
+      isAllDay: allDay,
+      isOoo,
+      attendeeCount: countHumanAttendees(event),
+      videoUrl: video?.url || null,
+      videoProvider: video?.provider || null,
     };
   });
 }
@@ -122,7 +206,15 @@ async function listTodayEvents(calendar, calendarId, timeZone) {
 }
 
 /**
- * @returns {Promise<{ configured: boolean, events: Array<{id: string, time: string, title: string, meta: string, color: string}> }>}
+ * @returns {Promise<{
+ *   configured: boolean,
+ *   events: Array<{
+ *     id: string, time: string, title: string, meta: string, color: string,
+ *     isMeeting: boolean, isAllDay: boolean, isOoo: boolean,
+ *     attendeeCount: number,
+ *     videoUrl: string | null, videoProvider: string | null,
+ *   }>
+ * }>}
  */
 export async function getTodayCalendarEvents() {
   const calendarId = process.env.GOOGLE_CALENDAR_ID?.trim();

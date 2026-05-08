@@ -1,102 +1,145 @@
-/* Flow Doc Generator - matches QA Wolf PDF leave-behind style */
+/*
+ * Flow Doc Generator — dark navy + coral chrome around a paper-style
+ * document preview.
+ *
+ * Two distinct surfaces in this page:
+ *
+ *   1. The CHROME (header, info panels, URL input, action buttons,
+ *      loading / error states) → dark navy + coral, matches the rest
+ *      of SalesWolf so the page sits inside the product.
+ *
+ *   2. The DOC PREVIEW (.fdg-doc-card) → stays light / paper-colored
+ *      on purpose. It's a print preview — it should look like the PDF
+ *      it's about to generate. Inline edit affordances pick up the
+ *      original blue accent so the preview reads as "this is what you
+ *      get when you Download PDF".
+ *
+ * The page is mounted through the shared <ProjectView>, so the
+ * .project-view / .project-header overrides from RatioEstimator.css
+ * also apply here. Anything in this file is unlayered, so it wins
+ * over the @layer-wrapped legacy rules in App.less.
+ */
+
+/* =========================
+ * Page shell
+ * ========================= */
 
 .flow-doc-generator {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  color: var(--white);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
-/* Page header (tool UI, not the doc) */
+/* =========================
+ * Page header (in-component header — sits beneath the ProjectView
+ * banner so we keep it tight and uppercase-y rather than a second
+ * giant H1.)
+ * ========================= */
+
 .fdg-header {
-  margin-bottom: 2rem;
+  margin-bottom: 0;
+  padding: 0;
 }
 
 .fdg-header h1 {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  color: var(--text-primary, #1a1a2e);
-  margin: 0 0 0.5rem;
+  color: var(--white);
+  margin: 0 0 0.35rem 0;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 .fdg-header p {
-  color: var(--text-secondary, #6b7280);
+  color: rgba(255, 255, 255, 0.6);
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
 }
 
-/* Info panels row */
+/* =========================
+ * Info panels — "How it works" + "Gotchas"
+ *
+ * Both share the standard navy-panel chrome (matches the metric cards
+ * on the calculator). They differentiate via their accent: a coral
+ * micro-overline on "How it works" (informational / brand) and an
+ * amber-red one on "Gotchas" (warning).
+ * ========================= */
+
 .fdg-info-panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  margin: 0;
 }
 
-/* How it works */
-.fdg-how-it-works {
-  background: #f5f5ff;
-  border: 1px solid #c7c7fb;
-  border-radius: 12px;
-  padding: 1.25rem 1.5rem;
+.fdg-how-it-works,
+.fdg-gotchas {
+  background: var(--midnight-navy);
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 1.1rem 1.3rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
+}
+
+.fdg-how-title,
+.fdg-gotchas-title {
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 0.9rem 0;
 }
 
 .fdg-how-title {
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #3d3df5;
-  margin: 0 0 0.625rem;
-}
-
-.fdg-how-steps {
-  margin: 0;
-  padding-left: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  list-style: decimal;
-}
-
-.fdg-how-steps li {
-  font-size: 0.875rem;
-  color: #374151;
-  line-height: 1.5;
-  padding-left: 0.25rem;
-}
-
-/* Gotchas */
-.fdg-gotchas {
-  background: #fff5f5;
-  border: 1px solid #fca5a5;
-  border-radius: 12px;
-  padding: 1.25rem 1.5rem;
+  color: var(--coral);
 }
 
 .fdg-gotchas-title {
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #dc2626;
-  margin: 0 0 0.625rem;
+  color: #ffb4ae;
 }
 
+.fdg-how-steps,
 .fdg-gotchas-list {
   margin: 0;
-  padding-left: 1.5rem;
+  padding-left: 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  list-style: disc;
+  gap: 0.55rem;
 }
 
+.fdg-how-steps { list-style: decimal; }
+.fdg-gotchas-list { list-style: disc; }
+
+.fdg-how-steps li,
 .fdg-gotchas-list li {
   font-size: 0.875rem;
-  color: #7f1d1d;
+  color: rgba(255, 255, 255, 0.78);
   line-height: 1.5;
   padding-left: 0.25rem;
+}
+
+.fdg-how-steps li::marker,
+.fdg-gotchas-list li::marker {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.fdg-how-steps li strong,
+.fdg-gotchas-list li strong {
+  color: var(--white);
+  font-weight: 700;
 }
 
 @media (max-width: 680px) {
@@ -105,92 +148,142 @@
   }
 }
 
-/* Input section */
+/* =========================
+ * URL input section
+ * ========================= */
+
 .fdg-input-section {
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
+  background: var(--midnight-navy);
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 1.1rem 1.3rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
+  margin: 0;
 }
 
 .fdg-input-label {
   display: block;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
-  margin-bottom: 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 0.65rem;
 }
 
 .fdg-input-row {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.65rem;
   align-items: stretch;
 }
 
 .fdg-url-input {
   flex: 1;
-  padding: 0.625rem 0.875rem;
-  font-size: 0.9rem;
-  border: 1.5px solid var(--border-color, #d1d5db);
-  border-radius: 8px;
-  background: var(--input-bg, #f9fafb);
-  color: var(--text-primary, #1a1a2e);
+  padding: 0.65rem 0.95rem;
+  font-size: 0.875rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.55rem;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--white);
   outline: none;
-  transition: border-color 0.15s;
-  font-family: 'SFMono-Regular', 'Consolas', monospace;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  font-family: 'SFMono-Regular', 'Consolas', Menlo, monospace;
+  min-width: 0;
+}
+
+.fdg-url-input:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.32);
 }
 
 .fdg-url-input:focus {
-  border-color: #3d3df5;
-  background: var(--card-bg, #ffffff);
+  border-color: var(--coral);
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.25);
 }
 
 .fdg-url-input::placeholder {
-  color: #9ca3af;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: inherit;
+  font-style: normal;
 }
 
-.fdg-generate-btn {
-  padding: 0.625rem 1.5rem;
-  background: #3d3df5;
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, opacity 0.15s;
-}
-
-.fdg-generate-btn:hover:not(:disabled) {
-  background: #2c2cd4;
-}
-
-.fdg-generate-btn:disabled {
-  opacity: 0.6;
+.fdg-url-input:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
-/* Loading state */
+.fdg-generate-btn {
+  padding: 0.6rem 1.35rem;
+  background: rgba(255, 107, 74, 0.18);
+  color: var(--white);
+  border: 1px solid rgba(255, 107, 74, 0.45);
+  border-radius: 0.55rem;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.fdg-generate-btn:hover:not(:disabled) {
+  background: rgba(255, 107, 74, 0.28);
+  border-color: rgba(255, 107, 74, 0.7);
+  transform: translateY(-1px);
+}
+
+.fdg-generate-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.35);
+}
+
+.fdg-generate-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* =========================
+ * Loading + error states
+ * ========================= */
+
 .fdg-loading {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 1.5rem;
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 12px;
-  color: var(--text-secondary, #6b7280);
-  font-size: 0.9rem;
+  padding: 1rem 1.25rem;
+  background: var(--midnight-navy);
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
 }
 
 .fdg-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2.5px solid #e5e7eb;
-  border-top-color: #3d3df5;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2.5px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--coral);
   border-radius: 50%;
   animation: fdg-spin 0.7s linear infinite;
   flex-shrink: 0;
@@ -200,28 +293,123 @@
   to { transform: rotate(360deg); }
 }
 
-/* Error state */
 .fdg-error {
-  padding: 1rem 1.25rem;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  color: #b91c1c;
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
+  padding: 0.85rem 1.1rem;
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-left: 3px solid var(--error-red-alt);
+  border-radius: 0.6rem;
+  color: #ffb4ae;
+  font-size: 0.875rem;
 }
 
-/* ─── Document output card ─────────────────────────────────── */
+/* =========================
+ * Doc preview card
+ *
+ * Intentionally LIGHT — this represents the printable PDF. We keep the
+ * blue/indigo accent the QA Wolf brand uses so the preview matches the
+ * Download PDF output. We do wrap it in a dark navy frame so it sits
+ * cleanly on the dark canvas without floating awkwardly.
+ * ========================= */
 
 .fdg-doc-card {
   background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.85rem;
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 18px 36px -16px rgba(0, 0, 0, 0.65);
 }
 
-/* Doc header: white, logo top-left */
+/* Action bar — sits at the very top of the preview card. Dark strip
+   so the Download button reads as a SalesWolf control rather than a
+   stray button on white paper. */
+.fdg-doc-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  background: var(--midnight-navy);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fdg-edit-hint {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-style: normal;
+  margin-right: auto;
+}
+
+.fdg-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.05rem;
+  background: rgba(255, 107, 74, 0.18);
+  color: var(--white);
+  border: 1px solid rgba(255, 107, 74, 0.45);
+  border-radius: 0.55rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.fdg-download-btn:hover {
+  background: rgba(255, 107, 74, 0.28);
+  border-color: rgba(255, 107, 74, 0.7);
+  transform: translateY(-1px);
+}
+
+/* Print tip banner — slots into the dark action area so it inherits
+   the strip's framing rather than slapping a yellow box on white paper. */
+.fdg-print-tip {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  background: rgba(245, 158, 11, 0.12);
+  border-top: 1px solid rgba(245, 158, 11, 0.35);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.18);
+  color: #fde68a;
+  font-size: 0.8125rem;
+}
+
+.fdg-print-tip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.fdg-print-tip-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #fde68a;
+  padding: 0 0.25rem;
+  line-height: 1;
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
+}
+
+.fdg-print-tip-close:hover {
+  opacity: 1;
+}
+
+.fdg-print-tip-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #fde68a;
+  line-height: 1.65;
+}
+
+/* ----- Paper preview body — light-themed on purpose ----- */
+
 .fdg-doc-header {
   padding: 2rem 2.5rem 1.75rem;
   background: #ffffff;
@@ -243,7 +431,8 @@
   text-align: center;
 }
 
-/* Editable inline fields */
+/* Editable inline fields — keep the QA Wolf indigo accent so the
+   preview really does look like the PDF, not a SalesWolf form. */
 .fdg-editable-title {
   font-size: 1.5rem;
   font-weight: 700;
@@ -310,12 +499,11 @@
   background: #f5f5ff;
 }
 
-/* Doc body */
 .fdg-doc-body {
   padding: 0 2.5rem 2.5rem;
+  background: #ffffff;
 }
 
-/* Summary section */
 .fdg-summary-section {
   margin-bottom: 2rem;
 }
@@ -336,15 +524,10 @@
   border-left: 3px solid #3d3df5;
 }
 
-/* Steps */
 .fdg-steps-section {
   display: flex;
   flex-direction: column;
   gap: 2rem;
-}
-
-.fdg-step {
-  /* no card chrome - matches original flat layout */
 }
 
 .fdg-step-name-heading {
@@ -371,7 +554,6 @@
   flex-shrink: 0;
 }
 
-/* Code block - light gray, matches original */
 .fdg-code-wrapper {
   position: relative;
   background: #f3f4f6;
@@ -381,7 +563,7 @@
 
 .fdg-code-block {
   margin: 0;
-  padding: 1.25rem 1.25rem;
+  padding: 1.25rem;
   overflow-x: auto;
   font-size: 0.8rem;
   line-height: 1.65;
@@ -393,7 +575,8 @@
   background: transparent;
 }
 
-/* Copy button - top right of code block */
+/* Copy button (kept from original — sits over the light code block,
+   stays light-themed to match the paper preview). */
 .fdg-copy-btn {
   position: absolute;
   top: 0.5rem;
@@ -418,73 +601,3 @@
   color: #065f46;
   border-color: #6ee7b7;
 }
-
-/* Download button */
-.fdg-doc-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1.25rem 0;
-}
-
-.fdg-edit-hint {
-  font-size: 0.775rem;
-  color: var(--text-secondary, #9ca3af);
-  font-style: italic;
-}
-
-.fdg-download-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.45rem 1rem;
-  font-size: 0.825rem;
-  font-weight: 600;
-  background: #3d3df5;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.fdg-download-btn:hover {
-  background: #2c2cd4;
-}
-
-/* Print tip banner */
-.fdg-print-tip {
-  margin: 0 1.25rem 0.75rem;
-  padding: 0.75rem 1rem;
-  background: #fffbeb;
-  border: 1px solid #fcd34d;
-  border-radius: 8px;
-  font-size: 0.825rem;
-}
-
-.fdg-print-tip-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-  color: #92400e;
-  margin-bottom: 0.4rem;
-}
-
-.fdg-print-tip-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 0.8rem;
-  color: #92400e;
-  padding: 0 0.25rem;
-  line-height: 1;
-}
-
-.fdg-print-tip-steps {
-  margin: 0;
-  padding-left: 1.25rem;
-  color: #78350f;
-  line-height: 1.7;
-}
-

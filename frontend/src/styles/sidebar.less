@@ -5,35 +5,33 @@
 @import 'tokens/_index.less';
 
 .sidebar {
-  width: 16rem;
-  height: calc(100vh - 3.5rem);
+  width: 18rem;
+  height: 100vh;
   background-color: @nav-primary;
-  border-right: 1px solid @nav-primary-dark;
-  padding: 1.5rem 0.75rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 0;
   position: fixed;
-  top: 3.5rem;
+  top: 0;
   left: 0;
   bottom: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
   margin: 0;
-  border-top: none;
   z-index: 10;
-  transition: transform 0.3s ease-in-out; // Smooth slide animation
-
-  &.sidebar-closed {
-    transform: translateX(-100%);
-  }
+  transition: width 0.25s ease;
 }
 
 .sidebar-nav {
   width: 100%;
-  padding-top: 1rem;
+  flex: 1;
+  min-height: 0; // Allow flex child to shrink so overflow-y can take effect
+  padding: 1rem 0.75rem 1.5rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .nav-list {
@@ -52,20 +50,26 @@
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.875rem;
+  gap: 0.875rem;
+  padding: 0.8125rem 1rem;
   color: rgba(255, 255, 255, 0.85);
   text-decoration: none;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   transition: all 0.2s ease;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 500;
   margin: 0 0.25rem;
 }
 
-.nav-link:hover {
-  background-color: @nav-hover;
-  color: white;
+// Hover state only applies to inactive items — active items keep their
+// pill styling untouched when hovered.
+.nav-link:not(.active):hover {
+  background-color: rgba(0, 0, 0, 0.35);
+  color: var(--coral);
+
+  .nav-icon {
+    color: var(--coral);
+  }
 }
 
 .nav-link.active {
@@ -75,13 +79,31 @@
 }
 
 .nav-icon {
-  font-size: 1.25rem;
-  width: 1.5rem;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 1.375rem;
+  flex-shrink: 0;
+  line-height: 1;
+  // Default muted white. Active items keep this color even on hover (see
+  // .nav-link:not(.active):hover above). Inactive items get coral on hover.
+  color: rgba(255, 255, 255, 0.85);
+  transition: color 0.2s ease;
+
+  svg {
+    width: 1.375rem;
+    height: 1.375rem;
+    display: block;
+  }
 }
 
 .nav-label {
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
 }
 
 // Dropdown Styles
@@ -96,10 +118,19 @@
 }
 
 .nav-chevron {
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-left: auto;
-  transition: transform 0.2s ease;
+  font-size: 0.875rem;
   opacity: 0.7;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+
+  svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    display: block;
+  }
 }
 
 .nav-submenu {
@@ -148,6 +179,58 @@
   margin: 0.5rem 0 1rem 0;
 }
 
+// Collapse pill — pinned at the very bottom of the sidebar footer.
+.sidebar-collapse {
+  margin-top: 1.25rem;
+  padding: 0.875rem 1rem;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  background: transparent;
+  border: 1px solid var(--border-gray);
+  border-radius: 0.75rem;
+  color: var(--muted-gray);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--white);
+    border-color: var(--muted-gray);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--electric-blue);
+    outline-offset: 2px;
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: inherit;
+
+    svg {
+      width: 1.25rem;
+      height: 1.25rem;
+      display: block;
+    }
+  }
+
+  &__label {
+    flex: 1;
+    text-align: left;
+  }
+}
+
 // Make sure buttons in footer work like nav links
 .sidebar-footer .nav-link {
   width: 100%;
@@ -161,7 +244,7 @@
 // App Layout Styles
 .app-layout {
   display: flex;
-  min-height: calc(100vh - 3.5rem);
+  min-height: 100vh;
   margin: 0;
   padding: 0;
   gap: 0;
@@ -174,73 +257,152 @@
   padding: 2rem;
   overflow-x: hidden;
   min-width: 0; // Allows flex item to shrink below content size
-  background-color: #ffffff;
-  min-height: calc(100vh - 3.5rem);
-  margin-left: 16rem; // Account for fixed sidebar
-  transition: margin-left 0.3s ease-in-out; // Smooth transition when sidebar toggles
-  
-  // When sidebar is closed, remove the left margin
+  // Layered atmospheric backdrop:
+  //  1) A bright blue "glow" radiating from the top (the spotlight).
+  //  2) A subtle deepening at the bottom corners so they read darker than
+  //     the middle, giving the page a cinematic, lifted feel.
+  // The base color stays --card-bg-navy so the sidebar still meets the
+  // dashboard with zero seam.
+  // background-attachment: fixed keeps the glow anchored to the viewport
+  // instead of moving / repeating on scroll.
+  background-color: var(--card-bg-navy);
+  background-image:
+    radial-gradient(
+      ellipse 110% 65% at 50% 0%,
+      rgba(120, 150, 230, 0.32) 0%,
+      rgba(70, 100, 190, 0.18) 30%,
+      rgba(30, 50, 110, 0.08) 55%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse 80% 60% at 50% 100%,
+      rgba(0, 0, 0, 0.45) 0%,
+      transparent 65%
+    );
+  background-attachment: fixed;
+  min-height: 100vh;
+  margin-left: 18rem; // Account for fixed sidebar
+  transition: margin-left 0.25s ease;
+
+  // When sidebar is collapsed to icon-only, slide content in to match the
+  // narrower icon-rail width (instead of going all the way to 0).
   &.sidebar-closed {
-    margin-left: 0;
+    margin-left: 5.5rem;
   }
-  
-  // Remove margin and padding on auth pages (login, password change)
+
+  // Auth pages share the dashboard's navy + spotlight backdrop so the
+  // signed-out experience visually matches the signed-in home page.
+  // We still drop the sidebar gutter and lock the viewport so the auth
+  // card sits centered without scrolling.
   &.auth-page {
     margin-left: 0 !important;
     padding: 0 !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: calc(100vh - 3.5rem);
-    max-height: calc(100vh - 3.5rem);
+    height: 100vh;
+    max-height: 100vh;
     overflow: hidden;
+    position: relative;
   }
 }
 
-// Top Header Styles
+// =========================
+// Sidebar Brand Block (top of rail) — lives inside .sidebar as a flex child
+// =========================
 .top-header {
-  background-color: @nav-primary;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 0.875rem 2rem;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  z-index: 100;
+  background: linear-gradient(180deg, var(--midnight-navy), var(--card-bg-navy));
+  border-bottom: 1px solid var(--border-gray);
+  padding: 0.75rem 1rem;
   display: flex;
   align-items: center;
-  height: 3.5rem;
+  height: 6rem;
+  flex-shrink: 0;
   margin: 0;
   box-shadow: none;
+  transition: padding 0.25s ease;
 }
 
 .header-logo {
-  text-decoration: none;
-  color: white;
   display: inline-flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: 0.875rem;
+  text-decoration: none;
+  color: var(--white);
+  width: 100%;
   transition: opacity 0.2s ease;
+
+  &:hover {
+    opacity: 0.92;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--electric-blue);
+    outline-offset: 2px;
+    border-radius: 12px;
+  }
 }
 
-.header-logo:hover {
-  opacity: 0.9;
-}
-
+// Wolf mark — the source PNG already has its own coral tile, so display
+// it raw (no extra background or border) at a clean rounded size.
 .header-logo-icon {
-  width: 1.75rem;
-  height: 1.75rem;
-  object-fit: contain;
+  width: 2.75rem;
+  height: 2.75rem;
   flex-shrink: 0;
+  object-fit: contain;
+  border-radius: 0.75rem;
 }
 
-.header-logo h1 {
-  margin: 0;
-  font-size: 1.375rem;
-  font-weight: 700;
-  color: white;
-  letter-spacing: -0.01em;
+.header-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.1;
+  min-width: 0;
+
+  h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    color: var(--white);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0;
+  }
+
+  // <span className="header-wolf"> sits inside the <h1> — accent the "Wolf"
+  // word in coral so it ties into the rest of the app's coral hierarchy
+  // (page-header overline + name, hover states, CTAs).
+  .header-wolf {
+    display: inline;
+    color: var(--coral);
+    font-weight: 800;
+  }
+
+  p {
+    margin: 0.25rem 0 0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted-gray);
+    white-space: nowrap;
+  }
+
+  // Tagline bullets pop in coral so the "HUNT • CLOSE • DOMINATE"
+  // line picks up the same accent as the brand mark and the page
+  // header overline dot.
+  .header-tagline-dot {
+    display: inline-block;
+    margin: 0 0.45em;
+    color: var(--coral);
+    // Slightly heavier so the dot doesn't get visually crushed by the
+    // surrounding letterspaced caps.
+    font-size: 1.1em;
+    line-height: 1;
+    vertical-align: middle;
+  }
 }
 
 // Dashboard Section Title
@@ -328,6 +490,76 @@
 
   .main-content {
     padding: 1rem;
+  }
+}
+
+// =========================
+// Collapsed (icon-only) state
+// =========================
+// Driven by `app--sidebar-collapsed` on the root .app element so the brand
+// header, sidebar, and main content all shrink in lockstep.
+.app--sidebar-collapsed {
+  // Sidebar shrinks to an icon-only rail; the brand bar (now an in-flow
+  // child of .sidebar) shrinks with it automatically.
+  .sidebar {
+    width: 5.5rem;
+  }
+
+  .top-header {
+    padding: 0.75rem 0.5rem;
+    justify-content: center;
+  }
+
+  .header-text {
+    display: none;
+  }
+
+  .header-logo {
+    width: auto;
+    gap: 0;
+    justify-content: center;
+  }
+
+  .sidebar-nav {
+    padding: 1rem 0.625rem 1.5rem;
+  }
+
+  .nav-link {
+    justify-content: center;
+    padding: 0.75rem 0;
+    margin: 0;
+    gap: 0;
+  }
+
+  .nav-label,
+  .nav-chevron {
+    display: none;
+  }
+
+  // Just in case the dropdown is still open when collapsing — hide the submenu
+  .nav-submenu {
+    display: none;
+  }
+
+  // Footer items follow the same icon-only treatment
+  .sidebar-footer .nav-link {
+    width: 100%;
+  }
+
+  // Collapse pill becomes a small square button with just the chevron
+  .sidebar-collapse {
+    padding: 0.625rem 0;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .sidebar-collapse__label {
+    display: none;
+  }
+
+  // Main content slides flush against the narrow rail
+  .main-content {
+    margin-left: 5.5rem;
   }
 }
 

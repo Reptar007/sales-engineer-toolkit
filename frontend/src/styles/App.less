@@ -223,7 +223,9 @@
     font-size: @font-size-body;
     font-weight: @font-weight-regular;
     color: @text-primary-light;
-    background-color: @canvas-light;
+    // Match the sidebar / dashboard canvas so any area uncovered by .app
+    // (e.g. when scrolling past the main-content) doesn't flash white.
+    background-color: var(--card-bg-navy);
     line-height: 1.5;
     .transition(background-color 0.3s ease, color 0.3s ease);
 
@@ -238,12 +240,14 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background-color: @canvas-light;
+    // Match the sidebar / dashboard canvas (--card-bg-navy) so any
+    // uncovered area blends seamlessly instead of flashing white. Auth
+    // pages still set their own white background on .main-content.auth-page.
+    background-color: var(--card-bg-navy);
     margin: 0;
     padding: 0;
-    padding-top: 3.5rem; // Account for fixed header
     overflow-x: hidden;
-    
+
     // Prevent scrolling on auth pages
     &:has(.auth-page) {
       height: 100vh;
@@ -1646,18 +1650,18 @@
   // =========================
 
   footer {
-    margin-top: @space-xl;
+    margin-top: 0;
     padding: @space-lg 2rem;
-    border-top: 0.0625rem solid @table-border-light;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     text-align: center;
-    color: @text-muted-light;
+    color: var(--muted-gray);
     font-size: 0.75rem;
-    margin-left: 16rem; // Account for fixed sidebar
-    background-color: @canvas-light;
+    margin-left: 18rem; // Account for fixed sidebar (matches new rail width)
+    background-color: var(--card-bg-navy);
+    transition: margin-left 0.25s ease;
 
-    [data-theme='dark'] & {
-      border-color: @table-border-dark;
-      color: @text-muted-dark;
+    .app--sidebar-collapsed & {
+      margin-left: 5.5rem; // Track the collapsed icon-rail width
     }
   }
 
@@ -2219,6 +2223,213 @@
     font-size: @font-size-medium;
     color: @text-secondary-light;
     margin: 0;
+  }
+}
+
+// =========================
+// PageHeader (reusable hero) — used at the top of Dashboard, Admin, etc.
+// =========================
+.page-header {
+  display: block;
+  // Tighter top so the hero hugs the page chrome more closely.
+  // The hairline border-bottom acts as a soft section divider between
+  // the hero (greeting / team) and the data zone underneath. Padding
+  // gives the line breathing room from the meta row above; margin
+  // gives the cards below room to start.
+  padding: 1.25rem 0 1.5rem;
+  margin: 0 0 1.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+// Two-column row: greeting + summary (left) | team chip (right).
+// The overline lives above this row, so both columns start at the
+// same y-origin — the team line naturally aligns with the title.
+.page-header__main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: @spacing-large;
+}
+
+.page-header__text {
+  min-width: 0;
+  flex: 1;
+}
+
+.page-header__overline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  // Coral flavor text — wolf-themed and a touch playful.
+  color: var(--coral);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 0.625rem;
+}
+
+.page-header__overline-dot {
+  display: inline-block;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background-color: var(--coral);
+  box-shadow: 0 0 0.5rem rgba(255, 107, 74, 0.55);
+}
+
+.page-header__title {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--white);
+}
+
+.page-header__title-icon {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--coral);
+  opacity: 0.95;
+}
+
+.page-header__name {
+  // The user's name pops in coral to match the overline.
+  color: var(--coral);
+}
+
+.page-header__sub {
+  margin: 0.875rem 0 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--muted-gray);
+}
+
+// Wolf-themed status sentence — surfaces meeting / hunt / blocker counts
+// underneath the subline. Numbers pop in coral, prose stays light gray.
+.page-header__summary {
+  margin: 0.75rem 0 0;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.45;
+}
+
+.page-header__count {
+  color: var(--coral);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+// Team chip — anchored to the right side of the hero, mirrors the
+// "white label + coral value" hierarchy used by the greeting.
+// Sits in the same flex row as the greeting/summary so the team
+// line lines up with the title and the meta row lines up with the
+// summary sentence below it.
+//
+// Internal alignment is centered so the meta row (quarter + pill)
+// reads as a caption underneath the team name rather than two
+// separately right-aligned siblings.
+.page-header__team {
+  flex-shrink: 0;
+  text-align: center;
+  align-self: flex-start;
+}
+
+.page-header__team-line {
+  margin: 0;
+  // Mirrors the greeting (.page-header__title) so the two headlines
+  // visually balance across the row at the exact same scale.
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--white);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.page-header__team-name {
+  color: var(--coral);
+}
+
+// Meta row sits under the team name. Quarter sits on the left, the
+// active-hunts pill on the right. The whole row aligns to the same
+// y-baseline as the summary sentence on the left side of the hero.
+.page-header__team-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  // Match `summary` margin-top so the row baselines line up across
+  // the hero (greeting → summary on the left, team name → meta on
+  // the right).
+  margin-top: 0.75rem;
+  // Centered under the team name so the block reads as a clean
+  // "headline + caption" pairing.
+  justify-content: center;
+}
+
+.page-header__team-quarter {
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--muted-gray);
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+// Coral status pill — surfaces the user's currently active Linear
+// hunts so the team header doubles as a quick "what's on my plate"
+// glance. Visually echoes the hunt-themed coral CTAs and the
+// metric-card icon chips.
+.page-header__active-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  padding: 0.375rem 0.75rem 0.375rem 0.625rem;
+  border-radius: 9999px;
+  background: rgba(255, 107, 74, 0.14);
+  border: 1px solid rgba(255, 107, 74, 0.42);
+  color: var(--coral);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.page-header__active-pill-icon {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  color: var(--coral);
+  flex-shrink: 0;
+}
+
+@media (max-width: 48rem) {
+  .page-header__team {
+    text-align: left;
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 48rem) {
+  .page-header {
+    flex-direction: column;
+    padding: 2rem 0 1.5rem;
+  }
+
+  .page-header__title {
+    font-size: 2rem;
   }
 }
 

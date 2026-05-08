@@ -38,16 +38,14 @@ function LoginForm() {
 
   return (
     <div className="login-container">
-      <div className="login-header">
-        <div className="logo-container">
-          <h2>Welcome to SalesWolf</h2>
-          <img src="/saleswolf-icon.png" alt="SalesWolf" className="logo" />
-        </div>
-        <p>Sign in to access your projects</p>
-      </div>
-      
       <div className="login-card">
-        
+        <div className="login-header">
+          <h2>
+            Welcome to Sales<span className="login-header__wolf">Wolf</span>
+          </h2>
+          <p>Sign in to your SE dashboard</p>
+        </div>
+
             <form onSubmit={handleSubmit} className="login-form">
               <div className="form-group">
                 <input

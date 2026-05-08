@@ -7,6 +7,7 @@ import {
 } from './functions.js';
 import { createSnapshotForYear } from './snapshotService.js';
 import { getGoalsByYearFromDb, getGoalsForYear, upsertGoalsForYear } from './goalsService.js';
+import { loadAssignedAENames, withQuarterlyDataForUser } from './userMetricsFilter.js';
 import { authenticateToken } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/rbac.js';
 import {
@@ -270,14 +271,22 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
         opportunities: [], // Total doesn't need individual opportunities
       };
 
-      res.json({
+      const payload = {
         success: true,
         reportId: reportId,
         totalOpportunities: allOpportunities.length,
         quarterlyData: quarterlyData,
         allOpportunities: allOpportunities,
-        filtered: false, // No filtering - everyone sees all data
-      });
+        filtered: false, // pack-wide quarterlyData stays untouched
+      };
+
+      // Attach quarterlyDataForUser when the requester is an SE with at
+      // least one assigned AE. Pack-wide payload is untouched so admins
+      // and SEs without a team keep the original tiles.
+      const assignedAENames = await loadAssignedAENames(req.user?.id);
+      withQuarterlyDataForUser(payload, assignedAENames);
+
+      res.json(payload);
     } else if (calculatorReportIds.includes(reportId)) {
       const data = [];
       const rows = result.factMap['T!T'].rows;
@@ -734,6 +743,11 @@ router.get('/snapshot/:year', authenticateToken, async (req, res) => {
   try {
     const raw = readFileSync(filePath, 'utf8');
     const payload = JSON.parse(raw);
+    // Same SE-scoped augmentation as the live report endpoint. The on-disk
+    // snapshot is left untouched — we only attach `quarterlyDataForUser`
+    // to this response.
+    const assignedAENames = await loadAssignedAENames(req.user?.id);
+    withQuarterlyDataForUser(payload, assignedAENames);
     return res.json(payload);
   } catch {
     return res.status(404).json({ error: `Snapshot file not found for ${year}` });

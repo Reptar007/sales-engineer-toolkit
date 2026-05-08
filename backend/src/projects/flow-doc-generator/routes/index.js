@@ -45,6 +45,27 @@ function parseQawolfUrl(flowUrl) {
 }
 
 /**
+ * Friendly error message for upstream QA Wolf 401 responses. Both gitwolf
+ * fetches use the same bearer token, so an auth failure on either step
+ * means the same fix is needed and we surface the same actionable message
+ * to the user.
+ */
+const QAW_INVALID_TOKEN_MESSAGE =
+  'QA Wolf access token is invalid or expired. Please reach out to an admin to update the QA Wolf Bearer token.';
+
+/**
+ * Custom error tag used to bubble a QA Wolf auth failure up to the route
+ * handler so we can return a 401 (instead of the generic 502 we use for
+ * other upstream failures) without resorting to message-string sniffing.
+ */
+class QawAuthError extends Error {
+  constructor(message = QAW_INVALID_TOKEN_MESSAGE) {
+    super(message);
+    this.name = 'QawAuthError';
+  }
+}
+
+/**
  * Derive a human-readable flow name from its file path.
  * e.g. "src/flows/login-happy-path.flow.js" => "Login Happy Path"
  */
@@ -134,6 +155,10 @@ router.post('/generate', async (req, res) => {
     const filesRes = await fetch(filesUrl, { headers: authHeader });
     const rawText = await filesRes.text();
 
+    if (filesRes.status === 401 || filesRes.status === 403) {
+      throw new QawAuthError();
+    }
+
     if (!filesRes.ok) {
       throw new Error(`QA Wolf API returned ${filesRes.status}: ${rawText.slice(0, 300)}`);
     }
@@ -150,6 +175,9 @@ router.post('/generate', async (req, res) => {
     }
   } catch (err) {
     console.error('Error fetching environment files:', err);
+    if (err instanceof QawAuthError) {
+      return res.status(401).json({ error: err.message });
+    }
     return res.status(502).json({ error: `Failed to fetch environment info: ${err.message}` });
   }
 
@@ -159,6 +187,10 @@ router.post('/generate', async (req, res) => {
     const contentsUrl = `${trpcBase}/gitwolf.getFileContents?input=${encodeURIComponent(JSON.stringify({ json: { branchId: gitWolfBranchId, commitHash, path: relativePath } }))}`;
     const contentsRes = await fetch(contentsUrl, { headers: authHeader });
     const rawText = await contentsRes.text();
+
+    if (contentsRes.status === 401 || contentsRes.status === 403) {
+      throw new QawAuthError();
+    }
 
     if (!contentsRes.ok) {
       throw new Error(`QA Wolf API returned ${contentsRes.status}: ${rawText.slice(0, 300)}`);
@@ -173,6 +205,9 @@ router.post('/generate', async (req, res) => {
     }
   } catch (err) {
     console.error('Error fetching file contents:', err);
+    if (err instanceof QawAuthError) {
+      return res.status(401).json({ error: err.message });
+    }
     return res.status(502).json({ error: `Failed to fetch flow file: ${err.message}` });
   }
 

@@ -1,82 +1,112 @@
-/* SalesforceLookup Component Styles */
+/*
+ * SalesforceLookup — dark navy + coral theme.
+ *
+ * Mirrors SalesforceCalculator / SalesforceMetrics: translucent surfaces
+ * over the app's midnight-navy canvas, white text with rgba grey for
+ * supporting copy, coral as the brand accent (only on the primary
+ * Search CTA + the "current" stage chip), and teal reserved for the
+ * "this stage is complete" state where the color carries meaning.
+ *
+ * Every selector is scoped under `.salesforce-lookup` so detail-card
+ * styles can't leak globally.
+ */
 
 .salesforce-lookup {
   width: 100%;
   max-width: 100%;
   padding: 0;
-  background-color: transparent;
-  color: #333333;
+  background: transparent;
+  color: var(--white);
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.75rem;
 }
 
 .salesforce-lookup-has-results {
   gap: 1rem;
 }
 
-/* Header Styles */
+/* =========================
+ * Header
+ * ========================= */
+
 .lookup-header {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-  padding: 0 0 1rem 0;
-  transition: all 0.3s ease;
+  gap: 1.5rem;
+  padding: 0 0 1.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 0.5rem;
+  transition: padding 0.25s ease, gap 0.25s ease;
 }
 
 .lookup-header-compact {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 2rem;
-  padding: 0 0 1.5rem 0;
-  border-bottom: 1px solid #e0e0e0;
+  gap: 1.5rem;
+  padding: 0 0 1.25rem 0;
   margin-bottom: 1rem;
 }
 
 .lookup-header-content {
   flex: 1;
+  min-width: 0;
+}
+
+.lookup-header-overline {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--coral);
+  margin: 0 0 0.5rem 0;
 }
 
 .lookup-header h1 {
-  font-size: 2.75rem;
+  font-size: 2.5rem;
   font-weight: 700;
-  margin: 0 0 0.5rem 0;
-  color: #333333;
+  margin: 0 0 0.4rem 0;
+  color: var(--white);
   letter-spacing: -0.02em;
-  line-height: 1.2;
-  transition: font-size 0.3s ease;
+  line-height: 1.15;
+  transition: font-size 0.25s ease;
 }
 
 .lookup-header-compact h1 {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .lookup-header p {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 400;
-  color: #666666;
+  color: rgba(255, 255, 255, 0.65);
   margin: 0;
 }
 
-/* Search Form Styles */
+/* =========================
+ * Search form
+ * ========================= */
+
 .lookup-search-form {
   width: 100%;
-  margin: 2rem 0;
-  transition: all 0.3s ease;
+  margin: 0.5rem 0 0 0;
+  transition: max-width 0.25s ease, margin 0.25s ease;
 }
 
 .lookup-search-form-compact {
   width: auto;
   margin: 0;
   flex: 0 0 auto;
-  min-width: 400px;
+  min-width: 22rem;
+  max-width: 32rem;
 }
 
 .lookup-search-container {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: stretch;
   width: 100%;
   max-width: 100%;
@@ -84,95 +114,144 @@
 
 .lookup-search-input {
   flex: 1;
-  padding: 1.5rem 1.75rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 0.75rem;
-  font-size: 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.65rem;
+  font-size: 1rem;
   font-weight: 400;
-  background-color: #ffffff;
-  color: #333333;
-  transition: all 0.3s ease;
-  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.08);
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--white);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
 }
 
 .lookup-search-form-compact .lookup-search-input {
-  padding: 0.75rem 1.25rem;
-  font-size: 1rem;
-  border-radius: 0.5rem;
+  padding: 0.6rem 0.95rem;
+  font-size: 0.9375rem;
+  border-radius: 0.55rem;
+}
+
+.lookup-search-input:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .lookup-search-input:focus {
   outline: none;
-  border-color: #1e3a5f;
-  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1), 0 0.125rem 0.5rem rgba(0, 0, 0, 0.12);
+  border-color: var(--coral);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 0 0 2px rgba(255, 107, 74, 0.25);
 }
 
 .lookup-search-input::placeholder {
-  color: #999999;
+  color: rgba(255, 255, 255, 0.4);
   font-weight: 400;
 }
 
 .lookup-search-input:disabled {
-  background-color: #f5f5f5;
+  opacity: 0.55;
   cursor: not-allowed;
-  opacity: 0.7;
 }
 
 .lookup-search-button {
-  padding: 1.5rem 3rem;
-  border: none;
-  border-radius: 0.75rem;
-  background-color: #1e3a5f;
-  color: #ffffff;
-  font-size: 1.25rem;
+  padding: 1rem 2rem;
+  border: 1px solid rgba(255, 107, 74, 0.45);
+  border-radius: 0.65rem;
+  background: rgba(255, 107, 74, 0.18);
+  color: var(--white);
+  font-size: 1rem;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
   white-space: nowrap;
-  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.1);
-  min-width: 150px;
+  min-width: 7rem;
 }
 
 .lookup-search-form-compact .lookup-search-button {
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-  border-radius: 0.5rem;
-  min-width: 100px;
+  padding: 0.6rem 1.35rem;
+  font-size: 0.9375rem;
+  border-radius: 0.55rem;
+  min-width: 5.5rem;
 }
 
 .lookup-search-button:hover:not(:disabled) {
-  background-color: #152a47;
+  background: rgba(255, 107, 74, 0.28);
+  border-color: rgba(255, 107, 74, 0.7);
   transform: translateY(-1px);
-  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.15);
+}
+
+.lookup-search-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.35);
 }
 
 .lookup-search-button:active:not(:disabled) {
   transform: translateY(0);
-  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.1);
 }
 
 .lookup-search-button:disabled {
-  background-color: #cccccc;
+  opacity: 0.4;
   cursor: not-allowed;
-  opacity: 0.6;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Error State */
+/* =========================
+ * Error / empty states
+ * ========================= */
+
 .lookup-error {
-  padding: 1rem 1.5rem;
-  background-color: #ffebee;
-  border: 1px solid #ef5350;
-  border-radius: 0.5rem;
-  color: #c62828;
+  padding: 0.85rem 1.1rem;
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.35);
+  border-radius: 0.6rem;
+  color: #ffb4ae;
 }
 
 .lookup-error p {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 500;
 }
 
-/* Loading Screen */
+.lookup-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0)
+  );
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
+}
+
+.lookup-empty p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* =========================
+ * Loading screen + spinner
+ * ========================= */
+
 .lookup-loading-screen {
   display: flex;
   flex-direction: column;
@@ -184,118 +263,170 @@
 }
 
 .lookup-spinner {
-  width: 60px;
-  height: 60px;
-  border: 4px solid #e0e0e0;
-  border-top: 4px solid #1e3a5f;
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--coral);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 2rem;
+  animation: lookup-spin 0.85s linear infinite;
+  margin-bottom: 1.5rem;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+@keyframes lookup-spin {
+  to { transform: rotate(360deg); }
 }
 
 .lookup-loading-screen h2 {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 600;
-  color: #333333;
+  color: var(--white);
   margin: 0 0 0.5rem 0;
-}
-
-.lookup-loading-screen p {
-  font-size: 1.1rem;
-  color: #666666;
-  margin: 0;
-}
-
-/* Results Section */
-.lookup-results {
-  width: 100%;
-  margin-top: 0.5rem;
-}
-
-.lookup-results h2 {
-  font-size: 1.75rem;
-  font-weight: 600;
-  color: #333333;
-  margin: 0 0 1.5rem 0;
   letter-spacing: -0.01em;
 }
 
-/* Opportunity Name Heading */
-.lookup-opportunity-name {
-  font-size: 3rem !important;
-  font-weight: 700 !important;
-  color: #333333 !important;
-  margin: 0 0 1rem 0 !important;
-  letter-spacing: -0.03em !important;
-  line-height: 1.1 !important;
-}
-
-.lookup-empty {
-  text-align: center;
-  padding: 3rem 1rem;
-  background-color: #fafafa;
-  border: 1px solid #e0e0e0;
-  border-radius: 0.75rem;
-  color: #666666;
-}
-
-.lookup-empty p {
+.lookup-loading-screen p {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.55);
   margin: 0;
-  font-size: 1.1rem;
 }
 
-/* Cards Container (Multiple Results) */
+/* =========================
+ * Results
+ * ========================= */
+
+.lookup-results {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.lookup-results h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--white);
+  margin: 0 0 1.25rem 0;
+  letter-spacing: -0.01em;
+}
+
+/* Single-opportunity hero title — used for both single-result and the
+   "you drilled into a card" view. Big and white so it visually anchors
+   the long detail view. */
+.lookup-opportunity-name {
+  font-size: 2.25rem !important;
+  font-weight: 700 !important;
+  color: var(--white) !important;
+  margin: 0 0 1rem 0 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.15 !important;
+}
+
+.lookup-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.lookup-select-hint {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0 0 1.25rem 0;
+  font-style: normal;
+}
+
+.lookup-back-button {
+  padding: 0.55rem 1.05rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--white);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.lookup-back-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 107, 74, 0.4);
+  transform: translateY(-1px);
+}
+
+.lookup-back-button:focus-visible {
+  outline: none;
+  border-color: var(--coral);
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.25);
+}
+
+/* =========================
+ * Multi-result cards
+ * ========================= */
+
 .lookup-cards-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: 1rem;
   width: 100%;
 }
 
 .lookup-card {
-  background-color: #ffffff;
-  border: 2px solid #e0e0e0;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
+  background-color: var(--midnight-navy);
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 1.25rem 1.4rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.06);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
 }
 
 .lookup-card:hover {
-  border-color: #1e3a5f;
-  transform: translateY(-2px);
-  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.12);
-  cursor: pointer;
+  border-color: rgba(255, 107, 74, 0.4);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 107, 74, 0.18);
 }
 
 .lookup-card-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .lookup-card-header h3 {
-  font-size: 1.25rem;
+  font-size: 1.0625rem;
   font-weight: 600;
-  color: #333333;
+  color: var(--white);
   margin: 0;
   flex: 1;
-  line-height: 1.4;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
 }
 
 .lookup-card-body {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.55rem;
 }
 
 .lookup-card-field {
@@ -306,97 +437,80 @@
 }
 
 .lookup-card-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #666666;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   flex-shrink: 0;
-  min-width: 100px;
+  min-width: 6.5rem;
 }
 
 .lookup-card-value {
   font-size: 0.9375rem;
-  color: #333333;
+  color: var(--white);
   text-align: right;
   flex: 1;
   word-break: break-word;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Results Header */
-.lookup-results-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
+/* =========================
+ * Detail card (drill-in view)
+ * ========================= */
 
-.lookup-select-hint {
-  font-size: 0.9375rem;
-  color: #666666;
-  margin: 0 0 1.5rem 0;
-  font-style: italic;
-}
-
-.lookup-back-button {
-  padding: 0.75rem 1.5rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 0.5rem;
-  background-color: #ffffff;
-  color: #333333;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.lookup-back-button:hover {
-  background-color: #f5f5f5;
-  border-color: #1e3a5f;
-  color: #1e3a5f;
-}
-
-/* Single Result Detail Card */
 .lookup-single-result {
   width: 100%;
 }
 
 .lookup-detail-card {
-  background-color: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 0.75rem;
-  padding: 2rem;
-  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.06);
+  background-color: var(--midnight-navy);
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 1.75rem 1.85rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
 }
 
 .lookup-detail-card h3 {
-  font-size: 1.75rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  color: #333333;
-  margin: 0 0 1.5rem 0;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #e0e0e0;
+  color: var(--white);
+  margin: 0 0 1.25rem 0;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  letter-spacing: -0.01em;
 }
 
-/* Full Details View */
 .lookup-full-details {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.75rem;
 }
 
-/* Split Layout for Basic Info and Gong */
+/* Split layout — basic info on the left, Gong conversations sidebar
+   on the right. */
 .lookup-basic-gong-split {
   display: grid;
-  grid-template-columns: 75% 25%;
-  gap: 2rem;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+  gap: 1.5rem;
   align-items: flex-start;
 }
 
 .lookup-basic-info-column {
   width: 100%;
+  min-width: 0;
 }
 
 .lookup-gong-column {
   width: 100%;
+  min-width: 0;
   position: sticky;
   top: 1rem;
   align-self: flex-start;
@@ -408,15 +522,30 @@
   max-height: none;
 }
 
-/* Stage Path Component */
+/* =========================
+ * Stage path
+ *
+ * Three states:
+ *   - completed → teal (the "done / closed-won money" hue used elsewhere)
+ *   - current   → coral (the brand accent / focal point)
+ *   - pending   → muted navy chip
+ * ========================= */
+
 .lookup-stage-path-container {
-  background-color: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  margin-bottom: 1rem;
+  background-color: var(--midnight-navy);
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 1.25rem 1.4rem;
+  margin-bottom: 0;
   width: 100%;
-  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
 }
 
 .lookup-stage-path-scroll {
@@ -424,25 +553,18 @@
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
-  scrollbar-color: #ccc transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
   -webkit-overflow-scrolling: touch;
 }
 
-.lookup-stage-path-scroll::-webkit-scrollbar {
-  height: 6px;
-}
-
-.lookup-stage-path-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+.lookup-stage-path-scroll::-webkit-scrollbar { height: 6px; }
+.lookup-stage-path-scroll::-webkit-scrollbar-track { background: transparent; }
 .lookup-stage-path-scroll::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
-
 .lookup-stage-path-scroll::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .lookup-stage-path {
@@ -458,17 +580,22 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  padding: 1rem 1.5rem;
-  font-size: 0.9375rem;
+  padding: 0.85rem 1.25rem;
+  font-size: 0.875rem;
   font-weight: 500;
   white-space: nowrap;
-  transition: all 0.3s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   flex: 1;
   min-width: 0;
-  border-radius: 0.5rem;
-  border: 1px solid #e0e0e0;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Arrow connectors between chips. Color matches each segment's state. */
 .lookup-stage-segment:not(:last-child)::after {
   content: '';
   position: absolute;
@@ -477,254 +604,214 @@
   transform: translateY(-50%);
   width: 0;
   height: 0;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-left: 8px solid;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 7px solid;
   z-index: 1;
 }
 
-.lookup-stage-completed:not(:last-child)::after {
-  border-left-color: #388e3c;
-}
+.lookup-stage-completed:not(:last-child)::after { border-left-color: #2dd4bf; }
+.lookup-stage-current:not(:last-child)::after   { border-left-color: var(--coral); }
+.lookup-stage-pending:not(:last-child)::after   { border-left-color: rgba(255, 255, 255, 0.12); }
 
-.lookup-stage-current:not(:last-child)::after {
-  border-left-color: #1e3a5f;
-}
-
-.lookup-stage-pending:not(:last-child)::after {
-  border-left-color: #e0e0e0;
-}
-
-/* Completed Stage */
 .lookup-stage-completed {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background: rgba(45, 212, 191, 0.18);
+  border-color: rgba(45, 212, 191, 0.45);
   z-index: 1;
-  box-shadow: 0 0.0625rem 0.25rem rgba(56, 142, 60, 0.2);
+  box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.18);
 }
 
 .lookup-stage-completed .lookup-stage-label {
-  color: #ffffff;
+  color: #5eead4;
+  font-weight: 600;
 }
 
-/* Current Stage */
 .lookup-stage-current {
-  background-color: #1e3a5f;
-  border-color: #1e3a5f;
+  background: rgba(255, 107, 74, 0.22);
+  border-color: rgba(255, 107, 74, 0.55);
   z-index: 2;
-  box-shadow: 0 0.125rem 0.5rem rgba(30, 58, 95, 0.25);
+  box-shadow:
+    0 0 0 1px rgba(255, 107, 74, 0.25),
+    0 0.4rem 1rem -0.4rem rgba(255, 107, 74, 0.45);
   transform: scale(1.02);
 }
 
 .lookup-stage-current .lookup-stage-label {
-  color: #ffffff;
-  font-weight: 600;
+  color: var(--white);
+  font-weight: 700;
 }
 
-/* Pending Stage */
 .lookup-stage-pending {
-  background-color: #ffffff;
-  border-color: #e0e0e0;
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
   z-index: 0;
 }
 
 .lookup-stage-pending .lookup-stage-label {
-  color: #666666;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .lookup-stage-checkmark {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-right: 0.75rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-right: 0.55rem;
   flex-shrink: 0;
-  background-color: rgba(255, 255, 255, 0.2);
+  background: rgba(45, 212, 191, 0.4);
   border-radius: 50%;
-  padding: 2px;
+  padding: 1px;
 }
 
 .lookup-stage-label {
   display: inline-block;
 }
 
+/* =========================
+ * Detail sections
+ * ========================= */
 
 .lookup-detail-section {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
 .lookup-detail-section-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #333333;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
   margin: 0;
-  padding-bottom: 0.75rem;
-  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
 }
 
 .lookup-detail-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1.25rem;
 }
 
 .lookup-detail-item {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .lookup-detail-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #666666;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.12em;
 }
 
 .lookup-detail-value {
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 500;
-  color: #333333;
+  color: var(--white);
   word-break: break-word;
+  font-variant-numeric: tabular-nums;
 }
 
 .lookup-detail-value-small {
-  font-size: 0.95rem !important;
-  line-height: 1.4;
+  font-size: 0.875rem !important;
+  line-height: 1.45;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.85) !important;
 }
 
-/* Text Fields for Long Content */
+/* Long-form text fields (description, notes, blockers, etc.). The
+   backing block is a deeper navy tile so prose blocks read as quotes
+   pulled out of the surrounding card surface. */
 .lookup-detail-text-field {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.55rem;
 }
 
 .lookup-detail-text-field .lookup-detail-label {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.15rem;
 }
 
 .lookup-detail-text-value {
-  background-color: #f8f9fa;
-  border: 1px solid #e0e0e0;
-  border-radius: 0.5rem;
-  padding: 1rem 1.25rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.6rem;
+  padding: 0.95rem 1.1rem;
   font-size: 0.9375rem;
   line-height: 1.6;
-  color: #333333;
+  color: rgba(255, 255, 255, 0.85);
   white-space: pre-wrap;
   word-wrap: break-word;
 }
 
+.lookup-detail-text-value strong {
+  color: var(--white);
+  font-weight: 600;
+}
+
+.lookup-detail-text-value em {
+  color: rgba(255, 255, 255, 0.9);
+}
+
 .lookup-detail-text-value p {
-  margin: 0 0 0.75rem 0;
+  margin: 0 0 0.65rem 0;
 }
 
 .lookup-detail-text-value p:last-child {
   margin-bottom: 0;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .lookup-header h1 {
-    font-size: 2rem;
-  }
-
-  .lookup-header-compact {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
-  }
-
-  .lookup-search-form-compact {
-    width: 100%;
-    min-width: unset;
-  }
-
-  .lookup-search-container {
-    flex-direction: column;
-  }
-
-  .lookup-search-input {
-    font-size: 1rem;
-    padding: 1.25rem 1.5rem;
-  }
-
-  .lookup-search-form-compact .lookup-search-input {
-    padding: 0.75rem 1.25rem;
-  }
-
-  .lookup-search-button {
-    width: 100%;
-    padding: 1.25rem 2rem;
-    font-size: 1rem;
-  }
-
-  .lookup-search-form-compact .lookup-search-button {
-    width: 100%;
-    padding: 0.75rem 1.5rem;
-  }
-
-  .lookup-cards-container {
-    grid-template-columns: 1fr;
-  }
-
-  .lookup-detail-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .lookup-results-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .lookup-back-button {
-    width: 100%;
-  }
-
-  .lookup-gong-conversation-details-two-col {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-
-  .lookup-basic-gong-split {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-
-  .lookup-gong-column {
-    position: static;
-  }
-
+.lookup-detail-text-value h4 {
+  color: var(--white);
+  margin: 1rem 0 0.5rem 0;
+  font-size: 1rem;
 }
 
-/* Gong Conversations Section */
+.lookup-detail-text-value h4:first-child {
+  margin-top: 0;
+}
+
+.lookup-detail-text-value ul,
+.lookup-detail-text-value ol {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.lookup-detail-text-value a {
+  color: var(--coral);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 107, 74, 0.4);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.lookup-detail-text-value a:hover {
+  border-bottom-color: var(--coral);
+}
+
+/* =========================
+ * Gong conversations sidebar
+ * ========================= */
+
 .lookup-gong-column .lookup-detail-section {
   margin-bottom: 0;
-  padding: 1rem;
+  padding: 0;
 }
 
-.lookup-gong-column .lookup-detail-section-title {
-  font-size: 0.9375rem;
-  margin-bottom: 0.625rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #e0e0e0;
+.lookup-gong-loading {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0;
 }
 
 .lookup-gong-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
-}
-
-.lookup-gong-column .lookup-detail-section-title {
-  font-size: 1rem;
   margin-bottom: 0.75rem;
 }
 
@@ -735,45 +822,40 @@
 }
 
 .lookup-gong-conversations-scrollable {
-  max-height: 20rem; /* Approximately 4 items at ~5rem each */
+  max-height: 20rem;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: #ccc transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
   padding-right: 0.25rem;
 }
 
-.lookup-gong-conversations-scrollable::-webkit-scrollbar {
-  width: 6px;
-}
-
-.lookup-gong-conversations-scrollable::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+.lookup-gong-conversations-scrollable::-webkit-scrollbar { width: 6px; }
+.lookup-gong-conversations-scrollable::-webkit-scrollbar-track { background: transparent; }
 .lookup-gong-conversations-scrollable::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
-
 .lookup-gong-conversations-scrollable::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .lookup-gong-conversation-item {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 0.625rem 0.75rem;
-  background-color: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 0.375rem;
-  transition: all 0.2s ease;
+  padding: 0.65rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .lookup-gong-conversation-item:hover {
-  background-color: #f8f9fa;
-  border-color: #1e3a5f;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 107, 74, 0.4);
 }
 
 .lookup-gong-conversation-content {
@@ -787,25 +869,25 @@
 .lookup-gong-conversation-title {
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #333333;
-  line-height: 1.3;
+  color: var(--white);
+  line-height: 1.35;
   word-wrap: break-word;
 }
 
 .lookup-gong-conversation-title-link {
   font-size: 0.8125rem;
-  font-weight: 500;
-  color: #1e3a5f;
+  font-weight: 600;
+  color: var(--coral);
   text-decoration: none;
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: color 0.15s ease;
   display: inline-block;
-  line-height: 1.3;
+  line-height: 1.35;
   word-wrap: break-word;
 }
 
 .lookup-gong-conversation-title-link:hover {
-  color: #152a47;
+  color: #ff8a6e;
   text-decoration: underline;
 }
 
@@ -825,17 +907,83 @@
 }
 
 .lookup-gong-detail-label {
-  font-weight: 500;
-  color: #666666;
-  font-size: 0.6875rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.625rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.12em;
   flex-shrink: 0;
 }
 
 .lookup-gong-detail-value {
-  color: #333333;
+  color: rgba(255, 255, 255, 0.8);
   font-size: 0.75rem;
   flex: 1;
   word-wrap: break-word;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================
+ * Responsive
+ * ========================= */
+
+@media (max-width: 900px) {
+  .lookup-basic-gong-split {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .lookup-gong-column {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .lookup-header h1 {
+    font-size: 2rem;
+  }
+
+  .lookup-header-compact {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .lookup-search-form-compact {
+    width: 100%;
+    min-width: unset;
+    max-width: none;
+  }
+
+  .lookup-search-container {
+    flex-direction: column;
+  }
+
+  .lookup-search-button,
+  .lookup-search-form-compact .lookup-search-button {
+    width: 100%;
+  }
+
+  .lookup-cards-container {
+    grid-template-columns: 1fr;
+  }
+
+  .lookup-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lookup-results-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .lookup-back-button {
+    width: 100%;
+  }
+
+  .lookup-opportunity-name {
+    font-size: 1.75rem !important;
+  }
 }

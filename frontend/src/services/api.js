@@ -134,6 +134,117 @@ export async function fetchUsers() {
 }
 
 /**
+ * Fetch users with a Sales Engineer role who don't yet have a team.
+ * Used by admin TeamsPage "Attach SE" picker.
+ */
+export async function fetchUsersWithoutTeam() {
+  return apiRequest('/users/without-team');
+}
+
+/**
+ * Admin: create a new user without disturbing the current admin session.
+ *
+ * Unlike AuthProvider.register (which logs the admin in as the new user as a
+ * side effect), this hits /auth/register through apiRequest and just returns
+ * the response — the caller is responsible for surfacing the temporary
+ * password back to the admin.
+ *
+ * @param {{
+ *   email: string,
+ *   firstName: string,
+ *   lastName: string,
+ *   roles?: string[],
+ *   password?: string,        // when omitted, server generates a random one
+ *   teamId?: string,          // attach to an existing team
+ *   teamName?: string,        // OR create a brand new team for this user
+ *   teamDescription?: string,
+ * }} payload
+ */
+export async function createUser(payload) {
+  return apiRequest('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Admin: update a user's profile fields. `salesforceEmail` is only honored
+ * when the target user has a SalesEngineer record; pass an empty string to
+ * clear it on the SalesEngineer side without touching the rest.
+ * @param {string} userId
+ * @param {{ firstName?: string, lastName?: string, email?: string, salesforceEmail?: string }} patch
+ */
+export async function updateUser(userId, patch) {
+  return apiRequest(`/users/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+/**
+ * Admin: reset a user's password back to the seed default. Returns the
+ * temporary password so the admin UI can display it to the operator —
+ * the user will be forced through the change-password screen on next login.
+ */
+export async function resetUserPassword(userId) {
+  return apiRequest(`/users/${userId}/reset-password`, {
+    method: 'POST',
+  });
+}
+
+/** Admin: list all teams (active + inactive) with their SE and active AEs. */
+export async function fetchTeams() {
+  return apiRequest('/teams');
+}
+
+/** Admin: create a new team. Optional `userId` attaches an existing SE. */
+export async function createTeam({ name, description, userId } = {}) {
+  return apiRequest('/teams', {
+    method: 'POST',
+    body: JSON.stringify({ name, description, userId }),
+  });
+}
+
+/** Admin: rename / re-describe / toggle isActive for a team. */
+export async function updateTeam(teamId, patch) {
+  return apiRequest(`/teams/${teamId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+/** Admin: attach an existing SE-role user to a team that has no SE yet. */
+export async function attachSEToTeam(teamId, { userId, salesforceEmail } = {}) {
+  return apiRequest(`/teams/${teamId}/se`, {
+    method: 'POST',
+    body: JSON.stringify({ userId, salesforceEmail }),
+  });
+}
+
+/** Admin: add a new AE to a team. */
+export async function createAE(teamId, { name, salesforceId, salesforceEmail } = {}) {
+  return apiRequest(`/teams/${teamId}/aes`, {
+    method: 'POST',
+    body: JSON.stringify({ name, salesforceId, salesforceEmail }),
+  });
+}
+
+/** Admin: rename, re-email, or move an AE to another team. */
+export async function updateAE(teamId, aeId, patch) {
+  return apiRequest(`/teams/${teamId}/aes/${aeId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+/** Admin: soft-delete an AE (also deactivates matching TeamAssignment rows). */
+export async function deleteAE(teamId, aeId) {
+  return apiRequest(`/teams/${teamId}/aes/${aeId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
  * Search opportunities in Salesforce
  * @param {string} search - Search term
  * @returns {Promise<Object>} Opportunities
@@ -217,6 +328,17 @@ export async function fetchDashboardCalendar() {
 /** Dashboard: Linear workload grouped by AE / Creations / CSM projects. */
 export async function fetchDashboardLinear() {
   return apiRequest('/dashboard/linear');
+}
+
+/**
+ * Team page: per-user closed-ticket roll-up for a calendar year, grouped
+ * by quarter and by category (estimation / creation / other). Defaults
+ * to the current calendar year on the backend when `year` is omitted.
+ * @param {number} [year]
+ */
+export async function fetchDashboardLinearClosed(year) {
+  const query = Number.isInteger(year) ? `?year=${year}` : '';
+  return apiRequest(`/dashboard/linear/closed${query}`);
 }
 
 /** Google Calendar OAuth: returns { authorizationUrl }. */
