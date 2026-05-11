@@ -28,6 +28,30 @@ function getFallbackYears(currentYear) {
   return [currentYear + 1, currentYear, currentYear - 1];
 }
 
+// Exclude C-scored opps from CARR / goal math. We key off **Account
+// Score** (the ICP-uplifted score), not Sales Score, so an opp that
+// AAR / geo / engineer-count signals promoted from Sales=C to
+// Account=E still counts toward the goal — matching the same rule
+// the team page applies in `frontend/src/projects/team/index.jsx`.
+//
+// 2025 reports don't emit an Account Score column at all, so
+// `accountScore` is empty for every legacy opp and this returns false
+// for all of them. Net effect: 2025 totals are byte-identical to what
+// they were before this filter; only 2026+ tiles change.
+function isCScore(opp) {
+  const raw = (opp?.accountScore || '').trim().toUpperCase();
+  return raw === 'C' || raw.startsWith('C ') || raw.startsWith('C-');
+}
+
+function sumGoalEligibleCARR(opps) {
+  if (!Array.isArray(opps)) return 0;
+  return opps.reduce((sum, opp) => {
+    if (isCScore(opp)) return sum;
+    const amount = Number(opp?.carrAmount);
+    return Number.isFinite(amount) ? sum + amount : sum;
+  }, 0);
+}
+
 function getQuarterDateRange(label) {
   const m = /Q(\d)\s*CY?(\d{4})/i.exec(label || '');
   if (!m) return null;
@@ -162,9 +186,27 @@ const SalesforceMetrics = () => {
   const quarterOptions = quarterOptionsFromData.length > 0 ? quarterOptionsFromData : quarterOptionsFromGoals;
 
   const selectedQuarterData = data?.quarterlyData?.[quarter.label];
-  const currentQuarterCARR = selectedQuarterData?.totalCARR || 0;
-  const currentYearCARR = data?.quarterlyData?.Total?.totalCARR || 0;
-  const opportunities = selectedQuarterData?.opportunities || [];
+  // C-scored opps are filtered out for everything on this page (CARR
+  // tiles, goal progress, compensation, AND the Closed Won table).
+  // C-bucket review lives on the team page, which has dedicated UI for
+  // it; surfacing those rows here was muddying the trophy-room view.
+  // 2025 reports lack the Account Score column so `isCScore` returns
+  // false for every legacy opp — no rows are removed for historical
+  // years.
+  const opportunities = (selectedQuarterData?.opportunities || []).filter(
+    (opp) => !isCScore(opp),
+  );
+
+  // CARR sums exclude C-scored opps via `sumGoalEligibleCARR`. The
+  // backend still emits the raw `totalCARR` (sum of every closed-won
+  // opp) on each quarter — we deliberately don't trust it here so the
+  // goal/comp math stays in sync with the team page. For 2025 (no
+  // Account Score column) this collapses to the same number as
+  // `selectedQuarterData.totalCARR`, so legacy tiles don't move.
+  const currentQuarterCARR = sumGoalEligibleCARR(opportunities);
+  const currentYearCARR = Object.entries(data?.quarterlyData || {})
+    .filter(([key]) => key !== 'Total')
+    .reduce((sum, [, q]) => sum + sumGoalEligibleCARR(q?.opportunities), 0);
 
   const quarterlyGoalsFromConfig = (config?.goalsByYear?.[selectedYear] || []);
   const yearlyGoal = quarterlyGoalsFromConfig.reduce((acc, q) => acc + q.goal, 0);
