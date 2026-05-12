@@ -134,6 +134,32 @@ function countHumanAttendees(event) {
   return attendees.filter((a) => !a.resource).length;
 }
 
+// Sanitized attendee list for the dashboard. The frontend renders this
+// inside the hover popover on the attendee chip, so we strip any fields
+// not needed for display and order them so organizers/self come first.
+// Returns an empty array when the event has no attendees (e.g. solo
+// blocks that still slipped through the meeting filter).
+function buildAttendeeList(event) {
+  const attendees = Array.isArray(event.attendees) ? event.attendees : [];
+  const humans = attendees.filter((a) => !a.resource);
+  const ranked = humans.map((a) => ({
+    name: a.displayName || null,
+    email: a.email || null,
+    responseStatus: a.responseStatus || null,
+    organizer: Boolean(a.organizer),
+    self: Boolean(a.self),
+    optional: Boolean(a.optional),
+  }));
+  ranked.sort((a, b) => {
+    if (a.organizer !== b.organizer) return a.organizer ? -1 : 1;
+    if (a.self !== b.self) return a.self ? -1 : 1;
+    const an = (a.name || a.email || '').toLowerCase();
+    const bn = (b.name || b.email || '').toLowerCase();
+    return an.localeCompare(bn);
+  });
+  return ranked;
+}
+
 function durationMeta(event) {
   const start = event.start?.dateTime || event.start?.date;
   const end = event.end?.dateTime || event.end?.date;
@@ -179,6 +205,7 @@ function mapItemsToEvents(items, timeZone) {
       isAllDay: allDay,
       isOoo,
       attendeeCount: countHumanAttendees(event),
+      attendees: buildAttendeeList(event),
       videoUrl: video?.url || null,
       videoProvider: video?.provider || null,
     };
@@ -212,6 +239,11 @@ async function listTodayEvents(calendar, calendarId, timeZone) {
  *     id: string, time: string, title: string, meta: string, color: string,
  *     isMeeting: boolean, isAllDay: boolean, isOoo: boolean,
  *     attendeeCount: number,
+ *     attendees: Array<{
+ *       name: string | null, email: string | null,
+ *       responseStatus: string | null,
+ *       organizer: boolean, self: boolean, optional: boolean,
+ *     }>,
  *     videoUrl: string | null, videoProvider: string | null,
  *   }>
  * }>}

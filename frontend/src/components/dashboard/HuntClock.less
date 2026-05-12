@@ -1,0 +1,504 @@
+@import '../../styles/tokens/_index.less';
+
+// =========================
+// Hunt Clock — quarter-progress widget
+// Sits between the dashboard hero and the metric tiles. Mirrors the
+// .dashboard-panel surface treatment (dark navy, hairline border,
+// layered shadow) so it reads as a sibling card to the panels below.
+//
+// The card's "temperature" rises as the quarter progresses: a tier
+// modifier class (.hunt-clock--tier-{fresh,mid,late,crunch}) flips a
+// set of CSS custom properties that drive the border hue, the bar
+// fill saturation, and the coral wash in unison. Tier defaults below
+// are the "mid" treatment (the previous flat coral look); the tier
+// override blocks at the bottom of this file shift each property in
+// lockstep so the card visibly tightens at the 50/75/90% thresholds.
+// =========================
+.hunt-clock {
+  --hc-border: rgba(255, 107, 74, 0.32);
+  --hc-glow: rgba(255, 107, 74, 0.55);
+  --hc-wash: rgba(255, 107, 74, 0.12);
+  --hc-fill-start: rgba(255, 107, 74, 0.85);
+  --hc-fill-end: var(--coral);
+  --hc-fill-shadow: rgba(255, 107, 74, 0.5);
+  --hc-pulse-strength: 0;
+
+  position: relative;
+  overflow: hidden;
+  background: var(--midnight-navy);
+  border: 1px solid var(--hc-border);
+  border-radius: 0.85rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow:
+    0 1.25rem 2.5rem rgba(0, 0, 0, 0.55),
+    0 0.5rem 1rem rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  // The transition makes the tier change feel like a tightening of
+  // the rope rather than a hard cutover. Border + box-shadow are
+  // animated so both the hairline and the glow shift together.
+  transition:
+    border-color 600ms ease,
+    box-shadow 800ms ease;
+}
+
+// Subtle radial wash behind the bar — gives the card warmth
+// without competing with the foreground content. The hue follows
+// `--hc-wash` so it shifts in tandem with the border on tier change.
+.hunt-clock::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 80% at 50% 110%,
+    var(--hc-wash) 0%,
+    transparent 60%
+  );
+  z-index: 0;
+  transition: background 800ms ease;
+}
+
+.hunt-clock > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hunt-clock__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 48rem) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
+
+.hunt-clock__head-left {
+  min-width: 0;
+}
+
+.hunt-clock__overline {
+  margin: 0 0 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--coral);
+}
+
+.hunt-clock__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+// Coral counters share the same treatment as the page-header summary
+// counts so the dashboard reads as one consistent visual language.
+.hunt-clock__count {
+  color: var(--coral);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.hunt-clock__quarter {
+  color: var(--white);
+  font-weight: 800;
+}
+
+.hunt-clock__head-right {
+  text-align: right;
+  flex-shrink: 0;
+
+  @media (max-width: 48rem) {
+    text-align: left;
+  }
+}
+
+.hunt-clock__pct {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.hunt-clock__sprint {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted-gray);
+  letter-spacing: 0.02em;
+}
+
+// =========================
+// Track + bar
+// =========================
+.hunt-clock__track {
+  position: relative;
+  // Top padding reserves enough headroom for the full-body Axo sprite
+  // that sits on top of the bar. Sized to clear the ~3.3rem of mascot
+  // that extends above the bar centerline (4.25rem tall × ~78% lift)
+  // plus a little breathing room.
+  padding-top: 3.75rem;
+}
+
+.hunt-clock__bar {
+  position: relative;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: visible; // character + glow extend above the bar
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+// Coral fill that grows from the left edge to wherever the character
+// currently sits. Inner highlight gives it a soft dimensional feel so
+// it doesn't read as a flat painted strip.
+.hunt-clock__bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    var(--hc-fill-start) 0%,
+    var(--hc-fill-end) 100%
+  );
+  box-shadow:
+    0 0 0.75rem var(--hc-fill-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition:
+    width 600ms cubic-bezier(0.4, 0, 0.2, 1),
+    background 800ms ease,
+    box-shadow 800ms ease;
+}
+
+// Boundary dots on the bar — one per month-start (positioned via
+// inline `left: X%`) plus an explicit close marker at 100%. The
+// kickoff dot pops in coral so the eye finds the start of the run;
+// every other dot stays muted so the bar doesn't read like a busy
+// abacus.
+.hunt-clock__tick {
+  position: absolute;
+  top: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--midnight-navy);
+}
+
+.hunt-clock__tick--start {
+  background: var(--coral);
+  box-shadow: 0 0 0.5rem rgba(255, 107, 74, 0.55);
+}
+
+.hunt-clock__tick--end {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+// =========================
+// Character — Axo the axolotl mascot
+// Positioned via inline `left: X%` to track the elapsed % of the
+// quarter. The vertical translate is intentionally larger than -50%
+// so the character's *feet* land on the bar centerline rather than
+// the body center, which would sink the legs into the track.
+// =========================
+.hunt-clock__character {
+  position: absolute;
+  top: 50%;
+  // Horizontal: center on the X position. Vertical: lift so the feet
+  // sit on the bar (~85% down the sprite). Tuned by eye against the
+  // PNG — adjust if the mascot art changes proportions.
+  transform: translate(-50%, -78%);
+  width: 4.25rem;
+  height: 4.25rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  // Hoverable: lets users boop Axo for a happy hop. The inner image
+  // and glow are both pointer-events:none so the whole bounding box
+  // acts as one big invisible target — easier to hit than the
+  // transparent silhouette.
+  cursor: pointer;
+  transition: left 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+// Soft coral halo at the character's feet — reads as a "kicked-up
+// dust" glow underneath Axo as he sprints. Pinned to the bottom of
+// the wrapper so it tracks the feet, not the head.
+.hunt-clock__character-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 0.1rem;
+  width: 2.75rem;
+  height: 1rem;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 107, 74, 0.55) 0%,
+    rgba(255, 107, 74, 0) 70%
+  );
+  filter: blur(2px);
+  pointer-events: none;
+  transition:
+    width 280ms ease,
+    height 280ms ease,
+    opacity 280ms ease,
+    background 280ms ease;
+}
+
+// Boop reaction: kick up a bigger dust cloud underneath Axo while
+// he hops so the hover feels grounded rather than like he's just
+// floating higher.
+.hunt-clock__character:hover .hunt-clock__character-glow {
+  width: 3.5rem;
+  height: 1.35rem;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 107, 74, 0.85) 0%,
+    rgba(255, 107, 74, 0) 70%
+  );
+}
+
+// The mascot art itself. `drop-shadow` (instead of box-shadow) lets
+// the shadow follow the silhouette of the transparent PNG instead
+// of a rectangle behind it.
+.hunt-clock__character-img {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0.4rem 0.65rem rgba(0, 0, 0, 0.45));
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+  transform-origin: 50% 90%;
+
+  // Gentle bob so Axo feels like he's actually running rather than
+  // hovering frozen above the bar.
+  animation: hunt-clock-bob 1.6s ease-in-out infinite;
+}
+
+// Boop reaction: hovering the character swaps the gentle bob for a
+// bouncier "happy hop" — Axo springs upward, scales up a touch, and
+// wiggles side-to-side. Anchored at his feet (transform-origin 90%
+// down) so the hop reads as a jump from the bar rather than a
+// scale from the center. The drop-shadow gets boosted to keep the
+// silhouette grounded against the brighter glow underneath.
+.hunt-clock__character:hover .hunt-clock__character-img {
+  animation: hunt-clock-hop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+  filter: drop-shadow(0 0.55rem 0.85rem rgba(0, 0, 0, 0.55));
+}
+
+@keyframes hunt-clock-bob {
+  0%, 100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-0.2rem) rotate(1deg);
+  }
+}
+
+// Two-beat hop: a tall bounce with a slight stretch + tilt, then a
+// smaller bounce the other way so Axo looks delighted rather than
+// metronomic. Scale stays gentle (1.08) so the silhouette doesn't
+// blow past the reserved track padding above the bar.
+@keyframes hunt-clock-hop {
+  0%, 100% {
+    transform: translateY(0) scale(1) rotate(-2deg);
+  }
+  30% {
+    transform: translateY(-0.7rem) scale(1.08) rotate(4deg);
+  }
+  55% {
+    transform: translateY(0) scale(1.02) rotate(-3deg);
+  }
+  75% {
+    transform: translateY(-0.3rem) scale(1.05) rotate(2deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hunt-clock__character-img,
+  .hunt-clock__character:hover .hunt-clock__character-img {
+    animation: none;
+  }
+  .hunt-clock__bar-fill,
+  .hunt-clock__character,
+  .hunt-clock__character-glow {
+    transition: none;
+  }
+}
+
+// =========================
+// Legend
+// Two stacked layers below the bar:
+//   1. Month labels — absolutely positioned at the real start of
+//      each month so the character's position visually agrees with
+//      the calendar (e.g. May 8 sits past "MAY", not before it).
+//   2. Bookend captions — kickoff date pinned to 0%, close date
+//      pinned to 100%, on a separate baseline below the months.
+// =========================
+.hunt-clock__legend {
+  position: relative;
+  // Reserve enough vertical space for the two stacked rows:
+  //   - month label (~0.95rem line height)
+  //   - bookend caption (~0.95rem line height)
+  // …plus a little gap between them.
+  height: 2.5rem;
+  margin-top: 0.85rem;
+}
+
+// Each month label is positioned by its left edge at the % where
+// that month begins. The first label uses `translateX(0)` so APR
+// stays flush-left at 0%; every other label centers on its tick
+// via `translateX(-50%)` so the label visually "owns" its boundary.
+.hunt-clock__legend-item {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.hunt-clock__legend-item--start {
+  transform: translateX(0);
+}
+
+.hunt-clock__legend-month {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+// Captions on the kickoff (left edge) and close (right edge) of the
+// bar. They live on their own baseline under the month row so the
+// two information layers don't fight each other for attention.
+.hunt-clock__legend-bookend {
+  position: absolute;
+  bottom: 0;
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted-gray);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.hunt-clock__legend-bookend--start {
+  left: 0;
+}
+
+.hunt-clock__legend-bookend--end {
+  right: 0;
+}
+
+@media (max-width: 30rem) {
+  // On narrow viewports the month labels can collide with the
+  // bookend captions; tuck the bookends to the side so they don't
+  // overlap the month row.
+  .hunt-clock__legend {
+    height: 3.25rem;
+  }
+}
+
+// =========================
+// Tiered urgency treatments
+// Each tier overrides the `--hc-*` custom properties declared on
+// `.hunt-clock`, which the border, bar fill, and radial wash all
+// read from. Because the base rules animate those properties, every
+// tier transition fades smoothly.
+//
+// Hue progression (cool → hot):
+//   fresh  : pale blue tint  (calm, plenty of runway)
+//   mid    : default coral   (the brand-colored "you're cooking")
+//   late   : warm orange     (eyes up, time is shrinking)
+//   crunch : hot red + pulse (final 10% of the quarter, act now)
+// =========================
+.hunt-clock--tier-fresh {
+  // Cool, low-saturation treatment — the card recedes a bit so it
+  // doesn't scream "urgent" when there's still 6+ weeks left.
+  --hc-border: rgba(120, 180, 220, 0.28);
+  --hc-glow: rgba(120, 180, 220, 0.4);
+  --hc-wash: rgba(120, 180, 220, 0.08);
+  --hc-fill-start: rgba(255, 130, 100, 0.7);
+  --hc-fill-end: rgba(255, 107, 74, 0.85);
+  --hc-fill-shadow: rgba(255, 107, 74, 0.35);
+}
+
+.hunt-clock--tier-mid {
+  // The default coral treatment — explicit override so a future
+  // change to base values doesn't accidentally drift this tier.
+  --hc-border: rgba(255, 107, 74, 0.4);
+  --hc-glow: rgba(255, 107, 74, 0.55);
+  --hc-wash: rgba(255, 107, 74, 0.14);
+  --hc-fill-start: rgba(255, 107, 74, 0.85);
+  --hc-fill-end: var(--coral);
+  --hc-fill-shadow: rgba(255, 107, 74, 0.5);
+}
+
+.hunt-clock--tier-late {
+  // Warmer / brighter — orange-leaning fill and a stronger glow
+  // ring so the card visibly draws the eye.
+  --hc-border: rgba(255, 145, 60, 0.55);
+  --hc-glow: rgba(255, 145, 60, 0.65);
+  --hc-wash: rgba(255, 145, 60, 0.18);
+  --hc-fill-start: rgba(255, 145, 60, 0.95);
+  --hc-fill-end: rgba(255, 90, 50, 1);
+  --hc-fill-shadow: rgba(255, 120, 50, 0.7);
+  box-shadow:
+    0 1.25rem 2.5rem rgba(0, 0, 0, 0.55),
+    0 0.5rem 1rem rgba(0, 0, 0, 0.4),
+    0 0 1.5rem rgba(255, 145, 60, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.hunt-clock--tier-crunch {
+  // Final stretch — red border, deeper glow, and a slow pulse on
+  // the border + wash so the card gently throbs to remind you
+  // there's not much road left. Disabled under prefers-reduced-motion.
+  --hc-border: rgba(255, 70, 60, 0.8);
+  --hc-glow: rgba(255, 70, 60, 0.8);
+  --hc-wash: rgba(255, 70, 60, 0.22);
+  --hc-fill-start: rgba(255, 110, 60, 1);
+  --hc-fill-end: rgba(255, 50, 40, 1);
+  --hc-fill-shadow: rgba(255, 70, 60, 0.85);
+  animation: hunt-clock-crunch-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes hunt-clock-crunch-pulse {
+  0%, 100% {
+    border-color: rgba(255, 70, 60, 0.6);
+    box-shadow:
+      0 1.25rem 2.5rem rgba(0, 0, 0, 0.55),
+      0 0.5rem 1rem rgba(0, 0, 0, 0.4),
+      0 0 1.25rem rgba(255, 70, 60, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  50% {
+    border-color: rgba(255, 70, 60, 0.95);
+    box-shadow:
+      0 1.25rem 2.5rem rgba(0, 0, 0, 0.55),
+      0 0.5rem 1rem rgba(0, 0, 0, 0.4),
+      0 0 2rem rgba(255, 70, 60, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hunt-clock--tier-crunch {
+    animation: none;
+  }
+}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getQuarterlyGoals, getSalesforceConfig, updateQuarterlyGoals } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
 import './QuarterlyGoalsPage.css';
 
 const ONE_MILLION = 1000000;
@@ -27,6 +28,7 @@ function parseMillionsToDollars(value) {
 }
 
 const QuarterlyGoalsPage = () => {
+  const toast = useToast();
   const currentYear = new Date().getFullYear();
   const persistedYear = Number.parseInt(localStorage.getItem(ADMIN_GOALS_YEAR_STORAGE_KEY) || '', 10);
   const initialYear = Number.isInteger(persistedYear) ? persistedYear : currentYear;
@@ -37,7 +39,6 @@ const QuarterlyGoalsPage = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [showSavedToast, setShowSavedToast] = useState(false);
 
   const getCachedGoalsByYear = () => {
     try {
@@ -134,11 +135,12 @@ const QuarterlyGoalsPage = () => {
       }));
       await updateQuarterlyGoals(selectedYear, payload);
       setMessage(`Quarterly goals for ${selectedYear} saved successfully.`);
-      setShowSavedToast(true);
-      setTimeout(() => setShowSavedToast(false), 2500);
+      toast.success(`Quarterly goals for ${selectedYear} saved.`);
       await loadGoals(selectedYear);
     } catch (error) {
-      setMessage(error?.message || 'Failed to save quarterly goals.');
+      const msg = error?.message || 'Failed to save quarterly goals.';
+      setMessage(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -230,12 +232,6 @@ const QuarterlyGoalsPage = () => {
         >
           {message}
         </p>
-      )}
-
-      {showSavedToast && (
-        <div className="quarterly-goals__toast" role="status" aria-live="polite">
-          Quarterly goals saved.
-        </div>
       )}
     </div>
   );

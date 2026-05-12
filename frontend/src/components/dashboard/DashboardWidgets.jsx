@@ -1,10 +1,18 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   fetchDashboardCalendar,
   fetchDashboardLinear,
   startGoogleCalendarOAuth,
 } from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
 import { MOCK_LINEAR_BOARD } from './dashboardWidgetMockData';
 import './DashboardWidgets.less';
 
@@ -59,6 +67,158 @@ function AttendeesGlyph() {
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
+  );
+}
+
+// Map a Google Calendar `responseStatus` to a friendly label + tone
+// modifier used in the hover popover. `needsAction` (Google's default
+// for un-responded invites) reads as "No response" so the popover is
+// scannable without needing to memorize Google's API vocabulary.
+const ATTENDEE_RESPONSE_LABELS = {
+  accepted: 'Accepted',
+  declined: 'Declined',
+  tentative: 'Tentative',
+  needsAction: 'No response',
+};
+
+function formatAttendeeName(att) {
+  if (att?.name) return att.name;
+  if (att?.email) return att.email;
+  return 'Guest';
+}
+
+function formatAttendeeSubline(att) {
+  // When we have both, the name reads as the primary label and the
+  // email shows underneath as a secondary line. For email-only rows
+  // we don't repeat the email — it's already the primary label.
+  if (att?.name && att?.email) return att.email;
+  return null;
+}
+
+// Hover popover that lists every human invited to the meeting. Rendered
+// through a portal so it can break out of the dashboard panel's
+// `overflow: auto` clipping. Position is recomputed off the chip's
+// bounding rect each time it opens (and on scroll/resize while open)
+// so the popover tracks the chip even when the panel is scrolled.
+function AttendeesPopover({ anchorRef, attendees, visible }) {
+  const [coords, setCoords] = useState(null);
+
+  useLayoutEffect(() => {
+    if (!visible) {
+      setCoords(null);
+      return undefined;
+    }
+    const update = () => {
+      const node = anchorRef.current;
+      if (!node) return;
+      const rect = node.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + 6,
+        left: rect.right,
+      });
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [visible, anchorRef]);
+
+  if (!visible || !coords || !attendees?.length) return null;
+
+  return createPortal(
+    <div
+      className="dashboard-calendar__attendees-popover"
+      role="tooltip"
+      style={{ top: coords.top, left: coords.left }}
+    >
+      <p className="dashboard-calendar__attendees-title">
+        Attendees · {attendees.length}
+      </p>
+      <ul className="dashboard-calendar__attendees-list">
+        {attendees.map((att, idx) => {
+          const status = att.responseStatus || 'needsAction';
+          const tone = ATTENDEE_RESPONSE_LABELS[status] ? status : 'needsAction';
+          const label = ATTENDEE_RESPONSE_LABELS[tone];
+          const primary = formatAttendeeName(att);
+          const subline = formatAttendeeSubline(att);
+          return (
+            <li
+              key={`${att.email || att.name || 'guest'}-${idx}`}
+              className="dashboard-calendar__attendees-row"
+            >
+              <span
+                className={`dashboard-calendar__attendees-status dashboard-calendar__attendees-status--${tone}`}
+                title={label}
+                aria-label={label}
+              />
+              <span className="dashboard-calendar__attendees-name-block">
+                <span className="dashboard-calendar__attendees-name">
+                  <span className="dashboard-calendar__attendees-name-text">
+                    {primary}
+                  </span>
+                  {att.organizer && (
+                    <span className="dashboard-calendar__attendees-tag">
+                      Organizer
+                    </span>
+                  )}
+                  {att.optional && (
+                    <span className="dashboard-calendar__attendees-tag dashboard-calendar__attendees-tag--muted">
+                      Optional
+                    </span>
+                  )}
+                </span>
+                {subline && (
+                  <span className="dashboard-calendar__attendees-email">
+                    {subline}
+                  </span>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>,
+    document.body,
+  );
+}
+
+// Read-only chip on each meeting row that surfaces the attendee count
+// and reveals the full guest list in a hover popover. Falls back to
+// a plain `title` tooltip when the backend didn't ship attendee
+// details (e.g. legacy events lacking the `attendees` array).
+function AttendeesChip({ count, attendees }) {
+  const anchorRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const hasDetails = Array.isArray(attendees) && attendees.length > 0;
+  const fallbackTitle = `${count} ${count === 1 ? 'attendee' : 'attendees'}`;
+
+  return (
+    <>
+      <span
+        ref={anchorRef}
+        className="dashboard-calendar__chip"
+        title={hasDetails ? undefined : fallbackTitle}
+        tabIndex={hasDetails ? 0 : -1}
+        onMouseEnter={() => hasDetails && setOpen(true)}
+        onMouseLeave={() => hasDetails && setOpen(false)}
+        onFocus={() => hasDetails && setOpen(true)}
+        onBlur={() => hasDetails && setOpen(false)}
+        aria-label={fallbackTitle}
+      >
+        <AttendeesGlyph />
+        {count}
+      </span>
+      {hasDetails && (
+        <AttendeesPopover
+          anchorRef={anchorRef}
+          attendees={attendees}
+          visible={open}
+        />
+      )}
+    </>
   );
 }
 
@@ -135,15 +295,10 @@ function DashboardCalendarCard({
               {(ev.attendeeCount > 0 || ev.videoUrl) && (
                 <div className="dashboard-calendar__row-actions">
                   {ev.attendeeCount > 0 && (
-                    <span
-                      className="dashboard-calendar__chip"
-                      title={`${ev.attendeeCount} ${
-                        ev.attendeeCount === 1 ? 'attendee' : 'attendees'
-                      }`}
-                    >
-                      <AttendeesGlyph />
-                      {ev.attendeeCount}
-                    </span>
+                    <AttendeesChip
+                      count={ev.attendeeCount}
+                      attendees={ev.attendees}
+                    />
                   )}
                   {ev.videoUrl && (
                     <a
@@ -273,8 +428,9 @@ function formatDueDate(value) {
   return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-// Tiny robot glyph used inside the AI Demo status pill. Pure outline so
-// it inherits the pill's pink text color via `currentColor`.
+// Tiny robot glyph used inside the AI Demo / AI Workshop status pills.
+// Pure outline so it inherits each pill's text color (pink for demos,
+// purple for workshops) via `currentColor`.
 function RobotGlyph() {
   return (
     <svg
@@ -394,13 +550,20 @@ function DashboardLinearCard({ state }) {
             {rows.map((row) => {
               const { opp, ask } = resolveHuntDisplay(row);
               const dueLabel = formatDueDate(row.dueDate);
-              // AI Demo takes precedence over priority highlighting so
-              // demo work always reads as "demo" rather than red/orange.
+              // AI Demo / AI Workshop take precedence over priority
+              // highlighting so prep-heavy work always reads as
+              // "demo"/"workshop" rather than red/orange. The two share
+              // semantics (both flip `isAiDemo` for aggregate counts)
+              // but render with different colors — pink for demos,
+              // purple for workshops — driven off `tone`.
               let rowModifier = '';
               let rowTitle;
-              if (row.isAiDemo) {
+              if (row.tone === 'ai-demo') {
                 rowModifier = ' dashboard-hunts__row--ai-demo';
                 rowTitle = 'AI Demo';
+              } else if (row.tone === 'ai-workshop') {
+                rowModifier = ' dashboard-hunts__row--ai-workshop';
+                rowTitle = 'AI Workshop';
               } else if (row.priority === 'urgent' || row.priority === 'high') {
                 rowModifier = ` dashboard-hunts__row--${row.priority}`;
                 rowTitle = row.priority === 'urgent' ? 'Urgent priority' : 'High priority';
@@ -456,7 +619,7 @@ function DashboardLinearCard({ state }) {
                       className={`dashboard-linear__status dashboard-linear__status--${row.tone}`}
                       title={row.status}
                     >
-                      {row.tone === 'ai-demo' && <RobotGlyph />}
+                      {(row.tone === 'ai-demo' || row.tone === 'ai-workshop') && <RobotGlyph />}
                       <span className="dashboard-linear__status-label">{row.status}</span>
                     </span>
                   </td>
@@ -488,6 +651,7 @@ function DashboardLinearCard({ state }) {
 }
 
 export function DashboardWidgets() {
+  const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarLive, setCalendarLive] = useState(false);
@@ -617,7 +781,7 @@ export function DashboardWidgets() {
       }
     } catch (err) {
       console.error(err);
-      alert(err?.message || 'Could not start Google Calendar connection');
+      toast.error(err?.message || 'Could not start Google Calendar connection');
     } finally {
       setConnectLoading(false);
     }

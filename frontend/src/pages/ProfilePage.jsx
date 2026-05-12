@@ -7,6 +7,7 @@ import {
   startGoogleCalendarOAuth,
   disconnectGoogleCalendar,
 } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
 import './ProfilePage.less';
 
 const UUID_RE =
@@ -35,6 +36,7 @@ const GOOGLE_CAL_INITIAL = {
 };
 
 export default function ProfilePage() {
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [input, setInput] = useState('');
@@ -91,9 +93,13 @@ export default function ProfilePage() {
     try {
       const next = await saveLinearProfile({ linearEmail: profile.appEmail });
       setProfile(next);
-      setMessage(`Connected as ${next.linearUser?.name || 'your Linear account'}.`);
+      const ok = `Connected as ${next.linearUser?.name || 'your Linear account'}.`;
+      setMessage(ok);
+      toast.success(ok);
     } catch (err) {
-      setError(err?.message || 'Could not connect your Linear account');
+      const msg = err?.message || 'Could not connect your Linear account';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -123,9 +129,13 @@ export default function ProfilePage() {
       const next = await saveLinearProfile(body);
       setProfile(next);
       setInput('');
-      setMessage(`Connected as ${next.linearUser?.name || 'your Linear account'}.`);
+      const ok = `Connected as ${next.linearUser?.name || 'your Linear account'}.`;
+      setMessage(ok);
+      toast.success(ok);
     } catch (err) {
-      setError(err?.message || 'Could not save your Linear account');
+      const msg = err?.message || 'Could not save your Linear account';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -139,8 +149,11 @@ export default function ProfilePage() {
       await disconnectLinearProfile();
       await load();
       setMessage('Disconnected.');
+      toast.success('Linear disconnected.');
     } catch (err) {
-      setError(err?.message || 'Could not disconnect');
+      const msg = err?.message || 'Could not disconnect';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -156,17 +169,13 @@ export default function ProfilePage() {
         window.location.href = data.authorizationUrl;
         return;
       }
-      setGoogleCal((prev) => ({
-        ...prev,
-        busy: false,
-        error: 'Could not start Google Calendar connection',
-      }));
+      const msg = 'Could not start Google Calendar connection';
+      setGoogleCal((prev) => ({ ...prev, busy: false, error: msg }));
+      toast.error(msg);
     } catch (err) {
-      setGoogleCal((prev) => ({
-        ...prev,
-        busy: false,
-        error: err?.message || 'Could not start Google Calendar connection',
-      }));
+      const msg = err?.message || 'Could not start Google Calendar connection';
+      setGoogleCal((prev) => ({ ...prev, busy: false, error: msg }));
+      toast.error(msg);
     }
   };
 
@@ -176,12 +185,11 @@ export default function ProfilePage() {
       await disconnectGoogleCalendar();
       await loadGoogleCal();
       setGoogleCal((prev) => ({ ...prev, busy: false, message: 'Disconnected.' }));
+      toast.success('Google Calendar disconnected.');
     } catch (err) {
-      setGoogleCal((prev) => ({
-        ...prev,
-        busy: false,
-        error: err?.message || 'Could not disconnect Google Calendar',
-      }));
+      const msg = err?.message || 'Could not disconnect Google Calendar';
+      setGoogleCal((prev) => ({ ...prev, busy: false, error: msg }));
+      toast.error(msg);
     }
   };
 

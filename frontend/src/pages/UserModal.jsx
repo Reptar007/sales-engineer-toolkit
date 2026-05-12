@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createUser, fetchTeams } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
 
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Admin' },
@@ -17,6 +18,7 @@ const TEAM_PICK_NONE = '__NONE__';
 const TEAM_PICK_NEW = '__NEW__';
 
 const UserModal = ({ isOpen, onClose, onSuccess }) => {
+  const toast = useToast();
   const dialogRef = useRef(null);
 
   const [email, setEmail] = useState('');
@@ -138,7 +140,9 @@ const UserModal = ({ isOpen, onClose, onSuccess }) => {
       });
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to create user.');
+      const msg = err.message || 'Failed to create user.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }

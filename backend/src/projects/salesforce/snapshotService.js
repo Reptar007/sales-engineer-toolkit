@@ -5,6 +5,7 @@ import {
   addYearToSnapshotRegistry,
   SNAPSHOTS_DIR,
 } from './functions.js';
+import { detectHasAccountScore, getMetricsColumnIndices } from './reportShape.js';
 import { getSalesforceConfig } from '../../config/salesforce.js';
 
 /**
@@ -33,7 +34,14 @@ export async function createSnapshotForYear(year) {
     conn.analytics.report(calculatorReportId).execute({ details: true }),
   ]);
 
-  // Format metrics (same shape as GET /report/:reportId for metrics)
+  // Format metrics (same shape as GET /report/:reportId for metrics).
+  // Detect the report's column layout once per fetch — see reportShape.js
+  // for the 2025-vs-2026 layout difference. Snapshots written before
+  // 2026 used the old shape and don't carry an `accountScore` field;
+  // that's intentional — the team page treats an empty accountScore as
+  // "not C", so historical years stay in the goal-eligible bucket.
+  const hasAccountScore = detectHasAccountScore(metricsResult.factMap);
+  const cols = getMetricsColumnIndices(hasAccountScore);
   const quarterlyData = {};
   const allOpportunities = [];
   Object.keys(metricsResult.factMap).forEach((quarterKey) => {
@@ -45,19 +53,19 @@ export async function createSnapshotForYear(year) {
     if (quarterData.rows && Array.isArray(quarterData.rows)) {
       quarterData.rows.forEach((row) => {
         const dataCells = row.dataCells;
-        const aeId = dataCells[0]?.value || '';
-        // AE, Opp, Sales Score, Effective Date, Gross ARR, CARR — same as GET /report/:reportId metrics branch.
+        const aeId = dataCells[cols.aeName]?.value || '';
         const opportunity = {
-          aeName: dataCells[0]?.label || '',
-          opportunityName: dataCells[1]?.label || '',
-          salesScore: dataCells[2]?.label || '',
-          effectiveDate: dataCells[3]?.label || '',
-          grossARRAmount: dataCells[4]?.value?.amount || 0,
-          grossARRAmountFormatted: dataCells[4]?.label || '',
-          carrAmount: dataCells[5]?.value?.amount || 0,
-          carrAmountFormatted: dataCells[5]?.label || '',
+          aeName: dataCells[cols.aeName]?.label || '',
+          opportunityName: dataCells[cols.opportunityName]?.label || '',
+          salesScore: dataCells[cols.salesScore]?.label || '',
+          accountScore: cols.accountScore >= 0 ? dataCells[cols.accountScore]?.label || '' : '',
+          effectiveDate: dataCells[cols.effectiveDate]?.label || '',
+          grossARRAmount: dataCells[cols.grossARR]?.value?.amount || 0,
+          grossARRAmountFormatted: dataCells[cols.grossARR]?.label || '',
+          carrAmount: dataCells[cols.carr]?.value?.amount || 0,
+          carrAmountFormatted: dataCells[cols.carr]?.label || '',
           aeId,
-          opportunityId: dataCells[1]?.value || '',
+          opportunityId: dataCells[cols.opportunityName]?.value || '',
           quarter: quarterName,
         };
         opportunities.push(opportunity);

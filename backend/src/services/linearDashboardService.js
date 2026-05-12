@@ -30,6 +30,55 @@ function extractDescriptionField(description, label) {
   return value;
 }
 
+// Try several common label variants for the AE / Contract Owner field.
+// SE ticket templates have drifted over time — newer tickets use
+// "Requested By" or "AE", older ones still say "Contract Owner" — so
+// a single-label lookup silently drops a meaningful slice of tickets
+// from per-AE rollups (and renders "—" in the AE column of the Active
+// Hunts widget). We try the labels in priority order and return the
+// first non-empty match.
+const AE_FIELD_LABELS = [
+  'Requested By',
+  'Contract Owner',
+  'Account Executive',
+  'Account Owner',
+  'AE Owner',
+  'AE',
+];
+
+// Tickets created via the Slack-to-Linear bot embed the requester's
+// Slack user handle inline with the name, e.g.
+//   "Requested By: Rob Linsmayer (<@U06R20FJU30>)"
+// We strip the parenthesized handle (and any other trailing
+// parenthetical) so the extracted value is just the human-readable
+// name we can match against the team's AE roster. Falls through
+// untouched when there's no parenthetical to remove.
+function stripInlineMentions(value) {
+  if (typeof value !== 'string') return value;
+  return (
+    value
+      // Slack-style "(<@USERID>)" or "<@USERID>"
+      .replace(/\s*\(?<@[A-Z0-9]+>\)?\s*/g, ' ')
+      // Linear/Markdown "@username" or "@First Last" — keep the body,
+      // drop the marker, since AEs sometimes get @-tagged inline.
+      .replace(/@([A-Za-z][\w.-]*)/g, '$1')
+      // Bracketed user IDs left over from other bot integrations
+      .replace(/\s*\[[^\]]*\]\s*/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+}
+
+function extractAeName(description) {
+  for (const label of AE_FIELD_LABELS) {
+    const raw = extractDescriptionField(description, label);
+    if (!raw) continue;
+    const cleaned = stripInlineMentions(raw);
+    if (cleaned) return cleaned;
+  }
+  return null;
+}
+
 // Map a state name/type pair to one of the three frontend tones the
 // status pill knows how to render.
 function deriveStatus(state) {
@@ -44,16 +93,29 @@ function deriveStatus(state) {
   return { status: state.name || 'Backlog', tone: 'backlog' };
 }
 
-// Special-case label that elevates an issue to its own visual treatment
-// in the dashboard. When present, the row is highlighted pink and its
-// Status pill is replaced with "AI Demo" so the SE can spot demo work
-// at a glance regardless of where it sits in the workflow.
+// Special-case labels that elevate an issue to its own visual treatment
+// in the dashboard. When present, the row is highlighted (pink for
+// "AI Demo", purple for "AI Workshop") and its Status pill is replaced
+// with the matching label so the SE can spot prep-heavy work at a
+// glance regardless of where it sits in the workflow. The two are
+// rendered with different colors but otherwise share behavior — both
+// flip `isAiDemo` so aggregate counts (page header chrome, dashboard
+// summary) treat them as one "AI prep" bucket.
 const AI_DEMO_LABEL_RE = /^ai\s*demo$/i;
+const AI_WORKSHOP_LABEL_RE = /^ai\s*workshop$/i;
 
-function hasAiDemoLabel(issue) {
+// Returns 'demo' | 'workshop' | null. The first match wins, and the
+// label-name comparison is exact (anchored) so a label like "AI Demo
+// Prep" doesn't accidentally trigger the highlight.
+function classifyAiLabel(issue) {
   const nodes = issue?.labels?.nodes;
-  if (!Array.isArray(nodes)) return false;
-  return nodes.some((label) => AI_DEMO_LABEL_RE.test((label?.name || '').trim()));
+  if (!Array.isArray(nodes)) return null;
+  for (const label of nodes) {
+    const name = (label?.name || '').trim();
+    if (AI_DEMO_LABEL_RE.test(name)) return 'demo';
+    if (AI_WORKSHOP_LABEL_RE.test(name)) return 'workshop';
+  }
+  return null;
 }
 
 function mapIssue(issue) {
@@ -66,12 +128,20 @@ function mapIssue(issue) {
   }
 
   let { status, tone } = deriveStatus(state);
-  const isAiDemo = hasAiDemoLabel(issue);
-  if (isAiDemo) {
+  // `aiCategory` discriminates "AI Demo" (pink) from "AI Workshop"
+  // (purple). `isAiDemo` stays true for either so existing consumers
+  // (page-header "N AI demos coming up", dashboard summary counts)
+  // continue to treat AI prep work as a single bucket.
+  const aiCategory = classifyAiLabel(issue);
+  const isAiDemo = aiCategory !== null;
+  if (aiCategory === 'demo') {
     status = 'AI Demo';
     tone = 'ai-demo';
+  } else if (aiCategory === 'workshop') {
+    status = 'AI Workshop';
+    tone = 'ai-workshop';
   }
-  const ae = extractDescriptionField(issue.description, 'Contract Owner');
+  const ae = extractAeName(issue.description);
   const dueDate = issue.dueDate || extractDescriptionField(issue.description, 'Due Date');
   const oppName = extractDescriptionField(issue.description, 'Opportunity Name');
   const typeOfAsk =
@@ -160,26 +230,23 @@ async function loadOrResolveLinearUserId(userId) {
   };
 }
 
+// Filter by state TYPE rather than an allowlist of state names. Linear
+// teams routinely add custom states ("Needs Access Check", "Access
+// Blocked", etc.) and even rename defaults ("To Do" vs "Todo"), so an
+// explicit name allowlist silently drops tickets whenever a team's
+// workflow drifts. The state types are a fixed enum (`triage`,
+// `backlog`, `unstarted`, `started`, `completed`, `canceled`), so
+// excluding the two terminal types is equivalent to "everything
+// currently in flight" regardless of how a team named the state.
+// `mapIssue` already redundantly filters completed/canceled client-side
+// in case Linear ever returns one through this filter.
 const TEAM_ISSUES_QUERY = `
   query MyTeamIssues($teamId: ID!, $assigneeId: ID!, $after: String) {
     issues(
       filter: {
         team: { id: { eq: $teamId } }
         assignee: { id: { eq: $assigneeId } }
-        state: {
-          name: {
-            in: [
-              "Blocked",
-              "Paused",
-              "In Progress",
-              "Needs Access Check",
-              "Access Check Completed",
-              "Access Blocked",
-              "To Do",
-              "Backlog"
-            ]
-          }
-        }
+        state: { type: { nin: ["completed", "canceled"] } }
       }
       first: 100
       after: $after
@@ -305,19 +372,34 @@ function groupIssuesByProject(issues) {
 // estimation/creation title patterns because a demo ticket might
 // happen to mention "Test Creation" in the title, and the demo is
 // the more specific signal. Categories:
-//   • aiDemo    — EITHER lives in a CSM-named project AND carries
-//                 the "AI Demo" label, OR the title literally
-//                 mentions "AI demo" / "AI workshop" (so demo
-//                 tickets that didn't get the CSM-project + label
-//                 combo still classify correctly).
-//   • estimation — title mentions "Exploratory Estimation" (e.g.
-//                  "Ratio | Exploratory Estimation - {Opp}") OR
-//                  "Ratio Estimation" (e.g. "Ratio Estimation -
-//                  Web for FBN"). Both flavours are estimation
-//                  work and roll up into the same bucket.
+//   • aiDemo    — Carries an "AI Demo" or "AI Workshop" label, OR
+//                 the title literally mentions "AI demo" /
+//                 "AI workshop". We deliberately do NOT require the
+//                 ticket to live in a CSM-named project — this rule
+//                 must stay in lockstep with `classifyAiLabel` /
+//                 `mapIssue` above (the rule the Active Hunts
+//                 widget uses to badge a row "AI DEMO"), otherwise
+//                 a ticket that visibly badges as AI Demo on the
+//                 dashboard silently falls into "Other" on the
+//                 team-page rollups.
+//   • estimation — title matches any of the estimation naming
+//                  conventions SEs have used over time:
+//                    - "Exploratory Estimation" (e.g. "Ratio |
+//                      Exploratory Estimation - {Opp}")
+//                    - "Exploration Estimation" (drift from the
+//                      "Exploratory" form — same work, different
+//                      word; seen on tickets like "Exploration
+//                      Estimation - Web for S-5")
+//                    - "Ratio Estimation" (e.g. "Ratio Estimation -
+//                      Web for FBN")
+//                    - "Ratio Scope" / "Ratio Scoping" (e.g. "Ratio
+//                      Scope for EON" — the scoping pass is the
+//                      estimation work under a different name)
+//                  All of these roll up into the same bucket.
 //   • creation  — title contains "Test Creation - {Opp}".
 //   • other     — anything else, so totals always reconcile.
-const ESTIMATION_TITLE_RE = /(?:exploratory|ratio)\s+estimation/i;
+const ESTIMATION_TITLE_RE =
+  /(?:(?:exploratory|exploration)\s+estimation|ratio\s+(?:estimation|scoping|scope))/i;
 
 // Word-boundaried so "main AI demonstration" or "domain AI work"
 // can't false-match. `demos?` / `workshops?` so plural forms still
@@ -325,17 +407,20 @@ const ESTIMATION_TITLE_RE = /(?:exploratory|ratio)\s+estimation/i;
 const AI_DEMO_TITLE_RE = /\bai\s+(?:demos?|workshops?)\b/i;
 
 function classifyClosedIssue(issue) {
-  const projectName = issue?.project?.name || '';
-  const labels = Array.isArray(issue?.labels?.nodes) ? issue.labels.nodes : [];
-  const hasAiDemoLabel = labels.some((label) => /^ai\s*demo$/i.test((label?.name || '').trim()));
-  const isCsmProject = /csm/i.test(projectName);
-
+  // Reuse the same label-detection helper the Active Hunts widget
+  // uses so the two surfaces always agree on what counts as an AI
+  // Demo. Previously this had its own (stricter) rule that required
+  // the ticket to live in a CSM-named project, which silently
+  // dropped every AI demo ticket in a non-CSM project from the
+  // per-AE rollup even though it was visibly badged "AI DEMO" on
+  // the dashboard.
+  const aiCategory = classifyAiLabel(issue);
   const title = typeof issue?.title === 'string' ? issue.title : '';
 
-  // AI Demo classification: either the project + label combo OR a
-  // title hit. We check both up-front so a demo that mentions
+  // AI Demo classification: any AI Demo / AI Workshop label OR a
+  // title hit. Checked up-front so a demo that mentions
   // "Test Creation" in the title still wins.
-  if ((hasAiDemoLabel && isCsmProject) || AI_DEMO_TITLE_RE.test(title)) {
+  if (aiCategory !== null || AI_DEMO_TITLE_RE.test(title)) {
     return 'aiDemo';
   }
 
@@ -715,6 +800,284 @@ export async function getClosedLinearTicketsForUser(userId, year) {
     return { configured: true, year, byQuarter, total };
   } catch (err) {
     console.error('Linear: closed-ticket fetch failed for user', userId, '-', err.message);
+    return { ...empty, error: 'linear_unavailable' };
+  }
+}
+
+// ---- Tickets created BY AE (team page roll-up) ---------------------------
+//
+// Per-AE rollup of tickets created in a calendar year, keyed off the
+// "Contract Owner" field in each ticket's description. Powers the team
+// page's "Tickets created broken down by AE" section: for each AE on
+// the team, how many tickets they've inputted this year/quarter,
+// broken into Creation / Estimation / AI Demo / Other.
+//
+// Unlike `getClosedLinearTicketsForUser` (per-SE, per-completedAt),
+// this query is team-wide and keyed on createdAt because the AE is
+// the *requester*, not the assignee — we want every ticket they
+// submitted, regardless of which SE picked it up or whether it's
+// closed yet.
+
+const TEAM_TICKETS_CREATED_QUERY = `
+  query TeamTicketsCreated(
+    $teamId: ID!
+    $after: String
+    $start: DateTimeOrDuration!
+    $end: DateTimeOrDuration!
+  ) {
+    issues(
+      filter: {
+        team: { id: { eq: $teamId } }
+        createdAt: { gte: $start, lte: $end }
+      }
+      first: 100
+      after: $after
+    ) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id
+        identifier
+        title
+        description
+        url
+        createdAt
+        assignee { id }
+        project { id name }
+        labels { nodes { id name } }
+      }
+    }
+  }
+`;
+
+// Higher cap than the per-SE queries: a whole team's worth of tickets
+// over a year can run into the low thousands. 30 pages × 100 = 3,000
+// tickets, which is well above any team's observed annual volume but
+// still bounded so a runaway pagination loop can't pin the worker.
+const MAX_TEAM_TICKETS_PAGES = 30;
+
+async function fetchTeamTicketsCreated(year) {
+  const teamId = process.env.LINEAR_TEAM_ID?.trim();
+  if (!teamId) {
+    const err = new Error('LINEAR_TEAM_ID is not configured');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  // UTC bracketing matches `fetchMyClosedTickets` so a ticket created
+  // late on Dec 31 Pacific doesn't slip into the next year's bucket
+  // depending on where the worker happens to live.
+  const start = new Date(Date.UTC(year, 0, 1, 0, 0, 0)).toISOString();
+  const end = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999)).toISOString();
+
+  const all = [];
+  let after = null;
+  for (let page = 0; page < MAX_TEAM_TICKETS_PAGES; page += 1) {
+    const data = await linearGraphQL(TEAM_TICKETS_CREATED_QUERY, {
+      teamId,
+      after,
+      start,
+      end,
+    });
+    const nodes = data?.issues?.nodes ?? [];
+    all.push(...nodes);
+
+    const pageInfo = data?.issues?.pageInfo;
+    if (!pageInfo?.hasNextPage || !pageInfo.endCursor) break;
+    after = pageInfo.endCursor;
+  }
+  return all;
+}
+
+// Empty per-AE bucket. Same category roster as the closed-ticket
+// payload above so the frontend can iterate both responses with the
+// same loop.
+function emptyAeBucket(aeName) {
+  return {
+    aeName,
+    total: 0,
+    estimation: 0,
+    creation: 0,
+    aiDemo: 0,
+    other: 0,
+    byQuarter: {},
+  };
+}
+
+function emptyAeQuarterBucket() {
+  return {
+    total: 0,
+    estimation: 0,
+    creation: 0,
+    aiDemo: 0,
+    other: 0,
+  };
+}
+
+// Empty unassigned bucket. Same category roster as the per-AE buckets
+// plus a `tickets` array of slim row shapes so the frontend can
+// render a clickable list of tickets that need AE attribution.
+function emptyUnassignedBucket() {
+  return {
+    total: 0,
+    estimation: 0,
+    creation: 0,
+    aiDemo: 0,
+    other: 0,
+    byQuarter: {},
+    tickets: [],
+  };
+}
+
+/**
+ * Tickets-created-by-AE roll-up for the team page.
+ *
+ * Walks every ticket in LINEAR_TEAM_ID created in the given calendar
+ * year, extracts the AE / Contract Owner field from each description,
+ * and aggregates per AE. Tickets without a recognizable AE are
+ * collected in a separate `unassigned` bucket — but ONLY if the
+ * Linear assignee matches the team's SE (the logged-in user). Multiple
+ * SE teams share the same Linear team, so an unfiltered unassigned
+ * bucket would bleed every other team's unattributed tickets onto
+ * this team's page. The per-AE buckets don't need this filter
+ * because the AE field itself implicitly scopes them — a ticket
+ * with AE = "Chris Burke" is Team Yoshi's by virtue of Chris
+ * being on Team Yoshi's roster.
+ *
+ * Tickets in EXCLUDED_PROJECT_NAMES are skipped entirely — those
+ * are internal/tooling projects and shouldn't count toward any AE's
+ * input or the unassigned bucket.
+ *
+ * Returns `{ byAE: { [normalizedName]: bucket }, unassigned: bucket }`
+ * — `byAE` keyed by normalized name so the frontend can do
+ * constant-time lookups when matching the team's `accountExecutives`
+ * roster against the rollup. Each bucket carries year totals AND a
+ * `byQuarter` map keyed on the same "Q{n} CY{year}" shape the report
+ * writes, so the team page's year/current-quarter scope toggle can
+ * pick whichever slice it needs without a second request.
+ *
+ * @param {number} year
+ * @returns {Promise<{
+ *   configured: boolean,
+ *   year: number,
+ *   byAE: Record<string, {
+ *     aeName: string,
+ *     total: number, estimation: number, creation: number,
+ *     aiDemo: number, other: number,
+ *     byQuarter: Record<string, {
+ *       total: number, estimation: number, creation: number,
+ *       aiDemo: number, other: number,
+ *     }>,
+ *   }>,
+ *   unassigned: {
+ *     total: number, estimation: number, creation: number,
+ *     aiDemo: number, other: number,
+ *     byQuarter: Record<string, { total: number, ... }>,
+ *     tickets: Array<{
+ *       id: string, identifier: string|null, title: string,
+ *       createdAt: string|null, url: string|null,
+ *       category: 'estimation' | 'creation' | 'aiDemo' | 'other',
+ *     }>,
+ *   },
+ *   error?: 'linear_unavailable',
+ * }>}
+ */
+export async function getTicketsCreatedByAEForTeam(userId, year) {
+  const empty = {
+    configured: false,
+    year,
+    byAE: {},
+    unassigned: emptyUnassignedBucket(),
+  };
+
+  const teamId = process.env.LINEAR_TEAM_ID?.trim();
+  if (!teamId) return empty;
+
+  // Resolve the SE's Linear user ID so we can scope the unassigned
+  // bucket to "tickets this team's SE picked up". When we can't
+  // resolve (no SE row, no Linear profile match), the unassigned
+  // bucket stays empty rather than leaking the global pool — better
+  // a zero-state hint than the wrong number.
+  const resolved = await loadOrResolveLinearUserId(userId);
+  const seLinearUserId = resolved.status === 'ok' ? resolved.linearUserId : null;
+
+  try {
+    const issues = await fetchTeamTicketsCreated(year);
+
+    const byAE = {};
+    const unassigned = emptyUnassignedBucket();
+    for (const issue of issues) {
+      if (isExcludedProjectName(issue.project?.name)) continue;
+
+      const category = classifyClosedIssue(issue);
+      const quarterKey = quarterKeyOfDate(issue.createdAt);
+      const ae = extractAeName(issue.description);
+
+      if (!ae) {
+        // Tickets with no recognizable AE field fall into the
+        // `unassigned` bucket — but only if the Linear assignee
+        // matches this team's SE. Without that filter, every team's
+        // page would show every other team's unattributed tickets
+        // because they all share one Linear team. When we couldn't
+        // resolve the SE's Linear ID at all, drop everything to
+        // avoid leaking the global pool.
+        if (!seLinearUserId) continue;
+        if (issue.assignee?.id !== seLinearUserId) continue;
+
+        // Slim row shape (id/identifier/title/url/category) so the
+        // frontend can render a click-through list of "go attribute
+        // these" tickets without us shipping the full description
+        // blob.
+        unassigned[category] += 1;
+        unassigned.total += 1;
+        if (quarterKey) {
+          if (!unassigned.byQuarter[quarterKey]) {
+            unassigned.byQuarter[quarterKey] = emptyAeQuarterBucket();
+          }
+          unassigned.byQuarter[quarterKey][category] += 1;
+          unassigned.byQuarter[quarterKey].total += 1;
+        }
+        unassigned.tickets.push({
+          id: issue.id,
+          identifier: issue.identifier || null,
+          title: issue.title || '(untitled)',
+          createdAt: issue.createdAt || null,
+          url: issue.url || null,
+          category,
+        });
+        continue;
+      }
+
+      // Normalize the same way `groupOppsByAE` does on the frontend
+      // (lowercase + trim) so the team page can match this map's keys
+      // against `team.accountExecutives` without any further munging.
+      const aeKey = ae.trim().toLowerCase();
+      if (!aeKey) continue;
+      if (!byAE[aeKey]) byAE[aeKey] = emptyAeBucket(ae.trim());
+
+      byAE[aeKey][category] += 1;
+      byAE[aeKey].total += 1;
+
+      if (quarterKey) {
+        if (!byAE[aeKey].byQuarter[quarterKey]) {
+          byAE[aeKey].byQuarter[quarterKey] = emptyAeQuarterBucket();
+        }
+        byAE[aeKey].byQuarter[quarterKey][category] += 1;
+        byAE[aeKey].byQuarter[quarterKey].total += 1;
+      }
+    }
+
+    // Sort the unassigned ticket list newest-first so the disclosure
+    // surfaces the most recently submitted tickets at the top — fresh
+    // tickets are almost always the ones the SE wants to fix first.
+    unassigned.tickets.sort((a, b) => {
+      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return tb - ta;
+    });
+
+    return { configured: true, year, byAE, unassigned };
+  } catch (err) {
+    console.error('Linear: tickets-by-AE fetch failed -', err.message);
     return { ...empty, error: 'linear_unavailable' };
   }
 }
