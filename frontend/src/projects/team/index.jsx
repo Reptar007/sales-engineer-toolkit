@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import {
   fetchDashboardLinearClosed,
+  fetchDashboardLinearTicketsByAE,
   fetchSalesforceReport,
   fetchSalesforceSnapshotMetrics,
   getSalesforceConfig,
@@ -106,6 +107,43 @@ function writeCachedData(year, payload) {
 
 function normalizeName(name) {
   return typeof name === 'string' ? name.trim().toLowerCase() : '';
+}
+
+// Find the bucket for an AE in the backend's `byAE` map. We do an
+// exact normalized-name match first, then fall back to a fuzzy match
+// (same last name + first-name prefix overlap) to catch the common
+// nickname-vs-formal-name drift between Salesforce and Linear:
+//
+//   roster: "Robert Linsmayer"
+//   ticket: "Requested By: Rob Linsmayer"   → both should match
+//
+// The fuzzy rule requires both:
+//   • last word matches exactly (case-insensitive)
+//   • one first word is a prefix of the other and ≥ 2 chars
+// so "Rob Linsmayer" ↔ "Robert Linsmayer" matches but
+// "Robert Smith"   ↔ "Robert Jones"      does not.
+function findBucketForAE(byAE, aeName) {
+  const exactKey = normalizeName(aeName);
+  if (!exactKey || !byAE) return null;
+  if (byAE[exactKey]) return byAE[exactKey];
+
+  const aeParts = exactKey.split(/\s+/).filter(Boolean);
+  if (aeParts.length < 2) return null;
+  const aeFirst = aeParts[0];
+  const aeLast = aeParts[aeParts.length - 1];
+
+  for (const [key, bucket] of Object.entries(byAE)) {
+    const parts = key.split(/\s+/).filter(Boolean);
+    if (parts.length < 2) continue;
+    if (parts[parts.length - 1] !== aeLast) continue;
+    const candidateFirst = parts[0];
+    const minLen = Math.min(aeFirst.length, candidateFirst.length);
+    if (minLen < 2) continue;
+    const a = aeFirst.slice(0, minLen);
+    const b = candidateFirst.slice(0, minLen);
+    if (a === b) return bucket;
+  }
+  return null;
 }
 
 // Decide whether an opp counts as a "C-scored" deal that should be
@@ -216,6 +254,21 @@ function getCurrentQuarterNumber() {
   return month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
 }
 
+// Mirror of the backend's `quarterKeyOfDate` so the frontend can
+// re-bucket the unassigned ticket list by createdAt when the page is
+// in current-quarter scope. UTC math matches the backend so a
+// late-night ticket doesn't bucket differently here than on the
+// server.
+function quarterKeyOfDate(dateString) {
+  if (!dateString) return null;
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return null;
+  const month = d.getUTCMonth() + 1;
+  const year = d.getUTCFullYear();
+  const quarter = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
+  return `Q${quarter} CY${year}`;
+}
+
 // Short label rendered next to the "Current Quarter" filter pill —
 // makes it obvious *which* quarter is being shown without forcing
 // the user to do calendar math.
@@ -234,6 +287,16 @@ const SCOPE_QUARTER = 'quarter';
 // magic literals scattered through the JSX.
 const VIEW_TEAM = 'team';
 const VIEW_YOU = 'you';
+
+// Feature flag: "Tickets created broken down by AE" section. The
+// backend endpoint, classifier fixes, and Linear extraction work are
+// all live in main, but the UI is paused while the data quality
+// (Slack-bot attribution drift, AE field naming variance, nickname
+// matching) is being shaken out on a follow-up branch. Flip this to
+// `true` to re-enable the section without touching anything else —
+// fetch effect, memos, and JSX all read from the same constant so
+// the network call is also skipped while the flag is off.
+const SHOW_TICKETS_BY_AE = false;
 
 // Category roster for the You-view monthly chart. One line per
 // entry; each entry drives both the line/dot color (via the
@@ -377,6 +440,40 @@ function TeamPage() {
       .catch((err) => {
         if (cancelled) return;
         setLinearError(err?.message || 'Failed to load Linear tickets');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Team-wide tickets-created-by-AE rollup. Powers the "Tickets created
+  // broken down by AE" section on the Team view: per-AE counts of
+  // tickets each AE has submitted this year, broken into Creation /
+  // Estimation / AI Demo. Independent fetch from the personal closed
+  // rollup above — different shape, different scope — but soft-fails
+  // the same way (the section just shows a hint instead of failing
+  // the whole page).
+  const [ticketsByAE, setTicketsByAE] = useState(null);
+  const [ticketsByAEError, setTicketsByAEError] = useState(null);
+
+  useEffect(() => {
+    // Gated by the same flag the JSX section below is gated on, so a
+    // disabled feature doesn't waste a Linear round-trip on every
+    // team-page mount. Re-enable the section by flipping
+    // `SHOW_TICKETS_BY_AE` to `true` and the fetch wakes back up.
+    if (!SHOW_TICKETS_BY_AE) return undefined;
+    let cancelled = false;
+    setTicketsByAEError(null);
+    fetchDashboardLinearTicketsByAE()
+      .then((payload) => {
+        if (cancelled) return;
+        setTicketsByAE(payload);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setTicketsByAEError(
+          err?.message || 'Failed to load tickets by AE',
+        );
       });
     return () => {
       cancelled = true;
@@ -591,6 +688,90 @@ function TeamPage() {
     }
     return { totalCarr, count };
   }, [filteredCOppsByAE, team?.accountExecutives]);
+
+  // Unassigned tickets (no AE field filled in), scoped the same way.
+  // The backend collects these into a single team-wide bucket; on
+  // year scope we read the totals, on quarter scope we slice the
+  // `byQuarter` map and filter the ticket list by createdAt so the
+  // disclosure stays consistent with the count above it.
+  const unassignedScoped = useMemo(() => {
+    const bucket = ticketsByAE?.unassigned;
+    if (!bucket) {
+      return {
+        total: 0,
+        estimation: 0,
+        creation: 0,
+        aiDemo: 0,
+        other: 0,
+        tickets: [],
+      };
+    }
+    if (scope === SCOPE_QUARTER) {
+      const currentKey = getCurrentQuarterKey();
+      const slice = bucket.byQuarter?.[currentKey] || {
+        total: 0,
+        estimation: 0,
+        creation: 0,
+        aiDemo: 0,
+        other: 0,
+      };
+      const tickets = (bucket.tickets || []).filter(
+        (t) => quarterKeyOfDate(t.createdAt) === currentKey,
+      );
+      return { ...slice, tickets };
+    }
+    return {
+      total: bucket.total || 0,
+      estimation: bucket.estimation || 0,
+      creation: bucket.creation || 0,
+      aiDemo: bucket.aiDemo || 0,
+      other: bucket.other || 0,
+      tickets: bucket.tickets || [],
+    };
+  }, [ticketsByAE, scope]);
+
+  // Per-AE tickets-created counts for the team's own AE roster, scoped
+  // to whichever window the page is showing (year vs current quarter).
+  // The backend returns `byAE` keyed by normalized name; we walk the
+  // team roster (so the order matches the CARR section above and AEs
+  // with zero submissions still render an empty card) and pull each
+  // AE's bucket out, falling back to a zero-bucket when there's no
+  // entry. Quarter scope reads the AE's `byQuarter[currentKey]` if
+  // present, otherwise zeros — same pattern as `closedTicketsScoped`.
+  const ticketsByAEScoped = useMemo(() => {
+    const teamAEs = team?.accountExecutives ?? [];
+    const map = ticketsByAE?.byAE || {};
+    const currentKey = scope === SCOPE_QUARTER ? getCurrentQuarterKey() : null;
+    return teamAEs.map((ae) => {
+      // Fuzzy lookup so nickname drift between Salesforce and Linear
+      // ("Rob" in a ticket vs "Robert" on the roster) doesn't drop
+      // the AE's count to zero — see `findBucketForAE` for the rule.
+      const bucket = findBucketForAE(map, ae.name);
+      const slice = currentKey
+        ? bucket?.byQuarter?.[currentKey] || {
+            total: 0,
+            estimation: 0,
+            creation: 0,
+            aiDemo: 0,
+            other: 0,
+          }
+        : bucket || {
+            total: 0,
+            estimation: 0,
+            creation: 0,
+            aiDemo: 0,
+            other: 0,
+          };
+      return {
+        ae,
+        total: slice.total || 0,
+        estimation: slice.estimation || 0,
+        creation: slice.creation || 0,
+        aiDemo: slice.aiDemo || 0,
+        other: slice.other || 0,
+      };
+    });
+  }, [ticketsByAE, scope, team?.accountExecutives]);
 
   // Flat list of C opps for the team's own AEs, sorted by close date
   // desc (most recent first). Each row carries `aeName` so the table
@@ -1285,11 +1466,11 @@ function TeamPage() {
               <section
                 key={ae.id}
                 className="dashboard-panel"
-                aria-labelledby={`team-ae-${ae.id}`}
+                aria-labelledby={`team-ae-carr-${ae.id}`}
               >
                 <div className="dashboard-panel__head dashboard-panel__head--stacked">
                   <div className="dashboard-panel__head-text">
-                    <h2 className="dashboard-panel__title" id={`team-ae-${ae.id}`}>
+                    <h2 className="dashboard-panel__title" id={`team-ae-carr-${ae.id}`}>
                       {ae.name}
                     </h2>
                     <p className="dashboard-panel__subtitle">
@@ -1355,6 +1536,293 @@ function TeamPage() {
           })}
             </div>
           </section>
+
+          {/*
+            Tickets created broken down by AE — per-AE rollup of Linear
+            tickets each AE has submitted, broken into Creation /
+            Estimation / AI Demo. Sits between the CARR breakdown above
+            and the C opps panel below so the page reads top-to-bottom
+            as: revenue earned (CARR) → workload generated (tickets) →
+            visibility-only revenue (C opps). Same scope filter as the
+            other Team-view sections (year vs current quarter).
+
+            Currently hidden behind the `SHOW_TICKETS_BY_AE` flag while
+            the data quality (AE field-name drift, Slack-bot mention
+            attribution, nickname matching) is being shaken out on a
+            follow-up branch. Backend endpoint, classifier, and
+            extraction work all stay live — flip the flag back to
+            `true` to re-render the section.
+          */}
+          {SHOW_TICKETS_BY_AE && (
+          <section className="team-page__section">
+            <div className="team-page__section-header">
+              <div className="team-page__section-heading">
+                <h2 className="team-page__section-title">
+                  Tickets created broken down by AE
+                </h2>
+                <p className="team-page__section-subtitle">
+                  Linear tickets each AE on {team.name} has submitted{' '}
+                  {scope === SCOPE_QUARTER
+                    ? `this quarter (${getCurrentQuarterShortLabel()})`
+                    : 'this year'}
+                  .
+                </p>
+              </div>
+            </div>
+            {ticketsByAEError ||
+            ticketsByAE?.error === 'linear_unavailable' ? (
+              <p className="team-page__linear-hint">
+                Couldn&apos;t load tickets-by-AE right now. Try
+                refreshing in a minute.
+              </p>
+            ) : (
+              <div
+                className="dashboard-widgets team-page__roster"
+                /*
+                  Same column layout as the CARR roster above so the
+                  two AE rosters read as one continuous billboard. AE
+                  count drives the column count via the shared
+                  `--ae-count` custom property; we add 1 when there
+                  are unassigned tickets so the extra "Unassigned"
+                  card at the end of the row gets its own column
+                  rather than pushing one of the AE cards onto a
+                  new line.
+                */
+                style={{
+                  '--ae-count':
+                    aes.length + (unassignedScoped.total > 0 ? 1 : 0),
+                }}
+              >
+                {ticketsByAEScoped.map(
+                  ({ ae, total, estimation, creation, aiDemo }) => (
+                    <section
+                      key={ae.id}
+                      className="dashboard-panel team-ae-tickets"
+                      aria-labelledby={`team-ae-tickets-${ae.id}`}
+                    >
+                      <div className="dashboard-panel__head dashboard-panel__head--stacked">
+                        <div className="dashboard-panel__head-text">
+                          <h2
+                            className="dashboard-panel__title"
+                            id={`team-ae-tickets-${ae.id}`}
+                          >
+                            {ae.name}
+                          </h2>
+                          <p className="dashboard-panel__subtitle">
+                            {ticketsByAE
+                              ? total === 0
+                                ? 'No tickets submitted yet'
+                                : `${total} ${
+                                    total === 1 ? 'ticket' : 'tickets'
+                                  } submitted`
+                              : 'Loading…'}
+                          </p>
+                        </div>
+                        {/*
+                          Total readout mirrors the CARR section's
+                          `.team-ae-total` treatment so the two
+                          rosters share a head-right anchor element.
+                          Hidden until the fetch resolves so the
+                          number doesn't flicker from "0" → real.
+                        */}
+                        {ticketsByAE && (
+                          <div
+                            className="team-ae-total"
+                            aria-label={`Total tickets submitted by ${ae.name}`}
+                          >
+                            <span className="team-ae-total__label">
+                              Total
+                            </span>
+                            <span className="team-ae-total__value">
+                              {total.toLocaleString('en-US')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {ticketsByAE ? (
+                        // Three category chips (Creation / Estimation /
+                        // AI Demo) reuse the chart legend's colored
+                        // dots so the same color → category mapping
+                        // stays consistent with the You view chart.
+                        // "Other" is intentionally omitted from the
+                        // breakdown — it's the catch-all for tickets
+                        // we couldn't classify, and AEs don't pick
+                        // their ticket's "Type of Ask" so showing it
+                        // would be more confusing than useful.
+                        <ul
+                          className="team-ae-tickets-breakdown"
+                          aria-label={`Ticket breakdown for ${ae.name}`}
+                        >
+                          <li className="team-ae-tickets-breakdown__item">
+                            <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--creation" />
+                            <span className="team-ae-tickets-breakdown__label">
+                              Creation
+                            </span>
+                            <span className="team-ae-tickets-breakdown__value">
+                              {creation.toLocaleString('en-US')}
+                            </span>
+                          </li>
+                          <li className="team-ae-tickets-breakdown__item">
+                            <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--estimation" />
+                            <span className="team-ae-tickets-breakdown__label">
+                              Estimation
+                            </span>
+                            <span className="team-ae-tickets-breakdown__value">
+                              {estimation.toLocaleString('en-US')}
+                            </span>
+                          </li>
+                          <li className="team-ae-tickets-breakdown__item">
+                            <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--aiDemo" />
+                            <span className="team-ae-tickets-breakdown__label">
+                              AI Demo
+                            </span>
+                            <span className="team-ae-tickets-breakdown__value">
+                              {aiDemo.toLocaleString('en-US')}
+                            </span>
+                          </li>
+                        </ul>
+                      ) : (
+                        <p className="team-ae-status">
+                          Loading ticket breakdown…
+                        </p>
+                      )}
+                    </section>
+                  ),
+                )}
+
+                {/*
+                  Unassigned card. Tickets where the AE / Contract Owner
+                  field couldn't be extracted from the description show
+                  up here so the SE can see exactly which tickets need
+                  to be fixed at the source. Only renders when there's
+                  at least one unattributed ticket in scope — the card
+                  would otherwise be a constant "0" reminder that
+                  nothing's broken. Visually flagged with the
+                  `--unassigned` modifier (warm warning border + label
+                  treatment) so it reads as "go fix this" rather than a
+                  fourth peer AE.
+                */}
+                {ticketsByAE && unassignedScoped.total > 0 && (
+                  <section
+                    className="dashboard-panel team-ae-tickets team-ae-tickets--unassigned"
+                    aria-labelledby="team-ae-tickets-unassigned"
+                  >
+                    <div className="dashboard-panel__head dashboard-panel__head--stacked">
+                      <div className="dashboard-panel__head-text">
+                        <h2
+                          className="dashboard-panel__title"
+                          id="team-ae-tickets-unassigned"
+                        >
+                          Unassigned
+                        </h2>
+                        <p className="dashboard-panel__subtitle">
+                          {unassignedScoped.total === 1
+                            ? '1 ticket missing AE'
+                            : `${unassignedScoped.total} tickets missing AE`}
+                        </p>
+                      </div>
+                      <div
+                        className="team-ae-total"
+                        aria-label="Total tickets missing AE"
+                      >
+                        <span className="team-ae-total__label">Total</span>
+                        <span className="team-ae-total__value team-ae-total__value--unassigned">
+                          {unassignedScoped.total.toLocaleString('en-US')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <ul
+                      className="team-ae-tickets-breakdown"
+                      aria-label="Unassigned ticket breakdown"
+                    >
+                      <li className="team-ae-tickets-breakdown__item">
+                        <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--creation" />
+                        <span className="team-ae-tickets-breakdown__label">
+                          Creation
+                        </span>
+                        <span className="team-ae-tickets-breakdown__value">
+                          {unassignedScoped.creation.toLocaleString('en-US')}
+                        </span>
+                      </li>
+                      <li className="team-ae-tickets-breakdown__item">
+                        <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--estimation" />
+                        <span className="team-ae-tickets-breakdown__label">
+                          Estimation
+                        </span>
+                        <span className="team-ae-tickets-breakdown__value">
+                          {unassignedScoped.estimation.toLocaleString('en-US')}
+                        </span>
+                      </li>
+                      <li className="team-ae-tickets-breakdown__item">
+                        <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--aiDemo" />
+                        <span className="team-ae-tickets-breakdown__label">
+                          AI Demo
+                        </span>
+                        <span className="team-ae-tickets-breakdown__value">
+                          {unassignedScoped.aiDemo.toLocaleString('en-US')}
+                        </span>
+                      </li>
+                    </ul>
+
+                    {/*
+                      Native <details> drives the "show me which tickets"
+                      disclosure — same pattern as the You-view chart's
+                      "Show N 'Other' tickets" disclosure so the two
+                      surfaces feel consistent. Each row links to the
+                      Linear ticket so the SE can one-click into it,
+                      add the AE field, and the count drops on the
+                      next refresh.
+                    */}
+                    {unassignedScoped.tickets.length > 0 && (
+                      <details className="team-ae-tickets-disclosure">
+                        <summary className="team-ae-tickets-disclosure__summary">
+                          Show {unassignedScoped.tickets.length}{' '}
+                          {unassignedScoped.tickets.length === 1
+                            ? 'ticket to fix'
+                            : 'tickets to fix'}
+                        </summary>
+                        <ul className="team-ae-tickets-disclosure__list">
+                          {unassignedScoped.tickets.map((t) => (
+                            <li
+                              key={t.id}
+                              className="team-ae-tickets-disclosure__item"
+                            >
+                              {t.identifier && (
+                                <span className="team-ae-tickets-disclosure__id">
+                                  {t.identifier}
+                                </span>
+                              )}
+                              {t.url ? (
+                                <a
+                                  className="team-ae-tickets-disclosure__title"
+                                  href={t.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={t.title}
+                                >
+                                  {t.title}
+                                </a>
+                              ) : (
+                                <span
+                                  className="team-ae-tickets-disclosure__title"
+                                  title={t.title}
+                                >
+                                  {t.title}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </section>
+                )}
+              </div>
+            )}
+          </section>
+          )}
 
           {/*
             Closed-won C opps. Account-Score-C deals don't count toward

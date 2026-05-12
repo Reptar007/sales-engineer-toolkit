@@ -263,6 +263,221 @@
   }
 }
 
+// Tickets-by-AE roster — same `.team-page__roster` grid as the CARR
+// roster above, but each card shows a count + a colored breakdown
+// instead of an opp list. We override the fixed 15rem height that the
+// CARR roster locks in so these cards can collapse to their natural
+// "head + 3-row breakdown" size; with no scrollable list inside there
+// is nothing to grow into the extra space, and matching the CARR
+// height would just leave an awkward gap below the chips.
+.team-ae-tickets {
+  // `auto` height with a min-height that roughly matches the CARR
+  // card's empty-state height keeps both rosters reading as siblings
+  // on the same horizontal baseline when one AE has zero submissions.
+  height: auto;
+  min-height: 11rem;
+}
+
+// Three-row category breakdown that lives in the body of a
+// `.team-ae-tickets` card. Each row pairs a colored dot (color shared
+// with the You-view monthly chart legend so the same hue always
+// means "Estimation" / "Creation" / "AI Demo" across the page) with
+// a label and a tabular-nums count. Stretches to fill the panel so
+// the chips read as a structured table rather than floating chips.
+.team-ae-tickets-breakdown {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.team-ae-tickets-breakdown__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.team-ae-tickets-breakdown__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  // Same color tokens the chart legend dots use so the page reads as
+  // one consistent color system.
+  &--creation {
+    background: var(--coral);
+    box-shadow: 0 0 0.4rem rgba(255, 107, 74, 0.45);
+  }
+  &--estimation {
+    background: var(--brand-teal);
+    box-shadow: 0 0 0.4rem rgba(45, 212, 191, 0.4);
+  }
+  &--aiDemo {
+    background: var(--brand-purple);
+    box-shadow: 0 0 0.4rem rgba(167, 139, 250, 0.45);
+  }
+}
+
+.team-ae-tickets-breakdown__label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.team-ae-tickets-breakdown__value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--white);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+// "Unassigned" card variant. Sits at the end of the AE roster row to
+// surface tickets where the AE / Contract Owner field couldn't be
+// extracted from the description. We give it a warm dashed border +
+// muted title treatment so it visually reads as "needs attention,
+// but not a peer AE" — distinct enough to scan past once the count
+// drops to zero, but not so loud that it looks like an error.
+.team-ae-tickets--unassigned {
+  border-style: dashed;
+  border-color: rgba(255, 145, 60, 0.35);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 145, 60, 0.04) 0%,
+      transparent 60%
+    ),
+    var(--midnight-navy, #0b0f2a);
+
+  // Push the title back so it doesn't compete with real AE names.
+  // The CTA is the count + the disclosure below, not the heading.
+  .dashboard-panel__title {
+    color: rgba(255, 255, 255, 0.75);
+    font-style: italic;
+  }
+
+  .dashboard-panel__subtitle {
+    color: rgba(255, 145, 60, 0.85);
+  }
+}
+
+// Coral counter switches to the warmer warning hue inside the
+// unassigned card so the eye lands on the count without us
+// re-decorating the rest of the `.team-ae-total` element.
+.team-ae-total__value--unassigned {
+  color: rgba(255, 165, 80, 1);
+}
+
+// Native <details> disclosure that lists each unattributed ticket.
+// Sits below the breakdown chips inside the unassigned card. Same
+// visual language as the You-view chart's "Other tickets"
+// disclosure so the two surfaces feel consistent — small caret,
+// muted summary, hairline-divided rows underneath.
+.team-ae-tickets-disclosure {
+  margin-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 0.6rem;
+}
+
+.team-ae-tickets-disclosure__summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 165, 80, 0.9);
+  letter-spacing: 0.02em;
+  padding: 0.2rem 0;
+  user-select: none;
+  transition: color 0.15s ease;
+
+  // Hide the default disclosure marker; render our own caret on the
+  // right so the summary reads as a row of its own rather than a
+  // browser-default UI scrap.
+  &::-webkit-details-marker {
+    display: none;
+  }
+  &::marker {
+    display: none;
+  }
+
+  &::after {
+    content: '▸';
+    margin-left: 0.4rem;
+    display: inline-block;
+    transition: transform 0.15s ease;
+    color: rgba(255, 165, 80, 0.65);
+  }
+
+  &:hover {
+    color: rgba(255, 195, 130, 1);
+  }
+}
+
+.team-ae-tickets-disclosure[open] .team-ae-tickets-disclosure__summary::after {
+  transform: rotate(90deg);
+}
+
+.team-ae-tickets-disclosure__list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.team-ae-tickets-disclosure__item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.85rem;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+// Identifier chip ("AXO-743") — narrow monospaced badge so the eye
+// can scan a column of IDs without them shifting horizontally.
+.team-ae-tickets-disclosure__id {
+  flex-shrink: 0;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.3rem;
+}
+
+.team-ae-tickets-disclosure__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: var(--coral);
+    text-decoration: underline;
+  }
+}
+
 // "Total CARR" readout on the right side of an AE panel head. Uses the
 // same coral / tabular-nums treatment as the per-row CARR cell so the
 // total visually anchors the column of amounts below it. Sits in the

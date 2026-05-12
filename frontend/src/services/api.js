@@ -341,6 +341,19 @@ export async function fetchDashboardLinearClosed(year) {
   return apiRequest(`/dashboard/linear/closed${query}`);
 }
 
+/**
+ * Team page: tickets-created-by-AE roll-up for a calendar year. Returns
+ * a `byAE` map keyed by normalized AE name (lowercase + trim) so the
+ * team page can match against `team.accountExecutives` directly.
+ * Defaults to the current calendar year on the backend when `year` is
+ * omitted.
+ * @param {number} [year]
+ */
+export async function fetchDashboardLinearTicketsByAE(year) {
+  const query = Number.isInteger(year) ? `?year=${year}` : '';
+  return apiRequest(`/dashboard/linear/tickets-by-ae${query}`);
+}
+
 /** Google Calendar OAuth: returns { authorizationUrl }. */
 export async function startGoogleCalendarOAuth() {
   return apiRequest('/integrations/google/start', {

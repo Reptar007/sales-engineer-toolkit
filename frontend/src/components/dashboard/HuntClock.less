@@ -224,7 +224,11 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  pointer-events: none;
+  // Hoverable: lets users boop Axo for a happy hop. The inner image
+  // and glow are both pointer-events:none so the whole bounding box
+  // acts as one big invisible target — easier to hit than the
+  // transparent silhouette.
+  cursor: pointer;
   transition: left 600ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -245,6 +249,25 @@
     rgba(255, 107, 74, 0) 70%
   );
   filter: blur(2px);
+  pointer-events: none;
+  transition:
+    width 280ms ease,
+    height 280ms ease,
+    opacity 280ms ease,
+    background 280ms ease;
+}
+
+// Boop reaction: kick up a bigger dust cloud underneath Axo while
+// he hops so the hover feels grounded rather than like he's just
+// floating higher.
+.hunt-clock__character:hover .hunt-clock__character-glow {
+  width: 3.5rem;
+  height: 1.35rem;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 107, 74, 0.85) 0%,
+    rgba(255, 107, 74, 0) 70%
+  );
 }
 
 // The mascot art itself. `drop-shadow` (instead of box-shadow) lets
@@ -258,10 +281,23 @@
   filter: drop-shadow(0 0.4rem 0.65rem rgba(0, 0, 0, 0.45));
   user-select: none;
   -webkit-user-drag: none;
+  pointer-events: none;
+  transform-origin: 50% 90%;
 
   // Gentle bob so Axo feels like he's actually running rather than
   // hovering frozen above the bar.
   animation: hunt-clock-bob 1.6s ease-in-out infinite;
+}
+
+// Boop reaction: hovering the character swaps the gentle bob for a
+// bouncier "happy hop" — Axo springs upward, scales up a touch, and
+// wiggles side-to-side. Anchored at his feet (transform-origin 90%
+// down) so the hop reads as a jump from the bar rather than a
+// scale from the center. The drop-shadow gets boosted to keep the
+// silhouette grounded against the brighter glow underneath.
+.hunt-clock__character:hover .hunt-clock__character-img {
+  animation: hunt-clock-hop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+  filter: drop-shadow(0 0.55rem 0.85rem rgba(0, 0, 0, 0.55));
 }
 
 @keyframes hunt-clock-bob {
@@ -273,12 +309,33 @@
   }
 }
 
+// Two-beat hop: a tall bounce with a slight stretch + tilt, then a
+// smaller bounce the other way so Axo looks delighted rather than
+// metronomic. Scale stays gentle (1.08) so the silhouette doesn't
+// blow past the reserved track padding above the bar.
+@keyframes hunt-clock-hop {
+  0%, 100% {
+    transform: translateY(0) scale(1) rotate(-2deg);
+  }
+  30% {
+    transform: translateY(-0.7rem) scale(1.08) rotate(4deg);
+  }
+  55% {
+    transform: translateY(0) scale(1.02) rotate(-3deg);
+  }
+  75% {
+    transform: translateY(-0.3rem) scale(1.05) rotate(2deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .hunt-clock__character-img {
+  .hunt-clock__character-img,
+  .hunt-clock__character:hover .hunt-clock__character-img {
     animation: none;
   }
   .hunt-clock__bar-fill,
-  .hunt-clock__character {
+  .hunt-clock__character,
+  .hunt-clock__character-glow {
     transition: none;
   }
 }
