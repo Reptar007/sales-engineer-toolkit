@@ -17,10 +17,10 @@ function ProjectCard({ project }) {
         <div className="project-icon">{project.icon}</div>
         <h3 className="project-name">{project.name}</h3>
       </div>
-      
+
       <div className="project-card-body">
         <p className="project-description">{project.description}</p>
-        
+
         <div className="project-features">
           {project.features?.map((feature, index) => (
             <span key={index} className="feature-tag">
@@ -29,7 +29,7 @@ function ProjectCard({ project }) {
           ))}
         </div>
       </div>
-      
+
       <div className="project-card-footer">
         <span className="project-version">v{project.version}</span>
         <span className="project-category">{project.category}</span>

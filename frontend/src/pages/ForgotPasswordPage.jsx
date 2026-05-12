@@ -27,7 +27,10 @@ const ForgotPasswordPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage(data.message || 'If an account exists with this email, a password reset link has been sent.');
+        setMessage(
+          data.message ||
+            'If an account exists with this email, a password reset link has been sent.',
+        );
       } else {
         setError(data.error || 'An error occurred. Please try again.');
       }
@@ -48,7 +51,7 @@ const ForgotPasswordPage = () => {
         </div>
         <p>Enter your email to receive a password reset link</p>
       </div>
-      
+
       <div className="login-card">
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
@@ -68,8 +71,8 @@ const ForgotPasswordPage = () => {
           {error && (
             <div className="error-message">
               <span className="error-text">{error}</span>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="dismiss-button"
                 onClick={() => setError('')}
                 aria-label="Dismiss error"
@@ -79,24 +82,18 @@ const ForgotPasswordPage = () => {
             </div>
           )}
 
-          {message && (
-            <div className="success-message">
-              {message}
-            </div>
-          )}
-          
-          <button 
-            type="submit" 
-            className="login-button"
-            disabled={isSubmitting || !email}
-          >
+          {message && <div className="success-message">{message}</div>}
+
+          <button type="submit" className="login-button" disabled={isSubmitting || !email}>
             {isSubmitting ? 'Sending...' : 'Send Reset Link'}
           </button>
         </form>
-        
+
         <div className="login-footer">
           <p>
-            <Link to="/login" className="link-button">Back to Sign In</Link>
+            <Link to="/login" className="link-button">
+              Back to Sign In
+            </Link>
           </p>
         </div>
       </div>
@@ -105,4 +102,3 @@ const ForgotPasswordPage = () => {
 };
 
 export default ForgotPasswordPage;
-

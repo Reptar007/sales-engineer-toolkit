@@ -28,7 +28,7 @@ function RatioEstimator() {
     isCsvByName,
     setErrorMessage,
   } = useFileUpload();
-  
+
   const {
     reviewData,
     setReviewData,
@@ -47,7 +47,7 @@ function RatioEstimator() {
     resetReviewData,
     resetDataOnly,
   } = useReviewData();
-  
+
   const {
     currentPage,
     totalPages,
@@ -115,7 +115,6 @@ function RatioEstimator() {
     }
 
     try {
-
       const response = await fixRejections(rejectedTests);
 
       if (response.csv) {

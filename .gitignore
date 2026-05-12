@@ -31,3 +31,6 @@ build/
 src/**/*.css
 apps/ratio-ui/src/**/*.css
 /generated/prisma
+
+# Local Claude / agent worktrees
+.claude/

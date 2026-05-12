@@ -277,8 +277,7 @@ function AEModal({ isOpen, onClose, team, ae, allTeams, onSaved }) {
         let movedToTeamName = null;
         if (destinationTeamId && destinationTeamId !== team.id) {
           patch.teamId = destinationTeamId;
-          movedToTeamName =
-            allTeams.find((t) => t.id === destinationTeamId)?.name ?? null;
+          movedToTeamName = allTeams.find((t) => t.id === destinationTeamId)?.name ?? null;
         }
         await updateAE(team.id, ae.id, patch);
         toast.success(
@@ -316,12 +315,7 @@ function AEModal({ isOpen, onClose, team, ae, allTeams, onSaved }) {
           <button type="button" onClick={onClose} disabled={submitting} className="btn-ghost">
             Cancel
           </button>
-          <button
-            type="submit"
-            form="ae-modal-form"
-            disabled={submitting}
-            className="btn-primary"
-          >
+          <button type="submit" form="ae-modal-form" disabled={submitting} className="btn-primary">
             {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create AE'}
           </button>
         </>
@@ -436,12 +430,7 @@ function EditTeamModal({ isOpen, onClose, team, onSaved }) {
           <button type="button" onClick={onClose} disabled={submitting} className="btn-ghost">
             Cancel
           </button>
-          <button
-            type="submit"
-            form="edit-team-form"
-            disabled={submitting}
-            className="btn-primary"
-          >
+          <button type="submit" form="edit-team-form" disabled={submitting} className="btn-primary">
             {submitting ? 'Saving…' : 'Save changes'}
           </button>
         </>
@@ -450,20 +439,11 @@ function EditTeamModal({ isOpen, onClose, team, onSaved }) {
       <form id="edit-team-form" onSubmit={handleSubmit} className="admin-form">
         <label className="admin-form-field">
           <span>Team name</span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-          />
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
         </label>
         <label className="admin-form-field">
           <span>Description (optional)</span>
-          <input
-            type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
+          <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} />
         </label>
         {error && <p className="admin-form-error">{error}</p>}
       </form>
@@ -522,11 +502,7 @@ function TeamRow({ team, allTeams, onChanged }) {
               Edit
             </button>
             {!team.salesEngineer && (
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => setAttachingSE(true)}
-              >
+              <button type="button" className="btn-ghost" onClick={() => setAttachingSE(true)}>
                 Attach SE
               </button>
             )}
@@ -692,12 +668,7 @@ const TeamsPage = () => {
               </tr>
             ) : (
               sortedTeams.map((team) => (
-                <TeamRow
-                  key={team.id}
-                  team={team}
-                  allTeams={sortedTeams}
-                  onChanged={loadTeams}
-                />
+                <TeamRow key={team.id} team={team} allTeams={sortedTeams} onChanged={loadTeams} />
               ))
             )}
           </tbody>

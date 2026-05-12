@@ -34,7 +34,7 @@ export const ToastProvider = ({ children }) => {
       const duration =
         typeof options.duration === 'number'
           ? options.duration
-          : DEFAULT_DURATIONS[variant] ?? DEFAULT_DURATIONS.info;
+          : (DEFAULT_DURATIONS[variant] ?? DEFAULT_DURATIONS.info);
 
       setToasts((current) => [
         ...current,

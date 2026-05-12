@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
@@ -134,9 +128,7 @@ function AttendeesPopover({ anchorRef, attendees, visible }) {
       role="tooltip"
       style={{ top: coords.top, left: coords.left }}
     >
-      <p className="dashboard-calendar__attendees-title">
-        Attendees · {attendees.length}
-      </p>
+      <p className="dashboard-calendar__attendees-title">Attendees · {attendees.length}</p>
       <ul className="dashboard-calendar__attendees-list">
         {attendees.map((att, idx) => {
           const status = att.responseStatus || 'needsAction';
@@ -156,13 +148,9 @@ function AttendeesPopover({ anchorRef, attendees, visible }) {
               />
               <span className="dashboard-calendar__attendees-name-block">
                 <span className="dashboard-calendar__attendees-name">
-                  <span className="dashboard-calendar__attendees-name-text">
-                    {primary}
-                  </span>
+                  <span className="dashboard-calendar__attendees-name-text">{primary}</span>
                   {att.organizer && (
-                    <span className="dashboard-calendar__attendees-tag">
-                      Organizer
-                    </span>
+                    <span className="dashboard-calendar__attendees-tag">Organizer</span>
                   )}
                   {att.optional && (
                     <span className="dashboard-calendar__attendees-tag dashboard-calendar__attendees-tag--muted">
@@ -170,11 +158,7 @@ function AttendeesPopover({ anchorRef, attendees, visible }) {
                     </span>
                   )}
                 </span>
-                {subline && (
-                  <span className="dashboard-calendar__attendees-email">
-                    {subline}
-                  </span>
-                )}
+                {subline && <span className="dashboard-calendar__attendees-email">{subline}</span>}
               </span>
             </li>
           );
@@ -212,11 +196,7 @@ function AttendeesChip({ count, attendees }) {
         {count}
       </span>
       {hasDetails && (
-        <AttendeesPopover
-          anchorRef={anchorRef}
-          attendees={attendees}
-          visible={open}
-        />
+        <AttendeesPopover anchorRef={anchorRef} attendees={attendees} visible={open} />
       )}
     </>
   );
@@ -253,13 +233,7 @@ function isVisibleCalendarEvent(ev) {
   return true;
 }
 
-function DashboardCalendarCard({
-  events,
-  showEmptyHint,
-  showConnect,
-  onConnect,
-  connectLoading,
-}) {
+function DashboardCalendarCard({ events, showEmptyHint, showConnect, onConnect, connectLoading }) {
   const visibleEvents = events.filter(isVisibleCalendarEvent);
   return (
     <section className="dashboard-panel" aria-labelledby="dash-cal-title">
@@ -295,10 +269,7 @@ function DashboardCalendarCard({
               {(ev.attendeeCount > 0 || ev.videoUrl) && (
                 <div className="dashboard-calendar__row-actions">
                   {ev.attendeeCount > 0 && (
-                    <AttendeesChip
-                      count={ev.attendeeCount}
-                      attendees={ev.attendees}
-                    />
+                    <AttendeesChip count={ev.attendeeCount} attendees={ev.attendees} />
                   )}
                   {ev.videoUrl && (
                     <a
@@ -306,11 +277,7 @@ function DashboardCalendarCard({
                       href={ev.videoUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title={
-                        ev.videoProvider
-                          ? `Join via ${ev.videoProvider}`
-                          : 'Join video call'
-                      }
+                      title={ev.videoProvider ? `Join via ${ev.videoProvider}` : 'Join video call'}
                     >
                       <VideoGlyph />
                       Join
@@ -421,9 +388,7 @@ function formatDueDate(value) {
   // Linear `dueDate` is a date-only string; appending a time keeps it
   // anchored to local TZ so we don't render the day-before in negative
   // UTC offsets.
-  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(raw)
-    ? new Date(`${raw}T00:00:00`)
-    : new Date(raw);
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(`${raw}T00:00:00`) : new Date(raw);
   if (Number.isNaN(parsed.getTime())) return raw;
   return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
@@ -479,9 +444,7 @@ function DashboardLinearCard({ state }) {
 
   const renderBody = () => {
     if (status === 'loading') {
-      return (
-        <p className="dashboard-linear__callout-message">Loading your hunts…</p>
-      );
+      return <p className="dashboard-linear__callout-message">Loading your hunts…</p>;
     }
 
     if (status === 'needs_profile') {
@@ -490,7 +453,10 @@ function DashboardLinearCard({ state }) {
           title="Connect your Linear account"
           message="Link your Linear identity so your dashboard shows issues assigned to you."
           action={
-            <Link to="/profile" className="dashboard-calendar__btn dashboard-calendar__btn--primary">
+            <Link
+              to="/profile"
+              className="dashboard-calendar__btn dashboard-calendar__btn--primary"
+            >
               Go to Profile
             </Link>
           }
@@ -539,11 +505,21 @@ function DashboardLinearCard({ state }) {
           </colgroup>
           <thead>
             <tr>
-              <th scope="col" className="dashboard-hunts__th">Opportunity</th>
-              <th scope="col" className="dashboard-hunts__th">AE</th>
-              <th scope="col" className="dashboard-hunts__th">Due Date</th>
-              <th scope="col" className="dashboard-hunts__th">Score</th>
-              <th scope="col" className="dashboard-hunts__th">Status</th>
+              <th scope="col" className="dashboard-hunts__th">
+                Opportunity
+              </th>
+              <th scope="col" className="dashboard-hunts__th">
+                AE
+              </th>
+              <th scope="col" className="dashboard-hunts__th">
+                Due Date
+              </th>
+              <th scope="col" className="dashboard-hunts__th">
+                Score
+              </th>
+              <th scope="col" className="dashboard-hunts__th">
+                Status
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -569,16 +545,16 @@ function DashboardLinearCard({ state }) {
                 rowTitle = row.priority === 'urgent' ? 'Urgent priority' : 'High priority';
               }
               return (
-                <tr
-                  key={row.id}
-                  className={`dashboard-hunts__row${rowModifier}`}
-                  title={rowTitle}
-                >
+                <tr key={row.id} className={`dashboard-hunts__row${rowModifier}`} title={rowTitle}>
                   <td className="dashboard-hunts__cell dashboard-hunts__cell--opp">
-                    <p className="dashboard-hunts__opp" title={opp}>{opp}</p>
+                    <p className="dashboard-hunts__opp" title={opp}>
+                      {opp}
+                    </p>
                     {ask && (
                       <p className="dashboard-hunts__ask" title={ask}>
-                        <span className="dashboard-hunts__ask-arrow" aria-hidden="true">↳</span>
+                        <span className="dashboard-hunts__ask-arrow" aria-hidden="true">
+                          ↳
+                        </span>
                         <span className="dashboard-hunts__ask-text">{ask}</span>
                       </p>
                     )}

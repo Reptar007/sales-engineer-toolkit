@@ -274,12 +274,7 @@ const UserModal = ({ isOpen, onClose, onSuccess }) => {
           {error && <p className="admin-form-error">{error}</p>}
 
           <div className="modal-actions">
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={onClose}
-              disabled={submitting}
-            >
+            <button type="button" className="btn-ghost" onClick={onClose} disabled={submitting}>
               Cancel
             </button>
             <button type="submit" className="btn-primary" disabled={submitting}>

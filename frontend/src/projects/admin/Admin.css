@@ -126,7 +126,9 @@
   border-radius: 9999px;
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
   font-size: 0.9rem;
   font-weight: 600;
   font-family: inherit;
@@ -235,7 +237,10 @@
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .users-header button:hover,
@@ -418,7 +423,9 @@
   background: rgba(255, 255, 255, 0.04);
   color: var(--white);
   color-scheme: dark;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .admin-form-field input::placeholder {
@@ -554,7 +561,10 @@ ul.admin-form-error {
   font-family: inherit;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .btn-ghost:hover:not(:disabled) {
@@ -589,7 +599,9 @@ ul.admin-form-error {
   font-size: 0.875rem;
   font-family: inherit;
   font-weight: 600;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .btn-primary:hover:not(:disabled) {

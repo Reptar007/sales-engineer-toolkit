@@ -72,8 +72,7 @@ body:has(.login-page) {
   // The aqua halo replaces the earlier coral glow so light scatter
   // matches the bubble palette.
   filter: blur(3px) saturate(0.85) brightness(0.95) hue-rotate(-6deg)
-    drop-shadow(0 12px 32px rgba(56, 189, 248, 0.22))
-    drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5));
+    drop-shadow(0 12px 32px rgba(56, 189, 248, 0.22)) drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5));
   // Slow bob + sway gives the mascot the lazy, suspended motion of
   // something floating in still water. transform-origin centered so the
   // animation pivots from the body rather than a corner.
@@ -82,7 +81,8 @@ body:has(.login-page) {
 }
 
 @keyframes mascot-float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(-50%, -50%) rotate(0deg);
   }
   25% {
@@ -230,72 +230,72 @@ body:has(.login-page) {
   -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
-  .login-form {
-    .form-group {
-      position: relative;
-      margin-bottom: 1.5rem;
-      
-      &.password-group {
-        .password-input-wrapper {
-          position: relative;
-          width: 100%;
-          
-          // Hide autofill icons using wrapper
-          &::before {
-            content: '';
-            position: absolute;
-            right: 2.5rem;
-            top: 0;
-            bottom: 0;
-            width: 1.5rem;
-            z-index: 5;
-            pointer-events: none;
-            background: transparent;
-          }
-        }
-        
-        input {
-          padding-right: 2.5rem; // Make room for toggle button inside the field
-          width: 100%;
-          
-          // Hide browser autofill icons - aggressive approach
-          &::-webkit-credentials-auto-fill-button,
-          &::-webkit-contacts-auto-fill-button {
-            display: none !important;
-            visibility: hidden !important;
-            pointer-events: none !important;
-            position: absolute !important;
-            right: -9999px !important;
-            opacity: 0 !important;
-            width: 0 !important;
-            height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          
-          // Additional approach for Firefox and other browsers
-          &:-webkit-autofill {
-            -webkit-box-shadow: 0 0 0 1000px white inset !important;
-          }
-          
-          // Hide autofill icons in all browsers
-          &::-ms-clear,
-          &::-ms-reveal {
-            display: none !important;
-            width: 0 !important;
-            height: 0 !important;
-          }
-        }
-        
-        .password-input-wrapper .password-toggle {
+.login-form {
+  .form-group {
+    position: relative;
+    margin-bottom: 1.5rem;
+
+    &.password-group {
+      .password-input-wrapper {
+        position: relative;
+        width: 100%;
+
+        // Hide autofill icons using wrapper
+        &::before {
+          content: '';
           position: absolute;
-          right: 0.75rem;
-          top: 50%;
-          transform: translateY(-50%);
-          z-index: 10;
+          right: 2.5rem;
+          top: 0;
+          bottom: 0;
+          width: 1.5rem;
+          z-index: 5;
+          pointer-events: none;
+          background: transparent;
         }
       }
-    
+
+      input {
+        padding-right: 2.5rem; // Make room for toggle button inside the field
+        width: 100%;
+
+        // Hide browser autofill icons - aggressive approach
+        &::-webkit-credentials-auto-fill-button,
+        &::-webkit-contacts-auto-fill-button {
+          display: none !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+          position: absolute !important;
+          right: -9999px !important;
+          opacity: 0 !important;
+          width: 0 !important;
+          height: 0 !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+
+        // Additional approach for Firefox and other browsers
+        &:-webkit-autofill {
+          -webkit-box-shadow: 0 0 0 1000px white inset !important;
+        }
+
+        // Hide autofill icons in all browsers
+        &::-ms-clear,
+        &::-ms-reveal {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+        }
+      }
+
+      .password-input-wrapper .password-toggle {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+      }
+    }
+
     label {
       position: absolute;
       left: 1rem;
@@ -311,7 +311,7 @@ body:has(.login-page) {
       z-index: 1;
       line-height: 1;
     }
-    
+
     // Select group - completely separate from floating labels
     &.select-group {
       label {
@@ -338,7 +338,7 @@ body:has(.login-page) {
       color: #111827;
       transition: all 0.2s ease-in-out;
       box-sizing: border-box;
-      
+
       // Hide browser autofill icons globally
       &::-webkit-credentials-auto-fill-button,
       &::-webkit-contacts-auto-fill-button {
@@ -351,12 +351,12 @@ body:has(.login-page) {
         width: 0;
         height: 0;
       }
-      
+
       &:focus {
         outline: none;
         border-color: #2563eb;
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        
+
         + label {
           top: 0;
           left: 0.75rem;
@@ -366,7 +366,7 @@ body:has(.login-page) {
           transform: translateY(-50%);
         }
       }
-      
+
       &:not(:placeholder-shown) + label,
       &:focus + label {
         top: 0;
@@ -376,56 +376,56 @@ body:has(.login-page) {
         color: #2563eb;
         transform: translateY(-50%);
       }
-      
+
       // Error state styling
       &.error {
         border-color: #dc2626;
         box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
-        
+
         + label {
           color: #dc2626;
         }
-        
+
         &:focus {
           border-color: #dc2626;
           box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
-          
+
           + label {
             color: #dc2626;
           }
         }
-        
+
         // Dark mode error styling
-        [data-theme="dark"] & {
+        [data-theme='dark'] & {
           border-color: #f87171;
           box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.1);
-          
+
           + label {
             color: #f87171;
           }
-          
+
           &:focus {
             border-color: #f87171;
             box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.1);
-            
+
             + label {
               color: #f87171;
             }
           }
         }
       }
-      
+
       &::placeholder {
         color: transparent;
       }
-      
+
       &:disabled {
         opacity: 0.6;
         cursor: not-allowed;
         background: #f9fafb;
       }
     }
-    
+
     select {
       width: 100%;
       padding: 0.875rem 1rem;
@@ -437,20 +437,20 @@ body:has(.login-page) {
       transition: all 0.2s ease-in-out;
       box-sizing: border-box;
       margin-top: 0.5rem;
-      
+
       &:focus {
         outline: none;
         border-color: #2563eb;
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
       }
-      
+
       &:disabled {
         opacity: 0.6;
         cursor: not-allowed;
         background: #f9fafb;
       }
     }
-    
+
     select {
       width: 100%;
       padding: 0.875rem 1rem;
@@ -470,62 +470,62 @@ body:has(.login-page) {
       background-size: 1.5em 1.5em;
       padding-right: 2.5rem;
       line-height: 1.5;
-      
+
       &:focus {
         outline: none;
         border-color: #2563eb;
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
       }
-      
+
       // Error state styling for select
       &.error {
         border-color: #dc2626;
         box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
-        
+
         &:focus {
           border-color: #dc2626;
           box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
         }
-        
+
         // Dark mode error styling for select
-        [data-theme="dark"] & {
+        [data-theme='dark'] & {
           border-color: #f87171;
           box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.1);
-          
+
           &:focus {
             border-color: #f87171;
             box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.1);
           }
         }
       }
-      
+
       &:disabled {
         opacity: 0.6;
         cursor: not-allowed;
         background: #f9fafb;
       }
-      
+
       option {
         color: #111827;
         background: #ffffff;
         padding: 0.5rem;
       }
-      
+
       // Style the placeholder option to match other inputs
-      option[value=""] {
+      option[value=''] {
         color: #9ca3af !important;
       }
-      
+
       // Style the select when it has the default value
-      &[value=""] {
+      &[value=''] {
         color: #9ca3af;
       }
-      
+
       // Style when placeholder class is applied
       &.placeholder {
         color: #9ca3af;
       }
-      
+
       .password-toggle {
         position: absolute;
         right: 0.75rem;
@@ -546,35 +546,35 @@ body:has(.login-page) {
         min-width: 1.75rem;
         min-height: 1.75rem;
         margin: 0;
-        
+
         &:hover {
           color: #374151;
           background-color: rgba(0, 0, 0, 0.05);
         }
-        
+
         &:active {
           background-color: rgba(0, 0, 0, 0.1);
         }
-        
+
         &:focus {
           outline: 2px solid #2563eb;
           outline-offset: 2px;
           border-radius: 0.25rem;
         }
-        
+
         svg {
           display: block;
         }
-        
+
         // Dark mode styling
-        [data-theme="dark"] & {
+        [data-theme='dark'] & {
           color: #9ca3af;
-          
+
           &:hover {
             color: #d1d5db;
             background-color: rgba(255, 255, 255, 0.1);
           }
-          
+
           &:active {
             background-color: rgba(255, 255, 255, 0.15);
           }
@@ -582,7 +582,7 @@ body:has(.login-page) {
       }
     }
   }
-  
+
   .error-message {
     background: #fef2f2;
     color: #dc2626;
@@ -596,11 +596,11 @@ body:has(.login-page) {
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    
+
     .error-text {
       flex: 1;
     }
-    
+
     .dismiss-button {
       background: none;
       border: none;
@@ -609,28 +609,28 @@ body:has(.login-page) {
       font-size: 1.25rem;
       padding: 0;
       line-height: 1;
-      
+
       &:hover {
         color: #b91c1c;
       }
     }
-    
+
     // Dark mode styling
-    [data-theme="dark"] & {
+    [data-theme='dark'] & {
       background: #7f1d1d;
       color: #fca5a5;
       border-color: #991b1b;
-      
+
       .dismiss-button {
         color: #fca5a5;
-        
+
         &:hover {
           color: #f87171;
         }
       }
     }
   }
-  
+
   .success-message {
     background: #f0f9ff;
     color: #0369a1;
@@ -640,15 +640,15 @@ body:has(.login-page) {
     margin-bottom: 1rem;
     border: 1px solid #bae6fd;
     font-weight: 500;
-    
+
     // Dark mode styling
-    [data-theme="dark"] & {
+    [data-theme='dark'] & {
       background: #1e3a5f;
       color: #93c5fd;
       border-color: #3b82f6;
     }
   }
-  
+
   .login-button {
     width: 100%;
     background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
@@ -662,17 +662,17 @@ body:has(.login-page) {
     transition: all 0.2s ease-in-out;
     margin-bottom: 1.5rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    
+
     &:hover:not(:disabled) {
       background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
       transform: translateY(-1px);
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     }
-    
+
     &:active:not(:disabled) {
       transform: translateY(0);
     }
-    
+
     &:disabled {
       opacity: 0.6;
       cursor: not-allowed;
@@ -683,14 +683,14 @@ body:has(.login-page) {
 
 .login-footer {
   text-align: center;
-  
+
   p {
     font-size: 0.875rem;
     color: #6b7280;
     margin: 0;
     font-weight: 400;
   }
-  
+
   .link-button {
     background: none;
     border: none;
@@ -701,7 +701,7 @@ body:has(.login-page) {
     font-weight: 600;
     padding: 0;
     transition: color 0.2s ease-in-out;
-    
+
     &:hover {
       color: #1e40af;
       text-decoration: underline;
@@ -727,7 +727,10 @@ body:has(.login-page) {
     border: 1px solid rgba(255, 255, 255, 0.12);
     color: var(--white);
     border-radius: 0.5rem;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease,
+      background 0.2s ease;
 
     &::placeholder {
       color: rgba(255, 255, 255, 0.45);
@@ -916,12 +919,27 @@ body:has(.login-page) {
 // never appears to "stall" mid-screen. Horizontal position sweeps through
 // drift to give a gentle underwater sway without affecting vertical pace.
 @keyframes bubble-rise {
-  0%   { opacity: 0; transform: translate3d(0, 0, 0); }
-  10%  { opacity: 0.9; }
-  25%  { transform: translate3d(calc(var(--drift, 0px) * 0.55), -27.5vh, 0); }
-  50%  { transform: translate3d(var(--drift, 0px), -55vh, 0); }
-  75%  { transform: translate3d(calc(var(--drift, 0px) * 0.55), -82.5vh, 0); }
-  90%  { opacity: 0.9; }
-  100% { opacity: 0; transform: translate3d(0, -110vh, 0); }
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  10% {
+    opacity: 0.9;
+  }
+  25% {
+    transform: translate3d(calc(var(--drift, 0px) * 0.55), -27.5vh, 0);
+  }
+  50% {
+    transform: translate3d(var(--drift, 0px), -55vh, 0);
+  }
+  75% {
+    transform: translate3d(calc(var(--drift, 0px) * 0.55), -82.5vh, 0);
+  }
+  90% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -110vh, 0);
+  }
 }
-

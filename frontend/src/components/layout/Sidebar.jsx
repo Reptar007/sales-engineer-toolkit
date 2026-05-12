@@ -38,10 +38,7 @@ const PROJECT_ICON_OVERRIDES = {
 // Salesforce Metrics tile is surfaced under the Hunt Pipeline submenu, and
 // the Ratio Estimator (Opp PDF Builder) is currently parked — Howl Sheet
 // now points at the Flow Doc Generator instead.
-const SIDEBAR_HIDDEN_PROJECT_IDS = new Set([
-  'salesforce-metrics',
-  'ratio-estimator',
-]);
+const SIDEBAR_HIDDEN_PROJECT_IDS = new Set(['salesforce-metrics', 'ratio-estimator']);
 
 function Sidebar({ isSidebarOpen, toggleSidebar }) {
   const projects = getAllProjects();
@@ -86,7 +83,10 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
 
   // Auto-expand dropdown when on Salesforce routes
   useEffect(() => {
-    if (location.pathname.startsWith('/projects/salesforce') || location.pathname === '/projects/salesforce-metrics') {
+    if (
+      location.pathname.startsWith('/projects/salesforce') ||
+      location.pathname === '/projects/salesforce-metrics'
+    ) {
       setOpenDropdown(true);
     }
   }, [location.pathname]);
@@ -98,7 +98,7 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
     }
   }, [isSidebarOpen]);
 
-  const { user,logout } = useAuth();
+  const { user, logout } = useAuth();
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -126,9 +126,13 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
             */}
             <p className="header-tagline">
               HUNT
-              <span className="header-tagline-dot" aria-hidden="true">•</span>
+              <span className="header-tagline-dot" aria-hidden="true">
+                •
+              </span>
               CLOSE
-              <span className="header-tagline-dot" aria-hidden="true">•</span>
+              <span className="header-tagline-dot" aria-hidden="true">
+                •
+              </span>
               DOMINATE
             </p>
           </div>
@@ -153,15 +157,22 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
                 to={`/teams/${teamSlug}`}
                 className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
               >
-                <span className="nav-icon"><GoOrganization /></span>
+                <span className="nav-icon">
+                  <GoOrganization />
+                </span>
                 <span className="nav-label">{teamName}</span>
               </NavLink>
             </li>
           )}
           {isAdmin && (
             <li className="nav-item">
-              <NavLink to="/admin" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span className="nav-icon"><GoStar /></span>
+              <NavLink
+                to="/admin"
+                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+              >
+                <span className="nav-icon">
+                  <GoStar />
+                </span>
                 <span className="nav-label">Alpha Pack</span>
               </NavLink>
             </li>
@@ -173,7 +184,9 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
               className={`nav-link nav-link-dropdown ${location.pathname.startsWith('/projects/salesforce') || location.pathname === '/projects/salesforce-metrics' ? 'active' : ''}`}
               onClick={toggleDropdown}
             >
-              <span className="nav-icon"><GoGoal /></span>
+              <span className="nav-icon">
+                <GoGoal />
+              </span>
               <span className="nav-label">Hunt Pipeline</span>
               <span className="nav-chevron">
                 {openDropdown ? <GoChevronDown /> : <GoChevronRight />}
@@ -187,7 +200,9 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
                       to={item.path}
                       className={({ isActive }) => {
                         // Special check for Metrics - also active on salesforce-metrics route
-                        const isMetricsActive = item.path === '/projects/salesforce-metrics' && location.pathname === '/projects/salesforce-metrics';
+                        const isMetricsActive =
+                          item.path === '/projects/salesforce-metrics' &&
+                          location.pathname === '/projects/salesforce-metrics';
                         return `nav-link nav-sublink ${isActive || isMetricsActive ? 'active' : ''}`;
                       }}
                     >
@@ -219,11 +234,15 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
             to="/profile"
             className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           >
-            <span className="nav-icon"><GoPerson /></span>
+            <span className="nav-icon">
+              <GoPerson />
+            </span>
             <span className="nav-label">My Wolf</span>
           </NavLink>
           <button className="nav-link" type="button" onClick={handleLogout}>
-            <span className="nav-icon"><GoSignOut /></span>
+            <span className="nav-icon">
+              <GoSignOut />
+            </span>
             <span className="nav-label">Leave the Pack</span>
           </button>
 

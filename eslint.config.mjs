@@ -26,8 +26,14 @@ export default [
     },
   },
 
-  // Ignore linting the dist/build outputs
+  // Ignore build outputs and generated / local-only directories
   {
-    ignores: ['**/dist/**', '**/build/**'],
+    ignores: [
+      '**/dist/**',
+      '**/build/**',
+      '**/generated/**',
+      '**/.claude/**',
+      '**/node_modules/**',
+    ],
   },
 ];

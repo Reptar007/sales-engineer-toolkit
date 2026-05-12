@@ -8,7 +8,8 @@ const PasswordChangePage = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { changePassword, error, validationErrors, clearError, user, mustChangePassword } = useAuth();
+  const { changePassword, error, validationErrors, clearError, user, mustChangePassword } =
+    useAuth();
   const navigate = useNavigate();
 
   // Redirect if user doesn't need to change password and is already logged in
@@ -44,14 +45,10 @@ const PasswordChangePage = () => {
           <h2>Change Password</h2>
           <img src="/saleswolf-icon-v2.png" alt="SalesWolf" className="logo" />
         </div>
-        {mustChangePassword && (
-          <p>You must change your password before continuing</p>
-        )}
-        {!mustChangePassword && (
-          <p>Update your password</p>
-        )}
+        {mustChangePassword && <p>You must change your password before continuing</p>}
+        {!mustChangePassword && <p>Update your password</p>}
       </div>
-      
+
       <div className="login-card">
         <form onSubmit={handleSubmit} className="login-form">
           {/* Current password field - optional if default password */}
@@ -70,7 +67,15 @@ const PasswordChangePage = () => {
           )}
 
           {mustChangePassword && (
-            <div className="info-message" style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
+            <div
+              className="info-message"
+              style={{
+                marginBottom: '1rem',
+                padding: '1rem',
+                backgroundColor: '#f0f0f0',
+                borderRadius: '4px',
+              }}
+            >
               <p>You're using the default password. Please set a new password.</p>
             </div>
           )}
@@ -87,7 +92,7 @@ const PasswordChangePage = () => {
             />
             <label htmlFor="newPassword">New Password</label>
           </div>
-          
+
           <div className="form-group">
             <input
               id="confirmPassword"
@@ -102,7 +107,10 @@ const PasswordChangePage = () => {
           </div>
 
           {/* Password requirements */}
-          <div className="password-requirements" style={{ marginBottom: '1rem', fontSize: '0.875rem', color: '#666' }}>
+          <div
+            className="password-requirements"
+            style={{ marginBottom: '1rem', fontSize: '0.875rem', color: '#666' }}
+          >
             <p style={{ margin: '0 0 0.5rem 0', fontWeight: '600' }}>Password must contain:</p>
             <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
               <li>At least 8 characters</li>
@@ -135,8 +143,8 @@ const PasswordChangePage = () => {
           {error && (
             <div className="error-message">
               <span className="error-text">{error}</span>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="dismiss-button"
                 onClick={clearError}
                 aria-label="Dismiss error"
@@ -145,11 +153,13 @@ const PasswordChangePage = () => {
               </button>
             </div>
           )}
-          
-          <button 
-            type="submit" 
+
+          <button
+            type="submit"
             className="login-button"
-            disabled={isSubmitting || !newPassword || !confirmPassword || (newPassword !== confirmPassword)}
+            disabled={
+              isSubmitting || !newPassword || !confirmPassword || newPassword !== confirmPassword
+            }
           >
             {isSubmitting ? 'Changing Password...' : 'Change Password'}
           </button>
@@ -160,4 +170,3 @@ const PasswordChangePage = () => {
 };
 
 export default PasswordChangePage;
-

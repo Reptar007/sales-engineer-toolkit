@@ -110,7 +110,7 @@ function isMeetingEvent(event) {
   // 1. Proper conference data
   const hasVideoConf = Boolean(
     event.hangoutLink ||
-    event.conferenceData?.entryPoints?.some((e) => e.entryPointType === 'video'),
+      event.conferenceData?.entryPoints?.some((e) => e.entryPointType === 'video'),
   );
   if (hasVideoConf) return true;
 

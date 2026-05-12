@@ -44,12 +44,12 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuthStatus = async () => {
       const token = getAuthToken();
-      
+
       if (token) {
         try {
           const response = await fetch('/api/auth/me', {
             headers: {
-              'Authorization': `Bearer ${token}`,
+              Authorization: `Bearer ${token}`,
             },
           });
 
@@ -73,7 +73,7 @@ export const AuthProvider = ({ children }) => {
           setUser(null);
         }
       }
-      
+
       setIsLoading(false);
     };
 
@@ -89,13 +89,13 @@ export const AuthProvider = ({ children }) => {
     // Clear any existing errors
     setError(null);
     setValidationErrors([]);
-    
+
     // Check if fields are empty
     if (!email || !password) {
-      setError('🐺 Something\'s not right with your info. Double-check it!');
+      setError("🐺 Something's not right with your info. Double-check it!");
       return;
     }
-    
+
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -123,7 +123,10 @@ export const AuthProvider = ({ children }) => {
         // shouldn't block on this.
         hydrateUserFromMe(data.token);
       } else {
-        setError(data.error || '🐺 Oops! Looks like this wolf can\'t find the right den. Check your email and password!');
+        setError(
+          data.error ||
+            "🐺 Oops! Looks like this wolf can't find the right den. Check your email and password!",
+        );
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -131,35 +134,43 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (email, password, firstName, lastName, roles, teamName, teamDescription) => {
+  const register = async (
+    email,
+    password,
+    firstName,
+    lastName,
+    roles,
+    teamName,
+    teamDescription,
+  ) => {
     // Clear any existing errors
     setError(null);
     setValidationErrors([]);
-    
+
     // Check if required fields are empty
     if (!email || !password || !firstName || !lastName) {
       setError('🐺 Email, password, first name, and last name are required!');
       return;
     }
-    
+
     const token = getAuthToken();
     if (!token) {
       setError('🐺 You must be logged in as an admin to register new users.');
       return;
     }
-    
+
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
-          email, 
-          password, 
-          firstName, 
-          lastName, 
+        body: JSON.stringify({
+          email,
+          password,
+          firstName,
+          lastName,
           roles: roles || ['sales_engineer_1'], // Default role if not provided
           teamName: teamName || null,
           teamDescription: teamDescription || null,
@@ -174,7 +185,7 @@ export const AuthProvider = ({ children }) => {
         setMustChangePassword(false); // New users don't need to change password
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userData', JSON.stringify(userData));
-        
+
         // Return success with optional team info
         return { success: true, user: userData, team: data.team };
       } else {
@@ -198,27 +209,27 @@ export const AuthProvider = ({ children }) => {
     // Clear any existing errors
     setError(null);
     setValidationErrors([]);
-    
+
     // Check if new password is provided
     if (!newPassword) {
       setError('🐺 New password is required!');
       return;
     }
-    
+
     const token = getAuthToken();
     if (!token) {
       setError('🐺 You must be logged in to change your password.');
       return;
     }
-    
+
     try {
       const response = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           currentPassword: currentPassword || null, // Optional if default password
           newPassword,
         }),
@@ -232,7 +243,7 @@ export const AuthProvider = ({ children }) => {
         setMustChangePassword(false); // Password changed, no longer need to change
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userData', JSON.stringify(userData));
-        
+
         return { success: true, user: userData };
       } else {
         // Handle validation errors (array) or single error

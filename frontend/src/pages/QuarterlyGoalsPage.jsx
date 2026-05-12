@@ -30,7 +30,10 @@ function parseMillionsToDollars(value) {
 const QuarterlyGoalsPage = () => {
   const toast = useToast();
   const currentYear = new Date().getFullYear();
-  const persistedYear = Number.parseInt(localStorage.getItem(ADMIN_GOALS_YEAR_STORAGE_KEY) || '', 10);
+  const persistedYear = Number.parseInt(
+    localStorage.getItem(ADMIN_GOALS_YEAR_STORAGE_KEY) || '',
+    10,
+  );
   const initialYear = Number.isInteger(persistedYear) ? persistedYear : currentYear;
 
   const [years, setYears] = useState([currentYear]);
@@ -117,11 +120,7 @@ const QuarterlyGoalsPage = () => {
 
   const handleGoalChange = (quarter, value) => {
     setGoals((prev) =>
-      prev.map((entry) =>
-        entry.quarter === quarter
-          ? { ...entry, goalMillions: value }
-          : entry,
-      ),
+      prev.map((entry) => (entry.quarter === quarter ? { ...entry, goalMillions: value } : entry)),
     );
   };
 
@@ -148,7 +147,10 @@ const QuarterlyGoalsPage = () => {
 
   const yearlyGoalTotal = useMemo(
     () =>
-      goals.reduce((acc, goalEntry) => acc + parseMillionsToDollars(goalEntry.goalMillions || '0'), 0),
+      goals.reduce(
+        (acc, goalEntry) => acc + parseMillionsToDollars(goalEntry.goalMillions || '0'),
+        0,
+      ),
     [goals],
   );
 
@@ -158,15 +160,17 @@ const QuarterlyGoalsPage = () => {
     <div className="quarterly-goals">
       <h2 className="section-title quarterly-goals__title">Quarterly Goals</h2>
       <p className="quarterly-goals__intro">
-        Set CARR goals for each quarter by year. These goals are used in Salesforce metrics and calculator
-        views.
+        Set CARR goals for each quarter by year. These goals are used in Salesforce metrics and
+        calculator views.
       </p>
       <p className="quarterly-goals__hint">
         Enter each quarter goal in millions (example: <strong>3.1</strong> = $3,100,000).
       </p>
 
       <div className="quarterly-goals__controls">
-        <label htmlFor="goals-year" className="quarterly-goals__label">Year</label>
+        <label htmlFor="goals-year" className="quarterly-goals__label">
+          Year
+        </label>
         <select
           id="goals-year"
           value={selectedYear}
@@ -227,7 +231,9 @@ const QuarterlyGoalsPage = () => {
       {message && (
         <p
           className={`quarterly-goals__message ${
-            isSuccessMessage ? 'quarterly-goals__message--success' : 'quarterly-goals__message--error'
+            isSuccessMessage
+              ? 'quarterly-goals__message--success'
+              : 'quarterly-goals__message--error'
           }`}
         >
           {message}

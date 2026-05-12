@@ -131,7 +131,9 @@
   color: var(--white);
   color-scheme: dark;
   cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease,
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
     box-shadow 0.15s ease;
   font-size: 0.9375rem;
   font-weight: 500;
@@ -312,7 +314,10 @@
   color: var(--card-accent);
   box-shadow: 0 0 0 1px rgba(var(--card-accent-rgb), 0.22);
   flex-shrink: 0;
-  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .salesforce-metrics .metric-card-icon svg {
@@ -367,8 +372,12 @@
   transition: width 0.6s ease-in-out;
 }
 
-.progress-bar-small { height: 0.5rem; }
-.progress-bar-large { height: 1rem; }
+.progress-bar-small {
+  height: 0.5rem;
+}
+.progress-bar-large {
+  height: 1rem;
+}
 
 /*
  * Goal-progress states. The dashboard convention is: red below ~30%,
@@ -410,7 +419,8 @@
   border-radius: 0.85rem;
   padding: 1.25rem 1.5rem 1.5rem;
   margin-bottom: 1.5rem;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset,
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.03) inset,
     0 12px 24px -18px rgba(0, 0, 0, 0.6);
 }
 
@@ -522,11 +532,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.04),
-    rgba(255, 255, 255, 0)
-  );
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
   pointer-events: none;
 }
 
@@ -560,28 +566,55 @@
 /* Column widths kept identical to the previous build so headings line up
    the same way across the existing screenshots/snapshots. */
 .salesforce-metrics th:nth-child(1),
-.salesforce-metrics td:nth-child(1) { width: 18%; text-align: left; padding-left: 0.5rem; }
+.salesforce-metrics td:nth-child(1) {
+  width: 18%;
+  text-align: left;
+  padding-left: 0.5rem;
+}
 .salesforce-metrics th:nth-child(2),
-.salesforce-metrics td:nth-child(2) { width: 30%; text-align: left; }
+.salesforce-metrics td:nth-child(2) {
+  width: 30%;
+  text-align: left;
+}
 .salesforce-metrics th:nth-child(3),
-.salesforce-metrics td:nth-child(3) { width: 22%; text-align: right; }
+.salesforce-metrics td:nth-child(3) {
+  width: 22%;
+  text-align: right;
+}
 .salesforce-metrics th:nth-child(4),
-.salesforce-metrics td:nth-child(4) { width: 18%; }
+.salesforce-metrics td:nth-child(4) {
+  width: 18%;
+}
 .salesforce-metrics th:nth-child(5),
-.salesforce-metrics td:nth-child(5) { width: 12%; }
+.salesforce-metrics td:nth-child(5) {
+  width: 12%;
+}
 
 /*
  * Compensation table is wider on every column so override the closed-won
  * column widths back to a balanced 4-column layout.
  */
 .salesforce-metrics .compensation-container th:nth-child(1),
-.salesforce-metrics .compensation-container td:nth-child(1) { width: 28%; text-align: left; padding-left: 0.5rem; }
+.salesforce-metrics .compensation-container td:nth-child(1) {
+  width: 28%;
+  text-align: left;
+  padding-left: 0.5rem;
+}
 .salesforce-metrics .compensation-container th:nth-child(2),
-.salesforce-metrics .compensation-container td:nth-child(2) { width: 22%; text-align: right; }
+.salesforce-metrics .compensation-container td:nth-child(2) {
+  width: 22%;
+  text-align: right;
+}
 .salesforce-metrics .compensation-container th:nth-child(3),
-.salesforce-metrics .compensation-container td:nth-child(3) { width: 24%; text-align: right; }
+.salesforce-metrics .compensation-container td:nth-child(3) {
+  width: 24%;
+  text-align: right;
+}
 .salesforce-metrics .compensation-container th:nth-child(4),
-.salesforce-metrics .compensation-container td:nth-child(4) { width: 26%; text-align: right; }
+.salesforce-metrics .compensation-container td:nth-child(4) {
+  width: 26%;
+  text-align: right;
+}
 
 /* =========================
  * Status / loading / error rows

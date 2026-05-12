@@ -62,8 +62,7 @@ function resolveDataYear(config) {
   const calendarYear = new Date().getFullYear();
   if (!config) return calendarYear;
   const hasData = (yr) =>
-    (config.snapshotYears || []).includes(yr) ||
-    !!config.reportIdsByYear?.[yr]?.metrics;
+    (config.snapshotYears || []).includes(yr) || !!config.reportIdsByYear?.[yr]?.metrics;
   if (hasData(calendarYear)) return calendarYear;
   const allYears = [
     ...new Set([
@@ -416,9 +415,7 @@ function TeamPage() {
   // Independent of the year/quarter filter pill — the filter pill
   // rescopes the topline tiles, while this picks which quarter the
   // chart below renders. Defaults to whichever quarter contains today.
-  const [selectedQuarter, setSelectedQuarter] = useState(
-    getCurrentQuarterNumber,
-  );
+  const [selectedQuarter, setSelectedQuarter] = useState(getCurrentQuarterNumber);
 
   // Personal Linear roll-up (tickets THIS user has closed). Independent
   // of the Salesforce metrics fetch — different data source, different
@@ -471,9 +468,7 @@ function TeamPage() {
       })
       .catch((err) => {
         if (cancelled) return;
-        setTicketsByAEError(
-          err?.message || 'Failed to load tickets by AE',
-        );
+        setTicketsByAEError(err?.message || 'Failed to load tickets by AE');
       });
     return () => {
       cancelled = true;
@@ -543,7 +538,9 @@ function TeamPage() {
           setLoading(false);
         }
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Fetch (or refresh) the metrics report for the resolved year. Falls
@@ -590,7 +587,9 @@ function TeamPage() {
         if (!cancelled) setLoading(false);
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [config, currentYear]);
 
   // Split "Team Mario" → { prefix: "Team", rest: "Mario" } so the prefix
@@ -609,10 +608,7 @@ function TeamPage() {
   // team page renders these as two distinct sections — headline tiles
   // and per-AE cards consume only the goal-eligible map; the new
   // "Closed-won C opps" panel below the roster consumes the C map.
-  const { goalEligibleByAE, cScoreByAE } = useMemo(
-    () => groupOppsByAE(data),
-    [data],
-  );
+  const { goalEligibleByAE, cScoreByAE } = useMemo(() => groupOppsByAE(data), [data]);
 
   // Apply the year / current-quarter scope. When viewing the year the
   // groupings pass through untouched; when viewing the current quarter
@@ -624,7 +620,10 @@ function TeamPage() {
     const currentKey = getCurrentQuarterKey();
     const next = new Map();
     for (const [aeKey, opps] of goalEligibleByAE.entries()) {
-      next.set(aeKey, opps.filter((opp) => opp.quarter === currentKey));
+      next.set(
+        aeKey,
+        opps.filter((opp) => opp.quarter === currentKey),
+      );
     }
     return next;
   }, [goalEligibleByAE, scope]);
@@ -638,7 +637,10 @@ function TeamPage() {
     const currentKey = getCurrentQuarterKey();
     const next = new Map();
     for (const [aeKey, opps] of cScoreByAE.entries()) {
-      next.set(aeKey, opps.filter((opp) => opp.quarter === currentKey));
+      next.set(
+        aeKey,
+        opps.filter((opp) => opp.quarter === currentKey),
+      );
     }
     return next;
   }, [cScoreByAE, scope]);
@@ -825,13 +827,7 @@ function TeamPage() {
           {teamParts.prefix && <>{teamParts.prefix} </>}
           <span className="page-header__name">{teamParts.rest}</span>
         </h1>
-        {mascot && (
-          <img
-            className="team-page__mascot"
-            src={mascot.src}
-            alt={mascot.alt}
-          />
-        )}
+        {mascot && <img className="team-page__mascot" src={mascot.src} alt={mascot.alt} />}
       </header>
 
       {aes.length === 0 ? (
@@ -916,54 +912,49 @@ function TeamPage() {
             breakdown chart) under the same view gate.
           */}
           {view === VIEW_YOU && (
-          <>
-          <section className="team-page__section">
-            <div className="team-page__section-header">
-              <div className="team-page__section-heading">
-                <h2 className="team-page__section-title">
-                  Tickets closed by you
-                </h2>
-                <p className="team-page__section-subtitle">
-                  {(() => {
-                    const subject = firstName
-                      ? `${firstName} has`
-                      : "you've";
-                    const window =
-                      scope === SCOPE_QUARTER
-                        ? `this quarter (${getCurrentQuarterShortLabel()})`
-                        : 'this year';
-                    return `Linear tickets ${subject} completed ${window}.`;
-                  })()}
-                </p>
-              </div>
-            </div>
-            {linearClosed?.needsLinearProfile ? (
-              // SE row exists but we couldn't auto-resolve their Linear
-              // user ID from email. Surface the same hint the dashboard
-              // would, but inline so the section still has presence.
-              <p className="team-page__linear-hint">
-                We couldn&apos;t match your account to a Linear user yet.
-                Check your Profile so we can pull in your closed tickets.
-              </p>
-            ) : linearError || linearClosed?.error === 'linear_unavailable' ? (
-              // Either the request itself blew up (linearError) or the
-              // backend returned a soft 200 indicating Linear was
-              // unreachable. Same UX in both cases — a calm
-              // "try again later" beats spinning placeholders forever.
-              <p className="team-page__linear-hint">
-                Couldn&apos;t load your closed tickets right now. Try
-                refreshing in a minute.
-              </p>
-            ) : (
-              <div
-                className="team-page__totals"
-                // The You view shows 4 tiles (adds AI Demo). Override
-                // the default 3-column layout via the parameterized
-                // `--tile-cols` custom property so we don't need a
-                // dedicated modifier class for this single use.
-                style={{ '--tile-cols': 4 }}
-              >
-                {/*
+            <>
+              <section className="team-page__section">
+                <div className="team-page__section-header">
+                  <div className="team-page__section-heading">
+                    <h2 className="team-page__section-title">Tickets closed by you</h2>
+                    <p className="team-page__section-subtitle">
+                      {(() => {
+                        const subject = firstName ? `${firstName} has` : "you've";
+                        const window =
+                          scope === SCOPE_QUARTER
+                            ? `this quarter (${getCurrentQuarterShortLabel()})`
+                            : 'this year';
+                        return `Linear tickets ${subject} completed ${window}.`;
+                      })()}
+                    </p>
+                  </div>
+                </div>
+                {linearClosed?.needsLinearProfile ? (
+                  // SE row exists but we couldn't auto-resolve their Linear
+                  // user ID from email. Surface the same hint the dashboard
+                  // would, but inline so the section still has presence.
+                  <p className="team-page__linear-hint">
+                    We couldn&apos;t match your account to a Linear user yet. Check your Profile so
+                    we can pull in your closed tickets.
+                  </p>
+                ) : linearError || linearClosed?.error === 'linear_unavailable' ? (
+                  // Either the request itself blew up (linearError) or the
+                  // backend returned a soft 200 indicating Linear was
+                  // unreachable. Same UX in both cases — a calm
+                  // "try again later" beats spinning placeholders forever.
+                  <p className="team-page__linear-hint">
+                    Couldn&apos;t load your closed tickets right now. Try refreshing in a minute.
+                  </p>
+                ) : (
+                  <div
+                    className="team-page__totals"
+                    // The You view shows 4 tiles (adds AI Demo). Override
+                    // the default 3-column layout via the parameterized
+                    // `--tile-cols` custom property so we don't need a
+                    // dedicated modifier class for this single use.
+                    style={{ '--tile-cols': 4 }}
+                  >
+                    {/*
                   Four tiles: Tickets Closed (total) + Estimation +
                   Creation + AI Demo. Reuses `.metric-summary--detailed`
                   so the layout is identical to At a glance on the
@@ -973,279 +964,255 @@ function TeamPage() {
                   category has zero closed tickets so we don't render
                   a misleading "0d".
                 */}
-                <article className="metric-summary metric-summary--detailed">
-                  <div className="metric-summary__head">
-                    <span className="metric-summary__label">Tickets Closed</span>
-                    <span className="metric-summary__icon" aria-hidden="true">
-                      <LuClipboardCheck />
-                    </span>
-                  </div>
-                  <div className="metric-summary__value">
-                    {closedTicketsScoped
-                      ? closedTicketsScoped.total.toLocaleString('en-US')
-                      : '—'}
-                  </div>
-                  {closedTicketsScoped &&
-                    formatAvgLeadTime(closedTicketsScoped.avgDaysTotal) && (
-                      <div className="metric-summary__foot">
-                        <span className="metric-summary__hint">
-                          {formatAvgLeadTime(closedTicketsScoped.avgDaysTotal)}
+                    <article className="metric-summary metric-summary--detailed">
+                      <div className="metric-summary__head">
+                        <span className="metric-summary__label">Tickets Closed</span>
+                        <span className="metric-summary__icon" aria-hidden="true">
+                          <LuClipboardCheck />
                         </span>
                       </div>
-                    )}
-                </article>
+                      <div className="metric-summary__value">
+                        {closedTicketsScoped
+                          ? closedTicketsScoped.total.toLocaleString('en-US')
+                          : '—'}
+                      </div>
+                      {closedTicketsScoped &&
+                        formatAvgLeadTime(closedTicketsScoped.avgDaysTotal) && (
+                          <div className="metric-summary__foot">
+                            <span className="metric-summary__hint">
+                              {formatAvgLeadTime(closedTicketsScoped.avgDaysTotal)}
+                            </span>
+                          </div>
+                        )}
+                    </article>
 
-                <article className="metric-summary metric-summary--detailed">
-                  <div className="metric-summary__head">
-                    <span className="metric-summary__label">Estimation</span>
-                    <span className="metric-summary__icon" aria-hidden="true">
-                      <LuFilePen />
-                    </span>
-                  </div>
-                  <div className="metric-summary__value">
-                    {closedTicketsScoped
-                      ? closedTicketsScoped.estimation.toLocaleString('en-US')
-                      : '—'}
-                  </div>
-                  {closedTicketsScoped &&
-                    formatAvgLeadTime(closedTicketsScoped.avgDaysEstimation) && (
-                      <div className="metric-summary__foot">
-                        <span className="metric-summary__hint">
-                          {formatAvgLeadTime(
-                            closedTicketsScoped.avgDaysEstimation,
-                          )}
+                    <article className="metric-summary metric-summary--detailed">
+                      <div className="metric-summary__head">
+                        <span className="metric-summary__label">Estimation</span>
+                        <span className="metric-summary__icon" aria-hidden="true">
+                          <LuFilePen />
                         </span>
                       </div>
-                    )}
-                </article>
+                      <div className="metric-summary__value">
+                        {closedTicketsScoped
+                          ? closedTicketsScoped.estimation.toLocaleString('en-US')
+                          : '—'}
+                      </div>
+                      {closedTicketsScoped &&
+                        formatAvgLeadTime(closedTicketsScoped.avgDaysEstimation) && (
+                          <div className="metric-summary__foot">
+                            <span className="metric-summary__hint">
+                              {formatAvgLeadTime(closedTicketsScoped.avgDaysEstimation)}
+                            </span>
+                          </div>
+                        )}
+                    </article>
 
-                <article className="metric-summary metric-summary--detailed">
-                  <div className="metric-summary__head">
-                    <span className="metric-summary__label">Creation</span>
-                    <span className="metric-summary__icon" aria-hidden="true">
-                      <LuHammer />
-                    </span>
-                  </div>
-                  <div className="metric-summary__value">
-                    {closedTicketsScoped
-                      ? closedTicketsScoped.creation.toLocaleString('en-US')
-                      : '—'}
-                  </div>
-                  {closedTicketsScoped &&
-                    formatAvgLeadTime(closedTicketsScoped.avgDaysCreation) && (
-                      <div className="metric-summary__foot">
-                        <span className="metric-summary__hint">
-                          {formatAvgLeadTime(
-                            closedTicketsScoped.avgDaysCreation,
-                          )}
+                    <article className="metric-summary metric-summary--detailed">
+                      <div className="metric-summary__head">
+                        <span className="metric-summary__label">Creation</span>
+                        <span className="metric-summary__icon" aria-hidden="true">
+                          <LuHammer />
                         </span>
                       </div>
-                    )}
-                </article>
+                      <div className="metric-summary__value">
+                        {closedTicketsScoped
+                          ? closedTicketsScoped.creation.toLocaleString('en-US')
+                          : '—'}
+                      </div>
+                      {closedTicketsScoped &&
+                        formatAvgLeadTime(closedTicketsScoped.avgDaysCreation) && (
+                          <div className="metric-summary__foot">
+                            <span className="metric-summary__hint">
+                              {formatAvgLeadTime(closedTicketsScoped.avgDaysCreation)}
+                            </span>
+                          </div>
+                        )}
+                    </article>
 
-                <article className="metric-summary metric-summary--detailed">
-                  <div className="metric-summary__head">
-                    <span className="metric-summary__label">AI Demo</span>
-                    <span className="metric-summary__icon" aria-hidden="true">
-                      <LuSparkles />
-                    </span>
-                  </div>
-                  <div className="metric-summary__value">
-                    {closedTicketsScoped
-                      ? (closedTicketsScoped.aiDemo ?? 0).toLocaleString(
-                          'en-US',
-                        )
-                      : '—'}
-                  </div>
-                  {closedTicketsScoped &&
-                    formatAvgLeadTime(closedTicketsScoped.avgDaysAiDemo) && (
-                      <div className="metric-summary__foot">
-                        <span className="metric-summary__hint">
-                          {formatAvgLeadTime(
-                            closedTicketsScoped.avgDaysAiDemo,
-                          )}
+                    <article className="metric-summary metric-summary--detailed">
+                      <div className="metric-summary__head">
+                        <span className="metric-summary__label">AI Demo</span>
+                        <span className="metric-summary__icon" aria-hidden="true">
+                          <LuSparkles />
                         </span>
                       </div>
-                    )}
-                </article>
-              </div>
-            )}
-          </section>
+                      <div className="metric-summary__value">
+                        {closedTicketsScoped
+                          ? (closedTicketsScoped.aiDemo ?? 0).toLocaleString('en-US')
+                          : '—'}
+                      </div>
+                      {closedTicketsScoped &&
+                        formatAvgLeadTime(closedTicketsScoped.avgDaysAiDemo) && (
+                          <div className="metric-summary__foot">
+                            <span className="metric-summary__hint">
+                              {formatAvgLeadTime(closedTicketsScoped.avgDaysAiDemo)}
+                            </span>
+                          </div>
+                        )}
+                    </article>
+                  </div>
+                )}
+              </section>
 
-          {/*
+              {/*
             Monthly breakdown — second section in the You view. A
             quarter-tab strip across the top picks which quarter the
             chart renders. Bars are monthly counts; the caption under
             each bar is that month's share of the quarter (the user's
             requested "closed percentage per ticket").
           */}
-          {linearClosed?.configured && (
-            <section className="team-page__section">
-              <div className="team-page__section-header">
-                <div className="team-page__section-heading">
-                  <h2 className="team-page__section-title">
-                    Monthly breakdown
-                  </h2>
-                  <p className="team-page__section-subtitle">
-                    Tickets you closed each month of Q{selectedQuarter}{' '}
-                    {linearClosed.year}.
-                  </p>
-                </div>
-                <div
-                  className="team-page__filter team-page__filter--quarters"
-                  role="tablist"
-                  aria-label="Pick a quarter"
-                >
-                  {[1, 2, 3, 4].map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      role="tab"
-                      aria-selected={selectedQuarter === q}
-                      className={`team-page__filter-btn ${
-                        selectedQuarter === q ? 'is-active' : ''
-                      }`}
-                      onClick={() => setSelectedQuarter(q)}
+              {linearClosed?.configured && (
+                <section className="team-page__section">
+                  <div className="team-page__section-header">
+                    <div className="team-page__section-heading">
+                      <h2 className="team-page__section-title">Monthly breakdown</h2>
+                      <p className="team-page__section-subtitle">
+                        Tickets you closed each month of Q{selectedQuarter} {linearClosed.year}.
+                      </p>
+                    </div>
+                    <div
+                      className="team-page__filter team-page__filter--quarters"
+                      role="tablist"
+                      aria-label="Pick a quarter"
                     >
-                      Q{q}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {selectedQuarterBucket ? (
-                selectedQuarterBucket.total === 0 ? (
-                  <p className="team-page__linear-hint">
-                    No tickets closed in Q{selectedQuarter}{' '}
-                    {linearClosed.year} yet.
-                  </p>
-                ) : (
-                  // Build the line chart. We compute the y-axis
-                  // ceiling from the largest single-category count
-                  // (not the month total) because the chart plots
-                  // per-category lines — using the month total would
-                  // leave huge headroom above every line. Floor at
-                  // 1 to dodge a divide-by-zero on empty quarters.
-                  (() => {
-                    const months = selectedQuarterBucket.byMonth || [];
-                    const dataMax = Math.max(
-                      1,
-                      ...months.flatMap((m) =>
-                        CHART_CATEGORIES.map((c) => m[c.key] || 0),
-                      ),
-                    );
-                    const yMax = niceChartMax(dataMax);
-                    const yTicks = buildYTicks(yMax);
-
-                    const plotW =
-                      CHART_VIEWBOX_W - CHART_PAD.left - CHART_PAD.right;
-                    const plotH =
-                      CHART_VIEWBOX_H - CHART_PAD.top - CHART_PAD.bottom;
-                    // X anchors data points to the plot edges (first
-                    // month at left, last at right) — standard line-
-                    // chart layout for sparse series like 3 months.
-                    const xOf = (i) =>
-                      months.length === 1
-                        ? CHART_PAD.left + plotW / 2
-                        : CHART_PAD.left +
-                          (i / (months.length - 1)) * plotW;
-                    const yOf = (v) =>
-                      CHART_PAD.top + plotH - (v / yMax) * plotH;
-
-                    return (
-                      <>
-                        <div
-                          className="team-page__chart"
-                          role="img"
-                          aria-label={`Monthly closed tickets for Q${selectedQuarter} ${linearClosed.year}, with one line per ticket type`}
+                      {[1, 2, 3, 4].map((q) => (
+                        <button
+                          key={q}
+                          type="button"
+                          role="tab"
+                          aria-selected={selectedQuarter === q}
+                          className={`team-page__filter-btn ${
+                            selectedQuarter === q ? 'is-active' : ''
+                          }`}
+                          onClick={() => setSelectedQuarter(q)}
                         >
-                          <svg
-                            className="team-page__chart-svg"
-                            viewBox={`0 0 ${CHART_VIEWBOX_W} ${CHART_VIEWBOX_H}`}
-                            preserveAspectRatio="xMidYMid meet"
-                            role="presentation"
-                          >
-                            {/* Y-axis gridlines + count labels.
+                          Q{q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {selectedQuarterBucket ? (
+                    selectedQuarterBucket.total === 0 ? (
+                      <p className="team-page__linear-hint">
+                        No tickets closed in Q{selectedQuarter} {linearClosed.year} yet.
+                      </p>
+                    ) : (
+                      // Build the line chart. We compute the y-axis
+                      // ceiling from the largest single-category count
+                      // (not the month total) because the chart plots
+                      // per-category lines — using the month total would
+                      // leave huge headroom above every line. Floor at
+                      // 1 to dodge a divide-by-zero on empty quarters.
+                      (() => {
+                        const months = selectedQuarterBucket.byMonth || [];
+                        const dataMax = Math.max(
+                          1,
+                          ...months.flatMap((m) => CHART_CATEGORIES.map((c) => m[c.key] || 0)),
+                        );
+                        const yMax = niceChartMax(dataMax);
+                        const yTicks = buildYTicks(yMax);
+
+                        const plotW = CHART_VIEWBOX_W - CHART_PAD.left - CHART_PAD.right;
+                        const plotH = CHART_VIEWBOX_H - CHART_PAD.top - CHART_PAD.bottom;
+                        // X anchors data points to the plot edges (first
+                        // month at left, last at right) — standard line-
+                        // chart layout for sparse series like 3 months.
+                        const xOf = (i) =>
+                          months.length === 1
+                            ? CHART_PAD.left + plotW / 2
+                            : CHART_PAD.left + (i / (months.length - 1)) * plotW;
+                        const yOf = (v) => CHART_PAD.top + plotH - (v / yMax) * plotH;
+
+                        return (
+                          <>
+                            <div
+                              className="team-page__chart"
+                              role="img"
+                              aria-label={`Monthly closed tickets for Q${selectedQuarter} ${linearClosed.year}, with one line per ticket type`}
+                            >
+                              <svg
+                                className="team-page__chart-svg"
+                                viewBox={`0 0 ${CHART_VIEWBOX_W} ${CHART_VIEWBOX_H}`}
+                                preserveAspectRatio="xMidYMid meet"
+                                role="presentation"
+                              >
+                                {/* Y-axis gridlines + count labels.
                                 Drawn first so they sit behind the
                                 lines instead of slicing across them. */}
-                            {yTicks.map((tick) => (
-                              <g key={`y-${tick}`}>
-                                <line
-                                  className="team-page__chart-grid"
-                                  x1={CHART_PAD.left}
-                                  y1={yOf(tick)}
-                                  x2={CHART_VIEWBOX_W - CHART_PAD.right}
-                                  y2={yOf(tick)}
-                                />
-                                <text
-                                  className="team-page__chart-axis"
-                                  x={CHART_PAD.left - 8}
-                                  y={yOf(tick)}
-                                  textAnchor="end"
-                                  dominantBaseline="middle"
-                                >
-                                  {tick}
-                                </text>
-                              </g>
-                            ))}
+                                {yTicks.map((tick) => (
+                                  <g key={`y-${tick}`}>
+                                    <line
+                                      className="team-page__chart-grid"
+                                      x1={CHART_PAD.left}
+                                      y1={yOf(tick)}
+                                      x2={CHART_VIEWBOX_W - CHART_PAD.right}
+                                      y2={yOf(tick)}
+                                    />
+                                    <text
+                                      className="team-page__chart-axis"
+                                      x={CHART_PAD.left - 8}
+                                      y={yOf(tick)}
+                                      textAnchor="end"
+                                      dominantBaseline="middle"
+                                    >
+                                      {tick}
+                                    </text>
+                                  </g>
+                                ))}
 
-                            {/* X-axis month labels, centered below
+                                {/* X-axis month labels, centered below
                                 each data point. */}
-                            {months.map((m, i) => (
-                              <text
-                                key={`x-${m.month}`}
-                                className="team-page__chart-axis team-page__chart-axis--x"
-                                x={xOf(i)}
-                                y={CHART_VIEWBOX_H - CHART_PAD.bottom + 22}
-                                textAnchor="middle"
-                              >
-                                {m.label}
-                              </text>
-                            ))}
+                                {months.map((m, i) => (
+                                  <text
+                                    key={`x-${m.month}`}
+                                    className="team-page__chart-axis team-page__chart-axis--x"
+                                    x={xOf(i)}
+                                    y={CHART_VIEWBOX_H - CHART_PAD.bottom + 22}
+                                    textAnchor="middle"
+                                  >
+                                    {m.label}
+                                  </text>
+                                ))}
 
-                            {/* One polyline per category, with a dot
+                                {/* One polyline per category, with a dot
                                 at each month's data point. The dot
                                 carries a <title> so hovering the
                                 point shows "Creation - May: 4". */}
-                            {CHART_CATEGORIES.map((cat) => {
-                              const points = months
-                                .map(
-                                  (m, i) =>
-                                    `${xOf(i)},${yOf(m[cat.key] || 0)}`,
-                                )
-                                .join(' ');
-                              const catTotal =
-                                selectedQuarterBucket?.[cat.key] || 0;
-                              return (
-                                <g
-                                  key={cat.key}
-                                  className={`team-page__chart-series team-page__chart-series--${cat.key}${
-                                    catTotal === 0
-                                      ? ' team-page__chart-series--muted'
-                                      : ''
-                                  }`}
-                                >
-                                  <polyline
-                                    className="team-page__chart-line"
-                                    points={points}
-                                    fill="none"
-                                  />
-                                  {months.map((m, i) => (
-                                    <circle
-                                      key={m.month}
-                                      className="team-page__chart-dot"
-                                      cx={xOf(i)}
-                                      cy={yOf(m[cat.key] || 0)}
-                                      r="4"
+                                {CHART_CATEGORIES.map((cat) => {
+                                  const points = months
+                                    .map((m, i) => `${xOf(i)},${yOf(m[cat.key] || 0)}`)
+                                    .join(' ');
+                                  const catTotal = selectedQuarterBucket?.[cat.key] || 0;
+                                  return (
+                                    <g
+                                      key={cat.key}
+                                      className={`team-page__chart-series team-page__chart-series--${cat.key}${
+                                        catTotal === 0 ? ' team-page__chart-series--muted' : ''
+                                      }`}
                                     >
-                                      <title>{`${cat.label} · ${m.label}: ${m[cat.key] || 0}`}</title>
-                                    </circle>
-                                  ))}
-                                </g>
-                              );
-                            })}
-                          </svg>
-                        </div>
-                        {/*
+                                      <polyline
+                                        className="team-page__chart-line"
+                                        points={points}
+                                        fill="none"
+                                      />
+                                      {months.map((m, i) => (
+                                        <circle
+                                          key={m.month}
+                                          className="team-page__chart-dot"
+                                          cx={xOf(i)}
+                                          cy={yOf(m[cat.key] || 0)}
+                                          r="4"
+                                        >
+                                          <title>{`${cat.label} · ${m.label}: ${m[cat.key] || 0}`}</title>
+                                        </circle>
+                                      ))}
+                                    </g>
+                                  );
+                                })}
+                              </svg>
+                            </div>
+                            {/*
                           Legend lives just below the chart so the
                           color → category mapping is always visible
                           without making the bars themselves carry
@@ -1253,31 +1220,28 @@ function TeamPage() {
                           the whole quarter are dimmed so the legend
                           quietly self-prunes for sparse quarters.
                         */}
-                        <ul className="team-page__chart-legend" aria-hidden="true">
-                          {CHART_CATEGORIES.map((cat) => {
-                            const catTotal =
-                              (selectedQuarterBucket?.[cat.key] || 0);
-                            return (
-                              <li
-                                key={cat.key}
-                                className={`team-page__chart-legend-item ${
-                                  catTotal === 0
-                                    ? 'team-page__chart-legend-item--muted'
-                                    : ''
-                                }`}
-                              >
-                                <span
-                                  className={`team-page__chart-legend-dot team-page__chart-legend-dot--${cat.key}`}
-                                />
-                                <span>{cat.label}</span>
-                                <span className="team-page__chart-legend-count">
-                                  {catTotal.toLocaleString('en-US')}
-                                </span>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                        {/*
+                            <ul className="team-page__chart-legend" aria-hidden="true">
+                              {CHART_CATEGORIES.map((cat) => {
+                                const catTotal = selectedQuarterBucket?.[cat.key] || 0;
+                                return (
+                                  <li
+                                    key={cat.key}
+                                    className={`team-page__chart-legend-item ${
+                                      catTotal === 0 ? 'team-page__chart-legend-item--muted' : ''
+                                    }`}
+                                  >
+                                    <span
+                                      className={`team-page__chart-legend-dot team-page__chart-legend-dot--${cat.key}`}
+                                    />
+                                    <span>{cat.label}</span>
+                                    <span className="team-page__chart-legend-count">
+                                      {catTotal.toLocaleString('en-US')}
+                                    </span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                            {/*
                           "Other" tickets disclosure. The Other bucket
                           is a catch-all for closed tickets that don't
                           match the Estimation / Creation / AI Demo
@@ -1288,84 +1252,75 @@ function TeamPage() {
                           Native <details> handles the open/close
                           state without any React plumbing.
                         */}
-                        {selectedQuarterBucket.otherTickets &&
-                          selectedQuarterBucket.otherTickets.length > 0 && (
-                            <details className="team-page__chart-other">
-                              <summary className="team-page__chart-other-summary">
-                                Show {selectedQuarterBucket.otherTickets.length}{' '}
-                                {selectedQuarterBucket.otherTickets.length === 1
-                                  ? "'Other' ticket"
-                                  : "'Other' tickets"}
-                              </summary>
-                              <ul className="team-page__chart-other-list">
-                                {selectedQuarterBucket.otherTickets.map(
-                                  (t) => {
-                                    const completed = t.completedAt
-                                      ? new Date(t.completedAt)
-                                      : null;
-                                    const completedLabel =
-                                      completed &&
-                                      !Number.isNaN(completed.getTime())
-                                        ? completed.toLocaleDateString(
-                                            'en-US',
-                                            {
+                            {selectedQuarterBucket.otherTickets &&
+                              selectedQuarterBucket.otherTickets.length > 0 && (
+                                <details className="team-page__chart-other">
+                                  <summary className="team-page__chart-other-summary">
+                                    Show {selectedQuarterBucket.otherTickets.length}{' '}
+                                    {selectedQuarterBucket.otherTickets.length === 1
+                                      ? "'Other' ticket"
+                                      : "'Other' tickets"}
+                                  </summary>
+                                  <ul className="team-page__chart-other-list">
+                                    {selectedQuarterBucket.otherTickets.map((t) => {
+                                      const completed = t.completedAt
+                                        ? new Date(t.completedAt)
+                                        : null;
+                                      const completedLabel =
+                                        completed && !Number.isNaN(completed.getTime())
+                                          ? completed.toLocaleDateString('en-US', {
                                               month: 'short',
                                               day: 'numeric',
-                                            },
-                                          )
-                                        : null;
-                                    return (
-                                      <li
-                                        key={t.id}
-                                        className="team-page__chart-other-item"
-                                      >
-                                        {t.identifier && (
-                                          <span className="team-page__chart-other-id">
-                                            {t.identifier}
-                                          </span>
-                                        )}
-                                        {t.url ? (
-                                          <a
-                                            className="team-page__chart-other-title"
-                                            href={t.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            title={t.title}
-                                          >
-                                            {t.title}
-                                          </a>
-                                        ) : (
-                                          <span
-                                            className="team-page__chart-other-title"
-                                            title={t.title}
-                                          >
-                                            {t.title}
-                                          </span>
-                                        )}
-                                        {completedLabel && (
-                                          <span className="team-page__chart-other-date">
-                                            {completedLabel}
-                                          </span>
-                                        )}
-                                      </li>
-                                    );
-                                  },
-                                )}
-                              </ul>
-                            </details>
-                          )}
-                      </>
-                    );
-                  })()
-                )
-              ) : (
-                <p className="team-page__linear-hint">
-                  No data for Q{selectedQuarter} {linearClosed.year} yet.
-                </p>
+                                            })
+                                          : null;
+                                      return (
+                                        <li key={t.id} className="team-page__chart-other-item">
+                                          {t.identifier && (
+                                            <span className="team-page__chart-other-id">
+                                              {t.identifier}
+                                            </span>
+                                          )}
+                                          {t.url ? (
+                                            <a
+                                              className="team-page__chart-other-title"
+                                              href={t.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              title={t.title}
+                                            >
+                                              {t.title}
+                                            </a>
+                                          ) : (
+                                            <span
+                                              className="team-page__chart-other-title"
+                                              title={t.title}
+                                            >
+                                              {t.title}
+                                            </span>
+                                          )}
+                                          {completedLabel && (
+                                            <span className="team-page__chart-other-date">
+                                              {completedLabel}
+                                            </span>
+                                          )}
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                </details>
+                              )}
+                          </>
+                        );
+                      })()
+                    )
+                  ) : (
+                    <p className="team-page__linear-hint">
+                      No data for Q{selectedQuarter} {linearClosed.year} yet.
+                    </p>
+                  )}
+                </section>
               )}
-            </section>
-          )}
-          </>
+            </>
           )}
 
           {/*
@@ -1375,127 +1330,127 @@ function TeamPage() {
             own title/subtitle.
           */}
           {view === VIEW_TEAM && (
-          <>
-          <section className="team-page__section">
-            <div className="team-page__section-header">
-              <div className="team-page__section-heading">
-                <h2 className="team-page__section-title">At a glance</h2>
-                <p className="team-page__section-subtitle">
-                  {team.name} closed-won performance{' '}
-                  {scope === SCOPE_QUARTER
-                    ? `this quarter (${getCurrentQuarterShortLabel()})`
-                    : 'this year'}
-                  .
-                </p>
-              </div>
-            </div>
-            <div className="team-page__totals">
-              {/*
+            <>
+              <section className="team-page__section">
+                <div className="team-page__section-header">
+                  <div className="team-page__section-heading">
+                    <h2 className="team-page__section-title">At a glance</h2>
+                    <p className="team-page__section-subtitle">
+                      {team.name} closed-won performance{' '}
+                      {scope === SCOPE_QUARTER
+                        ? `this quarter (${getCurrentQuarterShortLabel()})`
+                        : 'this year'}
+                      .
+                    </p>
+                  </div>
+                </div>
+                <div className="team-page__totals">
+                  {/*
                 Three tiles share the dashboard's `.metric-summary--detailed`
                 styling so the team page's at-a-glance row reads as
                 the same design language as The Den's metric tiles.
                 Values render "—" while the metrics fetch is in
                 flight so the layout doesn't shift on load.
               */}
-              <article className="metric-summary metric-summary--detailed">
-                <div className="metric-summary__head">
-                  <span className="metric-summary__label">Total CARR</span>
-                  <span className="metric-summary__icon" aria-hidden="true">
-                    <LuTrendingUp />
-                  </span>
-                </div>
-                <div className="metric-summary__value">
-                  {data ? formatCompactCurrency(teamTotals.totalCarr) : '—'}
-                </div>
-              </article>
+                  <article className="metric-summary metric-summary--detailed">
+                    <div className="metric-summary__head">
+                      <span className="metric-summary__label">Total CARR</span>
+                      <span className="metric-summary__icon" aria-hidden="true">
+                        <LuTrendingUp />
+                      </span>
+                    </div>
+                    <div className="metric-summary__value">
+                      {data ? formatCompactCurrency(teamTotals.totalCarr) : '—'}
+                    </div>
+                  </article>
 
-              <article className="metric-summary metric-summary--detailed">
-                <div className="metric-summary__head">
-                  <span className="metric-summary__label">Closed Opps</span>
-                  <span className="metric-summary__icon" aria-hidden="true">
-                    <LuTrophy />
-                  </span>
-                </div>
-                <div className="metric-summary__value">
-                  {data ? teamTotals.count.toLocaleString('en-US') : '—'}
-                </div>
-              </article>
+                  <article className="metric-summary metric-summary--detailed">
+                    <div className="metric-summary__head">
+                      <span className="metric-summary__label">Closed Opps</span>
+                      <span className="metric-summary__icon" aria-hidden="true">
+                        <LuTrophy />
+                      </span>
+                    </div>
+                    <div className="metric-summary__value">
+                      {data ? teamTotals.count.toLocaleString('en-US') : '—'}
+                    </div>
+                  </article>
 
-              <article className="metric-summary metric-summary--detailed">
-                <div className="metric-summary__head">
-                  <span className="metric-summary__label">Avg Deal Size</span>
-                  <span className="metric-summary__icon" aria-hidden="true">
-                    <LuChartBar />
-                  </span>
+                  <article className="metric-summary metric-summary--detailed">
+                    <div className="metric-summary__head">
+                      <span className="metric-summary__label">Avg Deal Size</span>
+                      <span className="metric-summary__icon" aria-hidden="true">
+                        <LuChartBar />
+                      </span>
+                    </div>
+                    <div className="metric-summary__value">
+                      {data ? formatCompactCurrency(teamTotals.avgDealSize) : '—'}
+                    </div>
+                  </article>
                 </div>
-                <div className="metric-summary__value">
-                  {data ? formatCompactCurrency(teamTotals.avgDealSize) : '—'}
-                </div>
-              </article>
-            </div>
-          </section>
+              </section>
 
-          {/* CARR broken down by AE — same scope as the section above. */}
-          <section className="team-page__section">
-            <div className="team-page__section-header">
-              <div className="team-page__section-heading">
-                <h2 className="team-page__section-title">CARR broken down by AE</h2>
-                <p className="team-page__section-subtitle">
-                  Closed-won opportunities for {team.name}{' '}
-                  {scope === SCOPE_QUARTER
-                    ? `this quarter (${getCurrentQuarterShortLabel()})`
-                    : 'this year'}
-                  .
-                </p>
-              </div>
-            </div>
-            <div
-              className="dashboard-widgets team-page__roster"
-          /*
+              {/* CARR broken down by AE — same scope as the section above. */}
+              <section className="team-page__section">
+                <div className="team-page__section-header">
+                  <div className="team-page__section-heading">
+                    <h2 className="team-page__section-title">CARR broken down by AE</h2>
+                    <p className="team-page__section-subtitle">
+                      Closed-won opportunities for {team.name}{' '}
+                      {scope === SCOPE_QUARTER
+                        ? `this quarter (${getCurrentQuarterShortLabel()})`
+                        : 'this year'}
+                      .
+                    </p>
+                  </div>
+                </div>
+                <div
+                  className="dashboard-widgets team-page__roster"
+                  /*
             Drive the grid's column count from the AE count so every AE
             panel ends up on the same row. CSS falls back to the wrapped
             2-column / 1-column layouts below 1024px so the cards don't
             get squeezed unreadably narrow on smaller screens.
           */
-          style={{ '--ae-count': aes.length }}
-        >
-          {aes.map((ae) => {
-            const opps = filteredOppsByAE.get(normalizeName(ae.name)) ?? [];
-            const totalCarr = sumCarr(opps);
-            return (
-              <section
-                key={ae.id}
-                className="dashboard-panel"
-                aria-labelledby={`team-ae-carr-${ae.id}`}
-              >
-                <div className="dashboard-panel__head dashboard-panel__head--stacked">
-                  <div className="dashboard-panel__head-text">
-                    <h2 className="dashboard-panel__title" id={`team-ae-carr-${ae.id}`}>
-                      {ae.name}
-                    </h2>
-                    <p className="dashboard-panel__subtitle">
-                      {opps.length === 0
-                        ? 'No closed opps yet'
-                        : `${opps.length} closed ${opps.length === 1 ? 'opp' : 'opps'}`}
-                    </p>
-                  </div>
-                  {/*
+                  style={{ '--ae-count': aes.length }}
+                >
+                  {aes.map((ae) => {
+                    const opps = filteredOppsByAE.get(normalizeName(ae.name)) ?? [];
+                    const totalCarr = sumCarr(opps);
+                    return (
+                      <section
+                        key={ae.id}
+                        className="dashboard-panel"
+                        aria-labelledby={`team-ae-carr-${ae.id}`}
+                      >
+                        <div className="dashboard-panel__head dashboard-panel__head--stacked">
+                          <div className="dashboard-panel__head-text">
+                            <h2 className="dashboard-panel__title" id={`team-ae-carr-${ae.id}`}>
+                              {ae.name}
+                            </h2>
+                            <p className="dashboard-panel__subtitle">
+                              {opps.length === 0
+                                ? 'No closed opps yet'
+                                : `${opps.length} closed ${opps.length === 1 ? 'opp' : 'opps'}`}
+                            </p>
+                          </div>
+                          {/*
                     Total CARR readout. Only rendered once the metrics
                     payload has loaded so we don't flash a "$0" total
                     while the fetch is still in flight. Anchors the
                     coral column of per-row CARR amounts below.
                   */}
-                  {data && (
-                    <div className="team-ae-total" aria-label={`Total CARR for ${ae.name}`}>
-                      <span className="team-ae-total__label">Total CARR</span>
-                      <span className="team-ae-total__value">
-                        {formatTotalCarr(totalCarr)}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                          {data && (
+                            <div className="team-ae-total" aria-label={`Total CARR for ${ae.name}`}>
+                              <span className="team-ae-total__label">Total CARR</span>
+                              <span className="team-ae-total__value">
+                                {formatTotalCarr(totalCarr)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
 
-                {/*
+                        {/*
                   Three render branches, in priority order:
                     1. We have opps → show the row list.
                     2. We have data but this AE has none → quiet hint.
@@ -1504,40 +1459,42 @@ function TeamPage() {
                   keeps the panel from flashing an empty state on first
                   paint while the metrics fetch is in flight.
                 */}
-                {opps.length > 0 ? (
-                  <ul className="team-ae-opp-list">
-                    {opps.map((opp) => (
-                      <li
-                        key={opp.opportunityId || `${opp.opportunityName}-${opp.effectiveDate}`}
-                        className="team-ae-opp-row"
-                      >
-                        <span className="team-ae-opp-name" title={opp.opportunityName}>
-                          {opp.opportunityName || 'Untitled opportunity'}
-                        </span>
-                        <span className="team-ae-opp-carr">{formatCarr(opp)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : data ? (
-                  <p className="team-ae-status">
-                    {scope === SCOPE_QUARTER
-                      ? `No closed opps for ${ae.name} this quarter yet.`
-                      : `No closed opps for ${ae.name} yet this year.`}
-                  </p>
-                ) : loading ? (
-                  <p className="team-ae-status">Loading closed opps…</p>
-                ) : error ? (
-                  <p className="team-ae-status">Couldn&apos;t load metrics for this AE.</p>
-                ) : (
-                  <p className="team-ae-status">No closed opps yet.</p>
-                )}
+                        {opps.length > 0 ? (
+                          <ul className="team-ae-opp-list">
+                            {opps.map((opp) => (
+                              <li
+                                key={
+                                  opp.opportunityId || `${opp.opportunityName}-${opp.effectiveDate}`
+                                }
+                                className="team-ae-opp-row"
+                              >
+                                <span className="team-ae-opp-name" title={opp.opportunityName}>
+                                  {opp.opportunityName || 'Untitled opportunity'}
+                                </span>
+                                <span className="team-ae-opp-carr">{formatCarr(opp)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : data ? (
+                          <p className="team-ae-status">
+                            {scope === SCOPE_QUARTER
+                              ? `No closed opps for ${ae.name} this quarter yet.`
+                              : `No closed opps for ${ae.name} yet this year.`}
+                          </p>
+                        ) : loading ? (
+                          <p className="team-ae-status">Loading closed opps…</p>
+                        ) : error ? (
+                          <p className="team-ae-status">Couldn&apos;t load metrics for this AE.</p>
+                        ) : (
+                          <p className="team-ae-status">No closed opps yet.</p>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
               </section>
-            );
-          })}
-            </div>
-          </section>
 
-          {/*
+              {/*
             Tickets created broken down by AE — per-AE rollup of Linear
             tickets each AE has submitted, broken into Creation /
             Estimation / AI Demo. Sits between the CARR breakdown above
@@ -1553,32 +1510,30 @@ function TeamPage() {
             extraction work all stay live — flip the flag back to
             `true` to re-render the section.
           */}
-          {SHOW_TICKETS_BY_AE && (
-          <section className="team-page__section">
-            <div className="team-page__section-header">
-              <div className="team-page__section-heading">
-                <h2 className="team-page__section-title">
-                  Tickets created broken down by AE
-                </h2>
-                <p className="team-page__section-subtitle">
-                  Linear tickets each AE on {team.name} has submitted{' '}
-                  {scope === SCOPE_QUARTER
-                    ? `this quarter (${getCurrentQuarterShortLabel()})`
-                    : 'this year'}
-                  .
-                </p>
-              </div>
-            </div>
-            {ticketsByAEError ||
-            ticketsByAE?.error === 'linear_unavailable' ? (
-              <p className="team-page__linear-hint">
-                Couldn&apos;t load tickets-by-AE right now. Try
-                refreshing in a minute.
-              </p>
-            ) : (
-              <div
-                className="dashboard-widgets team-page__roster"
-                /*
+              {SHOW_TICKETS_BY_AE && (
+                <section className="team-page__section">
+                  <div className="team-page__section-header">
+                    <div className="team-page__section-heading">
+                      <h2 className="team-page__section-title">
+                        Tickets created broken down by AE
+                      </h2>
+                      <p className="team-page__section-subtitle">
+                        Linear tickets each AE on {team.name} has submitted{' '}
+                        {scope === SCOPE_QUARTER
+                          ? `this quarter (${getCurrentQuarterShortLabel()})`
+                          : 'this year'}
+                        .
+                      </p>
+                    </div>
+                  </div>
+                  {ticketsByAEError || ticketsByAE?.error === 'linear_unavailable' ? (
+                    <p className="team-page__linear-hint">
+                      Couldn&apos;t load tickets-by-AE right now. Try refreshing in a minute.
+                    </p>
+                  ) : (
+                    <div
+                      className="dashboard-widgets team-page__roster"
+                      /*
                   Same column layout as the CARR roster above so the
                   two AE rosters read as one continuous billboard. AE
                   count drives the column count via the shared
@@ -1588,110 +1543,95 @@ function TeamPage() {
                   rather than pushing one of the AE cards onto a
                   new line.
                 */
-                style={{
-                  '--ae-count':
-                    aes.length + (unassignedScoped.total > 0 ? 1 : 0),
-                }}
-              >
-                {ticketsByAEScoped.map(
-                  ({ ae, total, estimation, creation, aiDemo }) => (
-                    <section
-                      key={ae.id}
-                      className="dashboard-panel team-ae-tickets"
-                      aria-labelledby={`team-ae-tickets-${ae.id}`}
+                      style={{
+                        '--ae-count': aes.length + (unassignedScoped.total > 0 ? 1 : 0),
+                      }}
                     >
-                      <div className="dashboard-panel__head dashboard-panel__head--stacked">
-                        <div className="dashboard-panel__head-text">
-                          <h2
-                            className="dashboard-panel__title"
-                            id={`team-ae-tickets-${ae.id}`}
-                          >
-                            {ae.name}
-                          </h2>
-                          <p className="dashboard-panel__subtitle">
-                            {ticketsByAE
-                              ? total === 0
-                                ? 'No tickets submitted yet'
-                                : `${total} ${
-                                    total === 1 ? 'ticket' : 'tickets'
-                                  } submitted`
-                              : 'Loading…'}
-                          </p>
-                        </div>
-                        {/*
+                      {ticketsByAEScoped.map(({ ae, total, estimation, creation, aiDemo }) => (
+                        <section
+                          key={ae.id}
+                          className="dashboard-panel team-ae-tickets"
+                          aria-labelledby={`team-ae-tickets-${ae.id}`}
+                        >
+                          <div className="dashboard-panel__head dashboard-panel__head--stacked">
+                            <div className="dashboard-panel__head-text">
+                              <h2
+                                className="dashboard-panel__title"
+                                id={`team-ae-tickets-${ae.id}`}
+                              >
+                                {ae.name}
+                              </h2>
+                              <p className="dashboard-panel__subtitle">
+                                {ticketsByAE
+                                  ? total === 0
+                                    ? 'No tickets submitted yet'
+                                    : `${total} ${total === 1 ? 'ticket' : 'tickets'} submitted`
+                                  : 'Loading…'}
+                              </p>
+                            </div>
+                            {/*
                           Total readout mirrors the CARR section's
                           `.team-ae-total` treatment so the two
                           rosters share a head-right anchor element.
                           Hidden until the fetch resolves so the
                           number doesn't flicker from "0" → real.
                         */}
-                        {ticketsByAE && (
-                          <div
-                            className="team-ae-total"
-                            aria-label={`Total tickets submitted by ${ae.name}`}
-                          >
-                            <span className="team-ae-total__label">
-                              Total
-                            </span>
-                            <span className="team-ae-total__value">
-                              {total.toLocaleString('en-US')}
-                            </span>
+                            {ticketsByAE && (
+                              <div
+                                className="team-ae-total"
+                                aria-label={`Total tickets submitted by ${ae.name}`}
+                              >
+                                <span className="team-ae-total__label">Total</span>
+                                <span className="team-ae-total__value">
+                                  {total.toLocaleString('en-US')}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
 
-                      {ticketsByAE ? (
-                        // Three category chips (Creation / Estimation /
-                        // AI Demo) reuse the chart legend's colored
-                        // dots so the same color → category mapping
-                        // stays consistent with the You view chart.
-                        // "Other" is intentionally omitted from the
-                        // breakdown — it's the catch-all for tickets
-                        // we couldn't classify, and AEs don't pick
-                        // their ticket's "Type of Ask" so showing it
-                        // would be more confusing than useful.
-                        <ul
-                          className="team-ae-tickets-breakdown"
-                          aria-label={`Ticket breakdown for ${ae.name}`}
-                        >
-                          <li className="team-ae-tickets-breakdown__item">
-                            <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--creation" />
-                            <span className="team-ae-tickets-breakdown__label">
-                              Creation
-                            </span>
-                            <span className="team-ae-tickets-breakdown__value">
-                              {creation.toLocaleString('en-US')}
-                            </span>
-                          </li>
-                          <li className="team-ae-tickets-breakdown__item">
-                            <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--estimation" />
-                            <span className="team-ae-tickets-breakdown__label">
-                              Estimation
-                            </span>
-                            <span className="team-ae-tickets-breakdown__value">
-                              {estimation.toLocaleString('en-US')}
-                            </span>
-                          </li>
-                          <li className="team-ae-tickets-breakdown__item">
-                            <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--aiDemo" />
-                            <span className="team-ae-tickets-breakdown__label">
-                              AI Demo
-                            </span>
-                            <span className="team-ae-tickets-breakdown__value">
-                              {aiDemo.toLocaleString('en-US')}
-                            </span>
-                          </li>
-                        </ul>
-                      ) : (
-                        <p className="team-ae-status">
-                          Loading ticket breakdown…
-                        </p>
-                      )}
-                    </section>
-                  ),
-                )}
+                          {ticketsByAE ? (
+                            // Three category chips (Creation / Estimation /
+                            // AI Demo) reuse the chart legend's colored
+                            // dots so the same color → category mapping
+                            // stays consistent with the You view chart.
+                            // "Other" is intentionally omitted from the
+                            // breakdown — it's the catch-all for tickets
+                            // we couldn't classify, and AEs don't pick
+                            // their ticket's "Type of Ask" so showing it
+                            // would be more confusing than useful.
+                            <ul
+                              className="team-ae-tickets-breakdown"
+                              aria-label={`Ticket breakdown for ${ae.name}`}
+                            >
+                              <li className="team-ae-tickets-breakdown__item">
+                                <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--creation" />
+                                <span className="team-ae-tickets-breakdown__label">Creation</span>
+                                <span className="team-ae-tickets-breakdown__value">
+                                  {creation.toLocaleString('en-US')}
+                                </span>
+                              </li>
+                              <li className="team-ae-tickets-breakdown__item">
+                                <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--estimation" />
+                                <span className="team-ae-tickets-breakdown__label">Estimation</span>
+                                <span className="team-ae-tickets-breakdown__value">
+                                  {estimation.toLocaleString('en-US')}
+                                </span>
+                              </li>
+                              <li className="team-ae-tickets-breakdown__item">
+                                <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--aiDemo" />
+                                <span className="team-ae-tickets-breakdown__label">AI Demo</span>
+                                <span className="team-ae-tickets-breakdown__value">
+                                  {aiDemo.toLocaleString('en-US')}
+                                </span>
+                              </li>
+                            </ul>
+                          ) : (
+                            <p className="team-ae-status">Loading ticket breakdown…</p>
+                          )}
+                        </section>
+                      ))}
 
-                {/*
+                      {/*
                   Unassigned card. Tickets where the AE / Contract Owner
                   field couldn't be extracted from the description show
                   up here so the SE can see exactly which tickets need
@@ -1703,70 +1643,61 @@ function TeamPage() {
                   treatment) so it reads as "go fix this" rather than a
                   fourth peer AE.
                 */}
-                {ticketsByAE && unassignedScoped.total > 0 && (
-                  <section
-                    className="dashboard-panel team-ae-tickets team-ae-tickets--unassigned"
-                    aria-labelledby="team-ae-tickets-unassigned"
-                  >
-                    <div className="dashboard-panel__head dashboard-panel__head--stacked">
-                      <div className="dashboard-panel__head-text">
-                        <h2
-                          className="dashboard-panel__title"
-                          id="team-ae-tickets-unassigned"
+                      {ticketsByAE && unassignedScoped.total > 0 && (
+                        <section
+                          className="dashboard-panel team-ae-tickets team-ae-tickets--unassigned"
+                          aria-labelledby="team-ae-tickets-unassigned"
                         >
-                          Unassigned
-                        </h2>
-                        <p className="dashboard-panel__subtitle">
-                          {unassignedScoped.total === 1
-                            ? '1 ticket missing AE'
-                            : `${unassignedScoped.total} tickets missing AE`}
-                        </p>
-                      </div>
-                      <div
-                        className="team-ae-total"
-                        aria-label="Total tickets missing AE"
-                      >
-                        <span className="team-ae-total__label">Total</span>
-                        <span className="team-ae-total__value team-ae-total__value--unassigned">
-                          {unassignedScoped.total.toLocaleString('en-US')}
-                        </span>
-                      </div>
-                    </div>
+                          <div className="dashboard-panel__head dashboard-panel__head--stacked">
+                            <div className="dashboard-panel__head-text">
+                              <h2
+                                className="dashboard-panel__title"
+                                id="team-ae-tickets-unassigned"
+                              >
+                                Unassigned
+                              </h2>
+                              <p className="dashboard-panel__subtitle">
+                                {unassignedScoped.total === 1
+                                  ? '1 ticket missing AE'
+                                  : `${unassignedScoped.total} tickets missing AE`}
+                              </p>
+                            </div>
+                            <div className="team-ae-total" aria-label="Total tickets missing AE">
+                              <span className="team-ae-total__label">Total</span>
+                              <span className="team-ae-total__value team-ae-total__value--unassigned">
+                                {unassignedScoped.total.toLocaleString('en-US')}
+                              </span>
+                            </div>
+                          </div>
 
-                    <ul
-                      className="team-ae-tickets-breakdown"
-                      aria-label="Unassigned ticket breakdown"
-                    >
-                      <li className="team-ae-tickets-breakdown__item">
-                        <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--creation" />
-                        <span className="team-ae-tickets-breakdown__label">
-                          Creation
-                        </span>
-                        <span className="team-ae-tickets-breakdown__value">
-                          {unassignedScoped.creation.toLocaleString('en-US')}
-                        </span>
-                      </li>
-                      <li className="team-ae-tickets-breakdown__item">
-                        <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--estimation" />
-                        <span className="team-ae-tickets-breakdown__label">
-                          Estimation
-                        </span>
-                        <span className="team-ae-tickets-breakdown__value">
-                          {unassignedScoped.estimation.toLocaleString('en-US')}
-                        </span>
-                      </li>
-                      <li className="team-ae-tickets-breakdown__item">
-                        <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--aiDemo" />
-                        <span className="team-ae-tickets-breakdown__label">
-                          AI Demo
-                        </span>
-                        <span className="team-ae-tickets-breakdown__value">
-                          {unassignedScoped.aiDemo.toLocaleString('en-US')}
-                        </span>
-                      </li>
-                    </ul>
+                          <ul
+                            className="team-ae-tickets-breakdown"
+                            aria-label="Unassigned ticket breakdown"
+                          >
+                            <li className="team-ae-tickets-breakdown__item">
+                              <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--creation" />
+                              <span className="team-ae-tickets-breakdown__label">Creation</span>
+                              <span className="team-ae-tickets-breakdown__value">
+                                {unassignedScoped.creation.toLocaleString('en-US')}
+                              </span>
+                            </li>
+                            <li className="team-ae-tickets-breakdown__item">
+                              <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--estimation" />
+                              <span className="team-ae-tickets-breakdown__label">Estimation</span>
+                              <span className="team-ae-tickets-breakdown__value">
+                                {unassignedScoped.estimation.toLocaleString('en-US')}
+                              </span>
+                            </li>
+                            <li className="team-ae-tickets-breakdown__item">
+                              <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--aiDemo" />
+                              <span className="team-ae-tickets-breakdown__label">AI Demo</span>
+                              <span className="team-ae-tickets-breakdown__value">
+                                {unassignedScoped.aiDemo.toLocaleString('en-US')}
+                              </span>
+                            </li>
+                          </ul>
 
-                    {/*
+                          {/*
                       Native <details> drives the "show me which tickets"
                       disclosure — same pattern as the You-view chart's
                       "Show N 'Other' tickets" disclosure so the two
@@ -1775,56 +1706,53 @@ function TeamPage() {
                       add the AE field, and the count drops on the
                       next refresh.
                     */}
-                    {unassignedScoped.tickets.length > 0 && (
-                      <details className="team-ae-tickets-disclosure">
-                        <summary className="team-ae-tickets-disclosure__summary">
-                          Show {unassignedScoped.tickets.length}{' '}
-                          {unassignedScoped.tickets.length === 1
-                            ? 'ticket to fix'
-                            : 'tickets to fix'}
-                        </summary>
-                        <ul className="team-ae-tickets-disclosure__list">
-                          {unassignedScoped.tickets.map((t) => (
-                            <li
-                              key={t.id}
-                              className="team-ae-tickets-disclosure__item"
-                            >
-                              {t.identifier && (
-                                <span className="team-ae-tickets-disclosure__id">
-                                  {t.identifier}
-                                </span>
-                              )}
-                              {t.url ? (
-                                <a
-                                  className="team-ae-tickets-disclosure__title"
-                                  href={t.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title={t.title}
-                                >
-                                  {t.title}
-                                </a>
-                              ) : (
-                                <span
-                                  className="team-ae-tickets-disclosure__title"
-                                  title={t.title}
-                                >
-                                  {t.title}
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    )}
-                  </section>
-                )}
-              </div>
-            )}
-          </section>
-          )}
+                          {unassignedScoped.tickets.length > 0 && (
+                            <details className="team-ae-tickets-disclosure">
+                              <summary className="team-ae-tickets-disclosure__summary">
+                                Show {unassignedScoped.tickets.length}{' '}
+                                {unassignedScoped.tickets.length === 1
+                                  ? 'ticket to fix'
+                                  : 'tickets to fix'}
+                              </summary>
+                              <ul className="team-ae-tickets-disclosure__list">
+                                {unassignedScoped.tickets.map((t) => (
+                                  <li key={t.id} className="team-ae-tickets-disclosure__item">
+                                    {t.identifier && (
+                                      <span className="team-ae-tickets-disclosure__id">
+                                        {t.identifier}
+                                      </span>
+                                    )}
+                                    {t.url ? (
+                                      <a
+                                        className="team-ae-tickets-disclosure__title"
+                                        href={t.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title={t.title}
+                                      >
+                                        {t.title}
+                                      </a>
+                                    ) : (
+                                      <span
+                                        className="team-ae-tickets-disclosure__title"
+                                        title={t.title}
+                                      >
+                                        {t.title}
+                                      </span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </details>
+                          )}
+                        </section>
+                      )}
+                    </div>
+                  )}
+                </section>
+              )}
 
-          {/*
+              {/*
             Closed-won C opps. Account-Score-C deals don't count toward
             the CARR goal (which is why they're absent from the tiles
             and per-AE cards above), but they're still real revenue —
@@ -1840,66 +1768,58 @@ function TeamPage() {
             keeps 2025 reading exactly as it did before this feature
             shipped instead of always rendering an empty hint.
           */}
-          {currentYear >= 2026 && (
-            <section className="team-page__section">
-              <div className="team-page__section-header">
-                <div className="team-page__section-heading">
-                  <h2 className="team-page__section-title">
-                    Closed-won C opps
-                  </h2>
-                  <p className="team-page__section-subtitle">
-                    Account Score C deals don&apos;t count toward the CARR
-                    goal, but are tracked here for visibility{' '}
-                    {scope === SCOPE_QUARTER
-                      ? `this quarter (${getCurrentQuarterShortLabel()})`
-                      : 'this year'}
-                    .
-                  </p>
-                </div>
-              </div>
-              {/*
+              {currentYear >= 2026 && (
+                <section className="team-page__section">
+                  <div className="team-page__section-header">
+                    <div className="team-page__section-heading">
+                      <h2 className="team-page__section-title">Closed-won C opps</h2>
+                      <p className="team-page__section-subtitle">
+                        Account Score C deals don&apos;t count toward the CARR goal, but are tracked
+                        here for visibility{' '}
+                        {scope === SCOPE_QUARTER
+                          ? `this quarter (${getCurrentQuarterShortLabel()})`
+                          : 'this year'}
+                        .
+                      </p>
+                    </div>
+                  </div>
+                  {/*
                 Single panel that holds the flat row list. We render
                 the panel even when there are zero rows so the empty
                 / loading / error branches share the same surface as
                 the populated state — keeps the layout from jumping
                 around as data arrives.
               */}
-              <section
-                className="dashboard-panel"
-                aria-labelledby="team-c-opps-title"
-              >
-                <div className="dashboard-panel__head">
-                  <div className="dashboard-panel__head-text">
-                    <h3
-                      className="dashboard-panel__title"
-                      id="team-c-opps-title"
-                    >
-                      C-scored opportunities
-                    </h3>
-                    <p className="dashboard-panel__subtitle">
-                      {data
-                        ? cTeamTotals.count === 0
-                          ? 'No C-scored deals in scope'
-                          : `${cTeamTotals.count} ${
-                              cTeamTotals.count === 1 ? 'opp' : 'opps'
-                            } across the team`
-                        : 'Loading…'}
-                    </p>
-                  </div>
-                  {data && cTeamTotals.count > 0 && (
-                    <div
-                      className="team-ae-total"
-                      aria-label="Total C-scored CARR for the team"
-                    >
-                      <span className="team-ae-total__label">Total CARR</span>
-                      <span className="team-ae-total__value">
-                        {formatTotalCarr(cTeamTotals.totalCarr)}
-                      </span>
+                  <section className="dashboard-panel" aria-labelledby="team-c-opps-title">
+                    <div className="dashboard-panel__head">
+                      <div className="dashboard-panel__head-text">
+                        <h3 className="dashboard-panel__title" id="team-c-opps-title">
+                          C-scored opportunities
+                        </h3>
+                        <p className="dashboard-panel__subtitle">
+                          {data
+                            ? cTeamTotals.count === 0
+                              ? 'No C-scored deals in scope'
+                              : `${cTeamTotals.count} ${
+                                  cTeamTotals.count === 1 ? 'opp' : 'opps'
+                                } across the team`
+                            : 'Loading…'}
+                        </p>
+                      </div>
+                      {data && cTeamTotals.count > 0 && (
+                        <div
+                          className="team-ae-total"
+                          aria-label="Total C-scored CARR for the team"
+                        >
+                          <span className="team-ae-total__label">Total CARR</span>
+                          <span className="team-ae-total__value">
+                            {formatTotalCarr(cTeamTotals.totalCarr)}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {/*
+                    {/*
                   Render branches mirror the AE roster's pattern above:
                   populated list → empty hint → loading → error. The
                   populated branch is a flat list — one row per opp,
@@ -1907,69 +1827,51 @@ function TeamPage() {
                   for the deal sitting in the middle column so the
                   reader can attribute each row at a glance.
                 */}
-                {data && cOppsForTeam.length > 0 ? (
-                  <ul className="team-c-opps-list">
-                    {/*
+                    {data && cOppsForTeam.length > 0 ? (
+                      <ul className="team-c-opps-list">
+                        {/*
                       Header row uses the same grid layout as the data
                       rows below so the columns line up exactly. Marked
                       aria-hidden because the per-cell aria-labels and
                       the panel's overall section labelling already
                       carry the semantics for assistive tech.
                     */}
-                    <li
-                      className="team-c-opps-row team-c-opps-row--head"
-                      aria-hidden="true"
-                    >
-                      <span className="team-c-opps-row__opp">Opportunity</span>
-                      <span className="team-c-opps-row__ae">AE</span>
-                      <span className="team-c-opps-row__carr">CARR</span>
-                    </li>
-                    {cOppsForTeam.map(({ opp, aeName }) => (
-                      <li
-                        key={
-                          opp.opportunityId ||
-                          `${opp.opportunityName}-${opp.effectiveDate}`
-                        }
-                        className="team-c-opps-row"
-                      >
-                        <span
-                          className="team-c-opps-row__opp"
-                          title={opp.opportunityName}
-                        >
-                          {opp.opportunityName || 'Untitled opportunity'}
-                        </span>
-                        <span
-                          className="team-c-opps-row__ae"
-                          title={aeName}
-                        >
-                          {aeName}
-                        </span>
-                        <span className="team-c-opps-row__carr">
-                          {formatCarr(opp)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : data ? (
-                  <p className="team-ae-status">
-                    No C-scored closed-won opps for this team{' '}
-                    {scope === SCOPE_QUARTER
-                      ? 'this quarter yet.'
-                      : 'yet this year.'}
-                  </p>
-                ) : loading ? (
-                  <p className="team-ae-status">Loading C-scored opps…</p>
-                ) : error ? (
-                  <p className="team-ae-status">
-                    Couldn&apos;t load metrics for C opps.
-                  </p>
-                ) : (
-                  <p className="team-ae-status">No C-scored opps yet.</p>
-                )}
-              </section>
-            </section>
-          )}
-          </>
+                        <li className="team-c-opps-row team-c-opps-row--head" aria-hidden="true">
+                          <span className="team-c-opps-row__opp">Opportunity</span>
+                          <span className="team-c-opps-row__ae">AE</span>
+                          <span className="team-c-opps-row__carr">CARR</span>
+                        </li>
+                        {cOppsForTeam.map(({ opp, aeName }) => (
+                          <li
+                            key={opp.opportunityId || `${opp.opportunityName}-${opp.effectiveDate}`}
+                            className="team-c-opps-row"
+                          >
+                            <span className="team-c-opps-row__opp" title={opp.opportunityName}>
+                              {opp.opportunityName || 'Untitled opportunity'}
+                            </span>
+                            <span className="team-c-opps-row__ae" title={aeName}>
+                              {aeName}
+                            </span>
+                            <span className="team-c-opps-row__carr">{formatCarr(opp)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : data ? (
+                      <p className="team-ae-status">
+                        No C-scored closed-won opps for this team{' '}
+                        {scope === SCOPE_QUARTER ? 'this quarter yet.' : 'yet this year.'}
+                      </p>
+                    ) : loading ? (
+                      <p className="team-ae-status">Loading C-scored opps…</p>
+                    ) : error ? (
+                      <p className="team-ae-status">Couldn&apos;t load metrics for C opps.</p>
+                    ) : (
+                      <p className="team-ae-status">No C-scored opps yet.</p>
+                    )}
+                  </section>
+                </section>
+              )}
+            </>
           )}
         </div>
       )}

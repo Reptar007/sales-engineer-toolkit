@@ -80,8 +80,8 @@ const SalesforceMetrics = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  const dateRange = getQuarterDateRange(quarter.label)
+
+  const dateRange = getQuarterDateRange(quarter.label);
 
   const availableYears = config ? getAvailableYears(config) : getFallbackYears(currentCalendarYear);
 
@@ -104,14 +104,16 @@ const SalesforceMetrics = () => {
           const yearsWithData = years.filter(hasData);
           const defaultYear = yearsWithData.includes(initialYear)
             ? initialYear
-            : yearsWithData[0] ?? (years[0] ?? initialYear);
+            : (yearsWithData[0] ?? years[0] ?? initialYear);
           setSelectedYear(defaultYear);
         }
       })
       .catch((err) => {
         if (!cancelled) setConfigError(err.message);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -145,7 +147,8 @@ const SalesforceMetrics = () => {
           throw new Error('Snapshot unavailable and no report ID for this year');
         });
       }
-      if (!reportId) return Promise.reject(new Error(`No metrics report ID for year ${selectedYear}`));
+      if (!reportId)
+        return Promise.reject(new Error(`No metrics report ID for year ${selectedYear}`));
       return fetchSalesforceReport(reportId);
     };
 
@@ -167,7 +170,9 @@ const SalesforceMetrics = () => {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [config, selectedYear]);
 
   const quarterOptionsFromData = [];
@@ -183,7 +188,8 @@ const SalesforceMetrics = () => {
     label: q.label,
   }));
 
-  const quarterOptions = quarterOptionsFromData.length > 0 ? quarterOptionsFromData : quarterOptionsFromGoals;
+  const quarterOptions =
+    quarterOptionsFromData.length > 0 ? quarterOptionsFromData : quarterOptionsFromGoals;
 
   const selectedQuarterData = data?.quarterlyData?.[quarter.label];
   // C-scored opps are filtered out for everything on this page (CARR
@@ -193,9 +199,7 @@ const SalesforceMetrics = () => {
   // 2025 reports lack the Account Score column so `isCScore` returns
   // false for every legacy opp — no rows are removed for historical
   // years.
-  const opportunities = (selectedQuarterData?.opportunities || []).filter(
-    (opp) => !isCScore(opp),
-  );
+  const opportunities = (selectedQuarterData?.opportunities || []).filter((opp) => !isCScore(opp));
 
   // CARR sums exclude C-scored opps via `sumGoalEligibleCARR`. The
   // backend still emits the raw `totalCARR` (sum of every closed-won
@@ -208,7 +212,7 @@ const SalesforceMetrics = () => {
     .filter(([key]) => key !== 'Total')
     .reduce((sum, [, q]) => sum + sumGoalEligibleCARR(q?.opportunities), 0);
 
-  const quarterlyGoalsFromConfig = (config?.goalsByYear?.[selectedYear] || []);
+  const quarterlyGoalsFromConfig = config?.goalsByYear?.[selectedYear] || [];
   const yearlyGoal = quarterlyGoalsFromConfig.reduce((acc, q) => acc + q.goal, 0);
   const selectedQuarterGoal = quarterlyGoalsFromConfig.find((q) => q.label === quarter.label);
   const quarterlyGoal = selectedQuarterGoal?.goal || 0;
@@ -509,7 +513,10 @@ const SalesforceMetrics = () => {
         <table>
           <caption>
             <span>Compensation</span>
-            <span className="caption-subtitle">We must hit Target of <strong>{formatNumber(quarterlyGoal * .80)}</strong> for {quarter.label.split(' ')[0]}</span>
+            <span className="caption-subtitle">
+              We must hit Target of <strong>{formatNumber(quarterlyGoal * 0.8)}</strong> for{' '}
+              {quarter.label.split(' ')[0]}
+            </span>
           </caption>
           <thead>
             <tr>
@@ -523,9 +530,38 @@ const SalesforceMetrics = () => {
             {Object.keys(compensation).map((role) => (
               <tr key={role}>
                 <td>{role.toUpperCase()}</td>
-                <td>{compensation[role].toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td>{calculateCompensation(role, currentQuarterCARR, quarterlyGoal).quarterlyCompensation.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td>{calculateCompensation(role, currentQuarterCARR, quarterlyGoal).compensation.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td>
+                  {compensation[role].toLocaleString('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </td>
+                <td>
+                  {calculateCompensation(
+                    role,
+                    currentQuarterCARR,
+                    quarterlyGoal,
+                  ).quarterlyCompensation.toLocaleString('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </td>
+                <td>
+                  {calculateCompensation(
+                    role,
+                    currentQuarterCARR,
+                    quarterlyGoal,
+                  ).compensation.toLocaleString('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -49,7 +49,8 @@ const CreateSnapshotPage = () => {
     <div className="create-snapshot">
       <h2 className="section-title create-snapshot__title">Snapshot Data</h2>
       <p className="create-snapshot__intro">
-        Snapshots are created per year so we can create historical data, and so we do not keep calling SF APIs for older data.
+        Snapshots are created per year so we can create historical data, and so we do not keep
+        calling SF APIs for older data.
       </p>
       {configLoading ? (
         <p className="create-snapshot__loading">Loading…</p>
@@ -64,7 +65,9 @@ const CreateSnapshotPage = () => {
             </span>
           </div>
           <div className="create-snapshot__form">
-            <label htmlFor="snapshot-year" className="create-snapshot__form-label">Year</label>
+            <label htmlFor="snapshot-year" className="create-snapshot__form-label">
+              Year
+            </label>
             <select
               id="snapshot-year"
               value={selectedYear}
@@ -72,7 +75,9 @@ const CreateSnapshotPage = () => {
               className="create-snapshot__form-select"
             >
               {[2025, 2026, 2027].map((y) => (
-                <option key={y} value={y}>{y}</option>
+                <option key={y} value={y}>
+                  {y}
+                </option>
               ))}
             </select>
             <button

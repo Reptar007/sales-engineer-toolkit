@@ -14,7 +14,6 @@ function getCurrentQuarterLabel() {
   return `Q${quarter} • ${year}`;
 }
 
-
 /**
  * Main Dashboard - Home page with metrics widget and project overview
  *
@@ -43,7 +42,6 @@ function Dashboard() {
       <CurrentQuarterMetrics />
 
       <DashboardWidgets />
-
     </div>
   );
 }

@@ -15,7 +15,7 @@ function ProjectHeader({ project }) {
           </div>
         </div>
       </div>
-      
+
       <div className="project-header-right">
         <span className="project-version">v{project.version}</span>
       </div>

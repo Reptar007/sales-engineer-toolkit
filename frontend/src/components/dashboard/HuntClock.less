@@ -50,11 +50,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(
-    120% 80% at 50% 110%,
-    var(--hc-wash) 0%,
-    transparent 60%
-  );
+  background: radial-gradient(120% 80% at 50% 110%, var(--hc-wash) 0%, transparent 60%);
   z-index: 0;
   transition: background 800ms ease;
 }
@@ -166,11 +162,7 @@
   inset: 0 auto 0 0;
   height: 100%;
   border-radius: 9999px;
-  background: linear-gradient(
-    90deg,
-    var(--hc-fill-start) 0%,
-    var(--hc-fill-end) 100%
-  );
+  background: linear-gradient(90deg, var(--hc-fill-start) 0%, var(--hc-fill-end) 100%);
   box-shadow:
     0 0 0.75rem var(--hc-fill-shadow),
     inset 0 1px 0 rgba(255, 255, 255, 0.25);
@@ -301,7 +293,8 @@
 }
 
 @keyframes hunt-clock-bob {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0) rotate(-1deg);
   }
   50% {
@@ -314,7 +307,8 @@
 // metronomic. Scale stays gentle (1.08) so the silhouette doesn't
 // blow past the reserved track padding above the bar.
 @keyframes hunt-clock-hop {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0) scale(1) rotate(-2deg);
   }
   30% {
@@ -479,7 +473,8 @@
 }
 
 @keyframes hunt-clock-crunch-pulse {
-  0%, 100% {
+  0%,
+  100% {
     border-color: rgba(255, 70, 60, 0.6);
     box-shadow:
       0 1.25rem 2.5rem rgba(0, 0, 0, 0.55),

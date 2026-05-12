@@ -121,10 +121,7 @@ const UsersPage = () => {
     <div>
       <div className="users-header">
         <h2 className="section-title">Users</h2>
-        <button
-          onClick={() => setOpenCreateUserModal(true)}
-          className="btn-metric btn-primary"
-        >
+        <button onClick={() => setOpenCreateUserModal(true)} className="btn-metric btn-primary">
           Create New User
         </button>
       </div>
@@ -150,15 +147,11 @@ const UsersPage = () => {
               </button>
             </span>
             <small>
-              Share this with {resetBanner.email} out-of-band. They&apos;ll be required to change
-              it on their next login.
+              Share this with {resetBanner.email} out-of-band. They&apos;ll be required to change it
+              on their next login.
             </small>
           </div>
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={() => setResetBanner(null)}
-          >
+          <button type="button" className="btn-ghost" onClick={() => setResetBanner(null)}>
             Dismiss
           </button>
         </div>

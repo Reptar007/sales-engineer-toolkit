@@ -70,12 +70,7 @@ function renderSummarySentence(summary) {
   // Stay silent until the hook reports ready, so we don't flash an
   // "all clear" sentence before the counts come in.
   if (!summary || summary.ready === false) return null;
-  const {
-    meetingsToday = 0,
-    highPriority = 0,
-    aiDemo = 0,
-    blocked = 0,
-  } = summary;
+  const { meetingsToday = 0, highPriority = 0, aiDemo = 0, blocked = 0 } = summary;
   const parts = [];
 
   if (meetingsToday > 0) {
@@ -89,16 +84,16 @@ function renderSummarySentence(summary) {
   if (highPriority > 0) {
     parts.push(
       <React.Fragment key="hp">
-        <span className="page-header__count">{highPriority}</span>{' '}
-        high-priority {highPriority === 1 ? 'hunt' : 'hunts'}
+        <span className="page-header__count">{highPriority}</span> high-priority{' '}
+        {highPriority === 1 ? 'hunt' : 'hunts'}
       </React.Fragment>,
     );
   }
   if (aiDemo > 0) {
     parts.push(
       <React.Fragment key="ai">
-        <span className="page-header__count">{aiDemo}</span> AI{' '}
-        {aiDemo === 1 ? 'demo' : 'demos'} coming up
+        <span className="page-header__count">{aiDemo}</span> AI {aiDemo === 1 ? 'demo' : 'demos'}{' '}
+        coming up
       </React.Fragment>,
     );
   }
@@ -123,18 +118,12 @@ function renderSummarySentence(summary) {
   const stitched = [];
   parts.forEach((part, i) => {
     if (i > 0) {
-      stitched.push(
-        i === parts.length - 1 && parts.length > 1 ? ', and ' : ', ',
-      );
+      stitched.push(i === parts.length - 1 && parts.length > 1 ? ', and ' : ', ');
     }
     stitched.push(part);
   });
 
-  return (
-    <p className="page-header__summary">
-      Your pack has {stitched}.
-    </p>
-  );
+  return <p className="page-header__summary">Your pack has {stitched}.</p>;
 }
 
 function PageHeader({ name, overline, subline, summary, team, children }) {
@@ -188,22 +177,14 @@ function PageHeader({ name, overline, subline, summary, team, children }) {
             </p>
             {(team.quarter || summary?.activeHunts != null) && (
               <div className="page-header__team-meta">
-                {team.quarter && (
-                  <span className="page-header__team-quarter">
-                    {team.quarter}
-                  </span>
-                )}
+                {team.quarter && <span className="page-header__team-quarter">{team.quarter}</span>}
                 {summary?.activeHunts != null && (
                   <span
                     className="page-header__active-pill"
                     aria-label={`${summary.activeHunts} active hunts`}
                   >
-                    <LuZap
-                      className="page-header__active-pill-icon"
-                      aria-hidden="true"
-                    />
-                    {summary.activeHunts} active{' '}
-                    {summary.activeHunts === 1 ? 'hunt' : 'hunts'}
+                    <LuZap className="page-header__active-pill-icon" aria-hidden="true" />
+                    {summary.activeHunts} active {summary.activeHunts === 1 ? 'hunt' : 'hunts'}
                   </span>
                 )}
               </div>

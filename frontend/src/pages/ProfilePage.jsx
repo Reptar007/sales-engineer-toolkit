@@ -10,8 +10,7 @@ import {
 import { useToast } from '../contexts/ToastContext';
 import './ProfilePage.less';
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function classifyIdentifier(raw) {
   const value = (raw || '').trim();
@@ -204,74 +203,69 @@ export default function ProfilePage() {
     <div className="profile-page">
       <header className="profile-page__header">
         <h1>Profile</h1>
-        <p className="profile-page__subtitle">
-          Integrations and account preferences.
-        </p>
+        <p className="profile-page__subtitle">Integrations and account preferences.</p>
       </header>
 
       <div className="profile-page__sections">
-      <section className="profile-card" aria-labelledby="linear-heading">
-        <div className="profile-card__head">
-          <h2 id="linear-heading">Linear</h2>
-          <span className="profile-card__meta">
-            Link your Linear account so your dashboard shows only issues assigned to you.
-          </span>
-        </div>
-
-        {loading && <p className="profile-card__status">Loading…</p>}
-
-        {!loading && error && (
-          <p className="profile-card__status profile-card__status--error" role="alert">
-            {error}
-          </p>
-        )}
-
-        {!loading && message && (
-          <p className="profile-card__status profile-card__status--ok" role="status">
-            {message}
-          </p>
-        )}
-
-        {!loading && profile && !profile.hasSalesEngineer && (
-          <div className="profile-card__body">
-            <p>
-              Your account is not set up as a Sales Engineer. Ask an admin to assign you
-              to a team before connecting Linear.
-            </p>
+        <section className="profile-card" aria-labelledby="linear-heading">
+          <div className="profile-card__head">
+            <h2 id="linear-heading">Linear</h2>
+            <span className="profile-card__meta">
+              Link your Linear account so your dashboard shows only issues assigned to you.
+            </span>
           </div>
-        )}
 
-        {!loading && profile && profile.hasSalesEngineer && profile.linearUserId && (
-          <div className="profile-card__body">
-            <p>
-              <strong>Connected as</strong>{' '}
-              {profile.linearUser
-                ? `${profile.linearUser.name} <${profile.linearUser.email}>`
-                : profile.linearUserId}
+          {loading && <p className="profile-card__status">Loading…</p>}
+
+          {!loading && error && (
+            <p className="profile-card__status profile-card__status--error" role="alert">
+              {error}
             </p>
-            <div className="profile-card__actions">
-              <button
-                type="button"
-                className="btn btn--danger"
-                onClick={handleDisconnect}
-                disabled={busy}
-              >
-                {busy ? 'Working…' : 'Disconnect Linear'}
-              </button>
+          )}
+
+          {!loading && message && (
+            <p className="profile-card__status profile-card__status--ok" role="status">
+              {message}
+            </p>
+          )}
+
+          {!loading && profile && !profile.hasSalesEngineer && (
+            <div className="profile-card__body">
+              <p>
+                Your account is not set up as a Sales Engineer. Ask an admin to assign you to a team
+                before connecting Linear.
+              </p>
             </div>
-          </div>
-        )}
+          )}
 
-        {!loading &&
-          profile &&
-          profile.hasSalesEngineer &&
-          !profile.linearUserId && (
+          {!loading && profile && profile.hasSalesEngineer && profile.linearUserId && (
+            <div className="profile-card__body">
+              <p>
+                <strong>Connected as</strong>{' '}
+                {profile.linearUser
+                  ? `${profile.linearUser.name} <${profile.linearUser.email}>`
+                  : profile.linearUserId}
+              </p>
+              <div className="profile-card__actions">
+                <button
+                  type="button"
+                  className="btn btn--danger"
+                  onClick={handleDisconnect}
+                  disabled={busy}
+                >
+                  {busy ? 'Working…' : 'Disconnect Linear'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!loading && profile && profile.hasSalesEngineer && !profile.linearUserId && (
             <div className="profile-card__body">
               {profile.autoResolvable ? (
                 <>
                   <p>
-                    We found a Linear user matching your app email (
-                    <code>{profile.appEmail}</code>). Click connect to link them.
+                    We found a Linear user matching your app email (<code>{profile.appEmail}</code>
+                    ). Click connect to link them.
                   </p>
                   <div className="profile-card__actions">
                     <button
@@ -286,8 +280,8 @@ export default function ProfilePage() {
                 </>
               ) : (
                 <p>
-                  We could not auto-match your app email (<code>{profile.appEmail}</code>)
-                  to a Linear user. Paste your Linear email (or user UUID) below.
+                  We could not auto-match your app email (<code>{profile.appEmail}</code>) to a
+                  Linear user. Paste your Linear email (or user UUID) below.
                 </p>
               )}
 
@@ -310,85 +304,78 @@ export default function ProfilePage() {
               </form>
             </div>
           )}
-      </section>
+        </section>
 
-      <section className="profile-card" aria-labelledby="google-cal-heading">
-        <div className="profile-card__head">
-          <h2 id="google-cal-heading">Google Calendar</h2>
-          <span className="profile-card__meta">
-            Connect your Google account so today&apos;s meetings appear on your dashboard.
-          </span>
-        </div>
+        <section className="profile-card" aria-labelledby="google-cal-heading">
+          <div className="profile-card__head">
+            <h2 id="google-cal-heading">Google Calendar</h2>
+            <span className="profile-card__meta">
+              Connect your Google account so today&apos;s meetings appear on your dashboard.
+            </span>
+          </div>
 
-        {googleCal.loading && <p className="profile-card__status">Loading…</p>}
+          {googleCal.loading && <p className="profile-card__status">Loading…</p>}
 
-        {!googleCal.loading && googleCal.error && (
-          <p
-            className="profile-card__status profile-card__status--error"
-            role="alert"
-          >
-            {googleCal.error}
-          </p>
-        )}
-
-        {!googleCal.loading && googleCal.message && (
-          <p
-            className="profile-card__status profile-card__status--ok"
-            role="status"
-          >
-            {googleCal.message}
-          </p>
-        )}
-
-        {!googleCal.loading && googleConnectedViaOauth && (
-          <div className="profile-card__body">
-            <p>
-              <strong>Connected.</strong> Today&apos;s events from your primary
-              Google Calendar will appear on your dashboard.
+          {!googleCal.loading && googleCal.error && (
+            <p className="profile-card__status profile-card__status--error" role="alert">
+              {googleCal.error}
             </p>
-            <div className="profile-card__actions">
-              <button
-                type="button"
-                className="btn btn--danger"
-                onClick={handleDisconnectGoogleCal}
-                disabled={googleCal.busy}
-              >
-                {googleCal.busy ? 'Working…' : 'Disconnect Google Calendar'}
-              </button>
+          )}
+
+          {!googleCal.loading && googleCal.message && (
+            <p className="profile-card__status profile-card__status--ok" role="status">
+              {googleCal.message}
+            </p>
+          )}
+
+          {!googleCal.loading && googleConnectedViaOauth && (
+            <div className="profile-card__body">
+              <p>
+                <strong>Connected.</strong> Today&apos;s events from your primary Google Calendar
+                will appear on your dashboard.
+              </p>
+              <div className="profile-card__actions">
+                <button
+                  type="button"
+                  className="btn btn--danger"
+                  onClick={handleDisconnectGoogleCal}
+                  disabled={googleCal.busy}
+                >
+                  {googleCal.busy ? 'Working…' : 'Disconnect Google Calendar'}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {!googleCal.loading && googleConnectedViaServiceAccount && (
-          <div className="profile-card__body">
-            <p>
-              Calendar events are loaded via a shared, admin-configured service
-              account. There&apos;s nothing to disconnect here — reach out to
-              your admin to change the calendar source.
-            </p>
-          </div>
-        )}
-
-        {!googleCal.loading && !googleCal.configured && (
-          <div className="profile-card__body">
-            <p>
-              You haven&apos;t connected Google Calendar yet. Connect to surface
-              today&apos;s meetings (with Zoom / Meet / Teams join links) on
-              your dashboard.
-            </p>
-            <div className="profile-card__actions">
-              <button
-                type="button"
-                className="btn btn--primary"
-                onClick={handleConnectGoogleCal}
-                disabled={googleCal.busy}
-              >
-                {googleCal.busy ? 'Redirecting…' : 'Connect Google Calendar'}
-              </button>
+          {!googleCal.loading && googleConnectedViaServiceAccount && (
+            <div className="profile-card__body">
+              <p>
+                Calendar events are loaded via a shared, admin-configured service account.
+                There&apos;s nothing to disconnect here — reach out to your admin to change the
+                calendar source.
+              </p>
             </div>
-          </div>
-        )}
-      </section>
+          )}
+
+          {!googleCal.loading && !googleCal.configured && (
+            <div className="profile-card__body">
+              <p>
+                You haven&apos;t connected Google Calendar yet. Connect to surface today&apos;s
+                meetings (with Zoom / Meet / Teams join links) on your dashboard.
+              </p>
+              <div className="profile-card__actions">
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  onClick={handleConnectGoogleCal}
+                  disabled={googleCal.busy}
+                >
+                  {googleCal.busy ? 'Redirecting…' : 'Connect Google Calendar'}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

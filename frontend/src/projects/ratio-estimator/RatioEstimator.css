@@ -133,11 +133,7 @@
 
 .ratio-estimator .section {
   background: var(--midnight-navy);
-  background-image: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.025),
-    rgba(255, 255, 255, 0)
-  );
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.85rem;
   padding: 1.25rem 1.4rem;
@@ -146,7 +142,9 @@
     0 1px 0 rgba(255, 255, 255, 0.04) inset,
     0 12px 24px -18px rgba(0, 0, 0, 0.6);
   /* Cancel the legacy `transition: all` which stutters on hover. */
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .ratio-estimator .section-title {
@@ -302,7 +300,10 @@
   color: var(--white);
   font-family: inherit;
   font-size: 0.9375rem;
-  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .ratio-estimator .search-input::placeholder {
@@ -375,7 +376,10 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .ratio-estimator .status-badge:hover {
@@ -437,7 +441,10 @@
   border-radius: 0.55rem;
   padding: 0.55rem 1rem;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .ratio-estimator .review-actions .resubmit-rejected {
@@ -482,8 +489,12 @@
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
-.ratio-estimator .table-wrapper.scrollable::-webkit-scrollbar { width: 8px; }
-.ratio-estimator .table-wrapper.scrollable::-webkit-scrollbar-track { background: transparent; }
+.ratio-estimator .table-wrapper.scrollable::-webkit-scrollbar {
+  width: 8px;
+}
+.ratio-estimator .table-wrapper.scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
 .ratio-estimator .table-wrapper.scrollable::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 4px;
@@ -662,7 +673,9 @@
   border-radius: 0.45rem;
   padding: 0.45rem 0.85rem;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .ratio-estimator .pagination-btn:hover:not(:disabled),
@@ -710,11 +723,7 @@
 
 .modal {
   background: var(--midnight-navy);
-  background-image: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.025),
-    rgba(255, 255, 255, 0)
-  );
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.85rem;
   padding: 1.5rem 1.65rem;
@@ -759,8 +768,13 @@
   margin-bottom: 0.5rem;
 }
 
-.modal .required { color: var(--coral); }
-.modal .optional { color: rgba(255, 255, 255, 0.4); font-style: normal; }
+.modal .required {
+  color: var(--coral);
+}
+.modal .optional {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: normal;
+}
 
 .modal .ratio-input,
 .modal .form-textarea {
@@ -772,7 +786,10 @@
   color: var(--white);
   font-family: inherit;
   font-size: 0.9375rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .modal .ratio-input {
@@ -819,7 +836,10 @@
   padding: 0.55rem 1.15rem;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .modal-actions .btn.ghost {

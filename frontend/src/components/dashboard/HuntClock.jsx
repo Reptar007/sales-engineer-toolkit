@@ -21,8 +21,18 @@ import './HuntClock.less';
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const MONTH_ABBREV = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 // Progress tiers that drive the card's "urgency" treatment — border
@@ -58,9 +68,7 @@ function readTierOverride() {
   if (!import.meta.env.DEV) return null;
   if (typeof window === 'undefined') return null;
   try {
-    const fromUrl = new URLSearchParams(window.location.search).get(
-      'hunt_clock_tier',
-    );
+    const fromUrl = new URLSearchParams(window.location.search).get('hunt_clock_tier');
     if (fromUrl && VALID_TIERS.includes(fromUrl)) return fromUrl;
     const fromStorage = window.localStorage?.getItem('huntClockTier');
     if (fromStorage && VALID_TIERS.includes(fromStorage)) return fromStorage;
@@ -97,70 +105,57 @@ function getQuarterRange(date) {
 }
 
 function HuntClock({ now }) {
-  const {
-    qNumber,
-    qLabel,
-    daysLeft,
-    percentElapsed,
-    months,
-    kickoffLabel,
-    closeLabel,
-  } = useMemo(() => {
-    const today = startOfDay(now ?? new Date());
-    const range = getQuarterRange(today);
-    const startMs = range.start.getTime();
-    const endMs = range.end.getTime();
-    const todayMs = today.getTime();
+  const { qNumber, qLabel, daysLeft, percentElapsed, months, kickoffLabel, closeLabel } =
+    useMemo(() => {
+      const today = startOfDay(now ?? new Date());
+      const range = getQuarterRange(today);
+      const startMs = range.start.getTime();
+      const endMs = range.end.getTime();
+      const todayMs = today.getTime();
 
-    // "Days till end of quarter" uses inclusive-bookend day counting
-    // so May 8 → Jun 30 reads as 54 days (24 in May + 30 in June)
-    // rather than 53 (which would skip today). Math.round on ms diffs
-    // immunizes against DST transitions inside the quarter — without
-    // it, the 23h spring-forward day would drop a count.
-    const totalDaysInclusive =
-      Math.round((endMs - startMs) / MS_PER_DAY) + 1;
-    const daysRemaining = Math.max(
-      0,
-      Math.min(
-        totalDaysInclusive,
-        Math.round((endMs - todayMs) / MS_PER_DAY) + 1,
-      ),
-    );
+      // "Days till end of quarter" uses inclusive-bookend day counting
+      // so May 8 → Jun 30 reads as 54 days (24 in May + 30 in June)
+      // rather than 53 (which would skip today). Math.round on ms diffs
+      // immunizes against DST transitions inside the quarter — without
+      // it, the 23h spring-forward day would drop a count.
+      const totalDaysInclusive = Math.round((endMs - startMs) / MS_PER_DAY) + 1;
+      const daysRemaining = Math.max(
+        0,
+        Math.min(totalDaysInclusive, Math.round((endMs - todayMs) / MS_PER_DAY) + 1),
+      );
 
-    // Bar-position math is boundary-to-boundary (Apr 1 = 0%, Jun 30 =
-    // 100%). The character, the displayed "% through" text, and the
-    // month-start ticks all share the same denominator so they can
-    // never drift apart on screen — at May 8, character at 41.1%
-    // sits exactly past the May 1 boundary tick at 33.3%.
-    const totalSpanMs = endMs - startMs;
-    const elapsedMs = Math.max(0, Math.min(totalSpanMs, todayMs - startMs));
-    const pct = totalSpanMs > 0 ? (elapsedMs / totalSpanMs) * 100 : 0;
+      // Bar-position math is boundary-to-boundary (Apr 1 = 0%, Jun 30 =
+      // 100%). The character, the displayed "% through" text, and the
+      // month-start ticks all share the same denominator so they can
+      // never drift apart on screen — at May 8, character at 41.1%
+      // sits exactly past the May 1 boundary tick at 33.3%.
+      const totalSpanMs = endMs - startMs;
+      const elapsedMs = Math.max(0, Math.min(totalSpanMs, todayMs - startMs));
+      const pct = totalSpanMs > 0 ? (elapsedMs / totalSpanMs) * 100 : 0;
 
-    const startMonthIdx = range.start.getMonth();
-    const months = [0, 1, 2].map((offset) => {
-      const monthStart = new Date(range.year, startMonthIdx + offset, 1);
-      const monthPct = totalSpanMs > 0
-        ? ((monthStart.getTime() - startMs) / totalSpanMs) * 100
-        : 0;
+      const startMonthIdx = range.start.getMonth();
+      const months = [0, 1, 2].map((offset) => {
+        const monthStart = new Date(range.year, startMonthIdx + offset, 1);
+        const monthPct =
+          totalSpanMs > 0 ? ((monthStart.getTime() - startMs) / totalSpanMs) * 100 : 0;
+        return {
+          label: MONTH_ABBREV[startMonthIdx + offset],
+          pct: Math.max(0, Math.min(100, monthPct)),
+        };
+      });
+
+      const fmtDay = (d) => `${MONTH_ABBREV[d.getMonth()]} ${d.getDate()}`;
+
       return {
-        label: MONTH_ABBREV[startMonthIdx + offset],
-        pct: Math.max(0, Math.min(100, monthPct)),
+        qNumber: range.qNumber,
+        qLabel: `Q${range.qNumber}`,
+        daysLeft: daysRemaining,
+        percentElapsed: pct,
+        months,
+        kickoffLabel: fmtDay(range.start),
+        closeLabel: fmtDay(range.end),
       };
-    });
-
-    const fmtDay = (d) =>
-      `${MONTH_ABBREV[d.getMonth()]} ${d.getDate()}`;
-
-    return {
-      qNumber: range.qNumber,
-      qLabel: `Q${range.qNumber}`,
-      daysLeft: daysRemaining,
-      percentElapsed: pct,
-      months,
-      kickoffLabel: fmtDay(range.start),
-      closeLabel: fmtDay(range.end),
-    };
-  }, [now]);
+    }, [now]);
 
   // Cap the character position at 99% so the character never clips off
   // the right edge of the bar at quarter end. Floor at 1% so Axo
@@ -177,23 +172,18 @@ function HuntClock({ now }) {
   const tier = tierOverride ?? tierForProgress(percentElapsed);
 
   return (
-    <section
-      className={`hunt-clock hunt-clock--tier-${tier}`}
-      aria-labelledby="hunt-clock-title"
-    >
+    <section className={`hunt-clock hunt-clock--tier-${tier}`} aria-labelledby="hunt-clock-title">
       <div className="hunt-clock__head">
         <div className="hunt-clock__head-left">
           <p className="hunt-clock__overline">The Hunt Clock</p>
           <h2 className="hunt-clock__title" id="hunt-clock-title">
-            <span className="hunt-clock__count">{daysLeft}</span>{' '}
-            {daysLeft === 1 ? 'day' : 'days'} till end of{' '}
-            <span className="hunt-clock__quarter">{qLabel}</span>
+            <span className="hunt-clock__count">{daysLeft}</span> {daysLeft === 1 ? 'day' : 'days'}{' '}
+            till end of <span className="hunt-clock__quarter">{qLabel}</span>
           </h2>
         </div>
         <div className="hunt-clock__head-right">
           <p className="hunt-clock__pct">
-            <span className="hunt-clock__count">{pctRounded}%</span> through
-            the quarter
+            <span className="hunt-clock__count">{pctRounded}%</span> through the quarter
           </p>
           <p className="hunt-clock__sprint">Sprint to {closeLabel}</p>
         </div>
@@ -210,10 +200,7 @@ function HuntClock({ now }) {
         } remaining`}
       >
         <div className="hunt-clock__bar">
-          <div
-            className="hunt-clock__bar-fill"
-            style={{ width: `${fillWidth}%` }}
-          />
+          <div className="hunt-clock__bar-fill" style={{ width: `${fillWidth}%` }} />
           {/*
             One tick per real boundary on the timeline: the kickoff
             (0%), each month-start, and the close (100%). Rendering
@@ -224,9 +211,7 @@ function HuntClock({ now }) {
           {months.map((m, idx) => (
             <span
               key={`tick-${m.label}`}
-              className={`hunt-clock__tick${
-                idx === 0 ? ' hunt-clock__tick--start' : ''
-              }`}
+              className={`hunt-clock__tick${idx === 0 ? ' hunt-clock__tick--start' : ''}`}
               style={{ left: `${m.pct}%` }}
               aria-hidden="true"
             />

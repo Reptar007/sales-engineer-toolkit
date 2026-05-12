@@ -185,8 +185,7 @@
 .salesforce-calculator .metric-card--projected {
   --card-accent: var(--coral);
   --card-accent-rgb: 255, 107, 74;
-  background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
 }
 
 /* Progress card keeps the state-colored corner glow because here the
@@ -352,8 +351,7 @@
   gap: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background-color: var(--midnight-navy);
-  background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
   padding: 1.25rem 1.4rem;
   border-radius: 0.85rem;
   width: 100%;
@@ -568,11 +566,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.04),
-    rgba(255, 255, 255, 0)
-  );
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
   pointer-events: none;
 }
 
@@ -671,17 +665,32 @@
  * ========================= */
 
 .salesforce-calculator .table-container th:nth-child(1),
-.salesforce-calculator .table-container td:nth-child(1) { width: 8%; }
+.salesforce-calculator .table-container td:nth-child(1) {
+  width: 8%;
+}
 .salesforce-calculator .table-container th:nth-child(2),
-.salesforce-calculator .table-container td:nth-child(2) { width: 28%; text-align: left; }
+.salesforce-calculator .table-container td:nth-child(2) {
+  width: 28%;
+  text-align: left;
+}
 .salesforce-calculator .table-container th:nth-child(3),
-.salesforce-calculator .table-container td:nth-child(3) { width: 14%; }
+.salesforce-calculator .table-container td:nth-child(3) {
+  width: 14%;
+}
 .salesforce-calculator .table-container th:nth-child(4),
-.salesforce-calculator .table-container td:nth-child(4) { width: 20%; text-align: left; }
+.salesforce-calculator .table-container td:nth-child(4) {
+  width: 20%;
+  text-align: left;
+}
 .salesforce-calculator .table-container th:nth-child(5),
-.salesforce-calculator .table-container td:nth-child(5) { width: 12%; }
+.salesforce-calculator .table-container td:nth-child(5) {
+  width: 12%;
+}
 .salesforce-calculator .table-container th:nth-child(6),
-.salesforce-calculator .table-container td:nth-child(6) { width: 18%; text-align: right; }
+.salesforce-calculator .table-container td:nth-child(6) {
+  width: 18%;
+  text-align: right;
+}
 
 /* Match left-alignment on the headers for the columns that align left. */
 .salesforce-calculator .table-container th:nth-child(2),

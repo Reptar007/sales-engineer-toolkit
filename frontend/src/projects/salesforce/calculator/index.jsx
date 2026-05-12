@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  LuTrendingUp,
-  LuCirclePlus,
-  LuTarget,
-  LuActivity,
-  LuTrophy,
-} from 'react-icons/lu';
+import { LuTrendingUp, LuCirclePlus, LuTarget, LuActivity, LuTrophy } from 'react-icons/lu';
 import {
   fetchSalesforceReport,
   getSalesforceConfig,
@@ -64,7 +58,9 @@ const SalesforceCalculator = () => {
       .catch((err) => {
         if (!cancelled) setConfigError(err.message);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -111,7 +107,9 @@ const SalesforceCalculator = () => {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [config, currentYear]);
 
   const toggleSelection = (opportunityId) => {
@@ -329,10 +327,18 @@ const SalesforceCalculator = () => {
               </div>
               <div className="metric-card-body">
                 <h3 className="metric-card-body-text compensation-card-amount">
-                  ${compData.compensation.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  $
+                  {compData.compensation.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </h3>
                 <p className="quarterly-goal-text">
-                  Quarterly: ${compData.quarterlyCompensation.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  Quarterly: $
+                  {compData.quarterlyCompensation.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </p>
                 {isBelowThreshold && (
                   <p className="compensation-card-warning">

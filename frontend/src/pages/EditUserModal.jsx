@@ -118,8 +118,7 @@ const EditUserModal = ({ isOpen, user, onClose, onSaved }) => {
 
   if (!isOpen || !user) return null;
 
-  const fullName =
-    `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email || 'user';
+  const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email || 'user';
 
   return (
     <div
@@ -188,12 +187,7 @@ const EditUserModal = ({ isOpen, user, onClose, onSaved }) => {
           {error && <p className="admin-form-error">{error}</p>}
 
           <div className="modal-actions">
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={onClose}
-              disabled={submitting}
-            >
+            <button type="button" className="btn-ghost" onClick={onClose} disabled={submitting}>
               Cancel
             </button>
             <button type="submit" className="btn-primary" disabled={submitting}>

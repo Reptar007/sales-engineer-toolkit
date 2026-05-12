@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  LuTarget,
-  LuTrendingUp,
-  LuTrophy,
-  LuChartBar,
-} from 'react-icons/lu';
+import { LuTarget, LuTrendingUp, LuTrophy, LuChartBar } from 'react-icons/lu';
 import {
   fetchSalesforceReport,
   getSalesforceConfig,
@@ -65,10 +60,7 @@ function CurrentQuarterMetrics() {
       (c.snapshotYears || []).includes(yr) || !!c.reportIdsByYear?.[yr]?.metrics;
     if (hasData(calendarYear)) return calendarYear;
     const allYears = [
-      ...new Set([
-        ...Object.keys(c.reportIdsByYear || {}).map(Number),
-        ...(c.snapshotYears || []),
-      ]),
+      ...new Set([...Object.keys(c.reportIdsByYear || {}).map(Number), ...(c.snapshotYears || [])]),
     ].sort((a, b) => b - a);
     return allYears.find(hasData) ?? calendarYear;
   };
@@ -93,7 +85,9 @@ function CurrentQuarterMetrics() {
           if (!data) setLoading(false);
         }
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -137,7 +131,9 @@ function CurrentQuarterMetrics() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [config, currentYear]);
 
   const quarterlyData = data?.quarterlyData || {};
@@ -203,9 +199,7 @@ function CurrentQuarterMetrics() {
     return q === 1 ? `Q4 CY${yr - 1}` : `Q${q - 1} CY${yr}`;
   })();
 
-  const previousQuarterData = previousQuarterKey
-    ? quarterlyData[previousQuarterKey] || {}
-    : {};
+  const previousQuarterData = previousQuarterKey ? quarterlyData[previousQuarterKey] || {} : {};
   const previousQuarterCARR = previousQuarterData?.totalCARR || 0;
   const previousQuarterGoal = previousQuarterKey
     ? quarterlyGoals.find((q) => q.label === previousQuarterKey)?.goal || 0
@@ -234,9 +228,7 @@ function CurrentQuarterMetrics() {
   const showUserTiles = !!userQuarterlyData && userAECount > 0;
 
   const currentUserData = userQuarterlyData?.[currentQuarterKey] || {};
-  const previousUserData = previousQuarterKey
-    ? userQuarterlyData?.[previousQuarterKey] || {}
-    : {};
+  const previousUserData = previousQuarterKey ? userQuarterlyData?.[previousQuarterKey] || {} : {};
   const currentUserWins = currentUserData?.opportunityCount || 0;
   const previousUserWins = previousUserData?.opportunityCount || 0;
   const currentUserCARR = currentUserData?.totalCARR || 0;
@@ -255,11 +247,7 @@ function CurrentQuarterMetrics() {
   // `formatValue` callback lets the caller pick the unit (currency, plain
   // count, percentage, …). Returns null when there's no prior data to
   // compare against so the card can hide the delta gracefully.
-  const formatDelta = (
-    delta,
-    hasBaseline,
-    formatValue = (n) => `$${formatNumber(n)}`,
-  ) => {
+  const formatDelta = (delta, hasBaseline, formatValue = (n) => `$${formatNumber(n)}`) => {
     if (!hasBaseline) return null;
     if (!delta) return { text: formatValue(0), tone: 'flat' };
     const sign = delta > 0 ? '+' : '−';
@@ -270,11 +258,7 @@ function CurrentQuarterMetrics() {
   const goalDeltaInfo = formatDelta(goalDelta, !!previousQuarterGoal);
   const carrDeltaInfo = formatDelta(carrDelta, !!previousQuarterCARR);
   // Pack Wins delta is a plain integer count (no `$`), formatted as e.g. "+3".
-  const winsDeltaInfo = formatDelta(
-    winsDelta,
-    !!previousPackWins,
-    (n) => `${Math.round(n)}`,
-  );
+  const winsDeltaInfo = formatDelta(winsDelta, !!previousPackWins, (n) => `${Math.round(n)}`);
   // Avg deal size is currency.
   const avgDealDeltaInfo = formatDelta(avgDealDelta, !!previousAvgDealSize);
   // SE-scoped equivalents of the above two. Wins delta is a plain count,
@@ -328,9 +312,7 @@ function CurrentQuarterMetrics() {
               <LuTarget />
             </span>
           </div>
-          <div className="metric-summary__value">
-            ${formatNumber(currentQuarterGoal)}
-          </div>
+          <div className="metric-summary__value">${formatNumber(currentQuarterGoal)}</div>
           <div className="metric-summary__foot">
             {goalDeltaInfo ? (
               <span
@@ -339,14 +321,10 @@ function CurrentQuarterMetrics() {
                 {goalDeltaInfo.text}
               </span>
             ) : (
-              <span className="metric-summary__delta metric-summary__delta--muted">
-                —
-              </span>
+              <span className="metric-summary__delta metric-summary__delta--muted">—</span>
             )}
             <span className="metric-summary__hint">
-              {previousQuarterShortLabel
-                ? `vs ${previousQuarterShortLabel}`
-                : 'vs last quarter'}
+              {previousQuarterShortLabel ? `vs ${previousQuarterShortLabel}` : 'vs last quarter'}
             </span>
           </div>
         </div>
@@ -358,9 +336,7 @@ function CurrentQuarterMetrics() {
               <LuTrendingUp />
             </span>
           </div>
-          <div className="metric-summary__value">
-            ${formatNumber(currentQuarterCARR)}
-          </div>
+          <div className="metric-summary__value">${formatNumber(currentQuarterCARR)}</div>
           <div className="metric-summary__foot">
             {carrDeltaInfo ? (
               <span
@@ -369,13 +345,9 @@ function CurrentQuarterMetrics() {
                 {carrDeltaInfo.text}
               </span>
             ) : (
-              <span className="metric-summary__delta metric-summary__delta--muted">
-                —
-              </span>
+              <span className="metric-summary__delta metric-summary__delta--muted">—</span>
             )}
-            <span className="metric-summary__hint">
-              {quarterlyProgress.toFixed(1)}% of goal
-            </span>
+            <span className="metric-summary__hint">{quarterlyProgress.toFixed(1)}% of goal</span>
           </div>
         </div>
 
@@ -390,9 +362,7 @@ function CurrentQuarterMetrics() {
             <div className="metric-summary metric-summary--detailed">
               <div className="metric-summary__head">
                 <span className="metric-summary__label">
-                  {currentQuarterNumber
-                    ? `My Wins Q${currentQuarterNumber}`
-                    : 'My Wins'}
+                  {currentQuarterNumber ? `My Wins Q${currentQuarterNumber}` : 'My Wins'}
                 </span>
                 <span className="metric-summary__icon" aria-hidden="true">
                   <LuTrophy />
@@ -407,9 +377,7 @@ function CurrentQuarterMetrics() {
                     {userWinsDeltaInfo.text}
                   </span>
                 ) : (
-                  <span className="metric-summary__delta metric-summary__delta--muted">
-                    —
-                  </span>
+                  <span className="metric-summary__delta metric-summary__delta--muted">—</span>
                 )}
                 {/*
                   Mirror the Pack Wins subtitle pattern so the delta has a
@@ -430,17 +398,13 @@ function CurrentQuarterMetrics() {
             <div className="metric-summary metric-summary--detailed">
               <div className="metric-summary__head">
                 <span className="metric-summary__label">
-                  {currentQuarterNumber
-                    ? `My CARR Q${currentQuarterNumber}`
-                    : 'My CARR'}
+                  {currentQuarterNumber ? `My CARR Q${currentQuarterNumber}` : 'My CARR'}
                 </span>
                 <span className="metric-summary__icon" aria-hidden="true">
                   <LuChartBar />
                 </span>
               </div>
-              <div className="metric-summary__value">
-                ${formatNumber(currentUserCARR)}
-              </div>
+              <div className="metric-summary__value">${formatNumber(currentUserCARR)}</div>
               <div className="metric-summary__foot">
                 {userCARRDeltaInfo ? (
                   <span
@@ -449,9 +413,7 @@ function CurrentQuarterMetrics() {
                     {userCARRDeltaInfo.text}
                   </span>
                 ) : (
-                  <span className="metric-summary__delta metric-summary__delta--muted">
-                    —
-                  </span>
+                  <span className="metric-summary__delta metric-summary__delta--muted">—</span>
                 )}
                 {/*
                   Mirror the Avg Deal Size subtitle pattern: lead with the
@@ -476,9 +438,7 @@ function CurrentQuarterMetrics() {
             <div className="metric-summary metric-summary--detailed">
               <div className="metric-summary__head">
                 <span className="metric-summary__label">
-                  {currentQuarterNumber
-                    ? `Pack Wins Q${currentQuarterNumber}`
-                    : 'Pack Wins'}
+                  {currentQuarterNumber ? `Pack Wins Q${currentQuarterNumber}` : 'Pack Wins'}
                 </span>
                 <span className="metric-summary__icon" aria-hidden="true">
                   <LuTrophy />
@@ -493,14 +453,10 @@ function CurrentQuarterMetrics() {
                     {winsDeltaInfo.text}
                   </span>
                 ) : (
-                  <span className="metric-summary__delta metric-summary__delta--muted">
-                    —
-                  </span>
+                  <span className="metric-summary__delta metric-summary__delta--muted">—</span>
                 )}
                 <span className="metric-summary__hint">
-                  {previousPackWins
-                    ? `${previousPackWins} last quarter`
-                    : 'no prior data'}
+                  {previousPackWins ? `${previousPackWins} last quarter` : 'no prior data'}
                 </span>
               </div>
             </div>
@@ -516,9 +472,7 @@ function CurrentQuarterMetrics() {
                   <LuChartBar />
                 </span>
               </div>
-              <div className="metric-summary__value">
-                ${formatNumber(currentAvgDealSize)}
-              </div>
+              <div className="metric-summary__value">${formatNumber(currentAvgDealSize)}</div>
               <div className="metric-summary__foot">
                 {avgDealDeltaInfo ? (
                   <span
@@ -527,9 +481,7 @@ function CurrentQuarterMetrics() {
                     {avgDealDeltaInfo.text}
                   </span>
                 ) : (
-                  <span className="metric-summary__delta metric-summary__delta--muted">
-                    —
-                  </span>
+                  <span className="metric-summary__delta metric-summary__delta--muted">—</span>
                 )}
                 <span className="metric-summary__hint">
                   {previousAvgDealSize

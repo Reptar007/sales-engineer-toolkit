@@ -11,7 +11,7 @@ function ProjectTemplate() {
         <h1>Project Template</h1>
         <p>This is a template for creating new projects</p>
       </div>
-      
+
       <div className="project-content">
         <div className="feature-section">
           <h2>Getting Started</h2>
@@ -24,11 +24,11 @@ function ProjectTemplate() {
             <li>Create any project-specific components, hooks, or services</li>
           </ol>
         </div>
-        
+
         <div className="feature-section">
           <h2>Project Structure</h2>
           <pre>
-{`project-name/
+            {`project-name/
 ├── index.jsx          # Main project component
 ├── components/        # Project-specific components
 ├── hooks/            # Project-specific hooks

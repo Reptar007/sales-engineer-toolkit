@@ -38,7 +38,9 @@ function TestStep({ step, index, onNameChange }) {
         />
       </h4>
       <div className="fdg-code-wrapper">
-        <pre className="fdg-code-block"><code>{step.code}</code></pre>
+        <pre className="fdg-code-block">
+          <code>{step.code}</code>
+        </pre>
       </div>
     </div>
   );
@@ -86,14 +88,18 @@ function DocOutput({ doc }) {
     <h2 class="fdg-section-heading">Summary of Flow</h2>
     <p class="fdg-summary-text">${summary}</p>
   </div>
-  ${steps.map((step, i) => `
+  ${steps
+    .map(
+      (step, i) => `
   <div class="fdg-step">
     <h3 class="fdg-step-name-heading">
       <span class="fdg-step-index">${i + 1}</span>
       ${step.name}
     </h3>
     <pre>${step.code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-  </div>`).join('')}
+  </div>`,
+    )
+    .join('')}
 </body>
 </html>`;
 
@@ -138,10 +144,18 @@ function DocOutput({ doc }) {
         <div className="fdg-print-tip fdg-no-print">
           <div className="fdg-print-tip-header">
             <span>To remove headers and footers from the PDF:</span>
-            <button type="button" className="fdg-print-tip-close" onClick={() => setShowPrintTip(false)}>&#10005;</button>
+            <button
+              type="button"
+              className="fdg-print-tip-close"
+              onClick={() => setShowPrintTip(false)}
+            >
+              &#10005;
+            </button>
           </div>
           <ol className="fdg-print-tip-steps">
-            {printTipSteps.map((step, i) => <li key={i}>{step}</li>)}
+            {printTipSteps.map((step, i) => (
+              <li key={i}>{step}</li>
+            ))}
           </ol>
         </div>
       )}
@@ -168,12 +182,7 @@ function DocOutput({ doc }) {
 
         <section className="fdg-steps-section">
           {steps.map((step, i) => (
-            <TestStep
-              key={`step-${i}`}
-              step={step}
-              index={i}
-              onNameChange={handleStepNameChange}
-            />
+            <TestStep key={`step-${i}`} step={step} index={i} onNameChange={handleStepNameChange} />
           ))}
         </section>
       </div>
@@ -237,10 +246,16 @@ function FlowDocGenerator() {
         <div className="fdg-how-it-works">
           <p className="fdg-how-title">How it works</p>
           <ol className="fdg-how-steps">
-            <li>Paste a QA Wolf flow URL and click <strong>Generate</strong></li>
+            <li>
+              Paste a QA Wolf flow URL and click <strong>Generate</strong>
+            </li>
             <li>The AI will summarize the flow and extract each test step</li>
-            <li>Click any field — title, summary, or step names — to edit them before downloading</li>
-            <li>Hit <strong>Download PDF</strong> to save a branded leave-behind</li>
+            <li>
+              Click any field — title, summary, or step names — to edit them before downloading
+            </li>
+            <li>
+              Hit <strong>Download PDF</strong> to save a branded leave-behind
+            </li>
           </ol>
         </div>
 
@@ -250,7 +265,9 @@ function FlowDocGenerator() {
             <li>The SE Lead must be invited to the customer&apos;s QA Wolf team</li>
             <li>Must use a production URL — staging URLs are not supported</li>
             <li>Step extraction uses Helpers (V2 coming soon)</li>
-            <li>When saving the PDF, uncheck <strong>Headers and Footers</strong> in the print dialog</li>
+            <li>
+              When saving the PDF, uncheck <strong>Headers and Footers</strong> in the print dialog
+            </li>
           </ul>
         </div>
       </div>
