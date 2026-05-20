@@ -51,14 +51,15 @@ function DocOutput({ doc }) {
   const [title, setTitle] = useState(doc.flowName);
   const [summary, setSummary] = useState(doc.summary);
   const [steps, setSteps] = useState(doc.steps);
-  const [showPrintTip, setShowPrintTip] = useState(false);
+  // Show print tip as soon as the doc is generated, so the user sees
+  // the instructions before they click Download PDF.
+  const [showPrintTip, setShowPrintTip] = useState(true);
 
   const handleStepNameChange = useCallback((index, newName) => {
     setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, name: newName } : s)));
   }, []);
 
   const handleDownload = () => {
-    setShowPrintTip(true);
     const logoUrl = `${window.location.origin}/QAWolf_logo_blue.png`;
 
     const html = `<!DOCTYPE html>

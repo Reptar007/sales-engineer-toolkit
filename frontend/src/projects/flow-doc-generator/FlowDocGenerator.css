@@ -365,15 +365,25 @@
   transform: translateY(-1px);
 }
 
-/* Print tip banner — slots into the dark action area so it inherits
-   the strip's framing rather than slapping a yellow box on white paper. */
+/* =========================
+ * Print tip banner
+ *
+ * Lives between the dark action bar and the white paper preview.
+ * Restyled to match SalesWolf chrome: dark navy background (same as
+ * .fdg-doc-actions above it) with a coral left border + coral header,
+ * so it reads as a continuation of the action strip rather than a
+ * yellow box dropped onto the page. Reuses colors already in this
+ * file (coral, midnight-navy, white at various opacities).
+ * ========================= */
+
 .fdg-print-tip {
   margin: 0;
-  padding: 0.85rem 1rem;
-  background: rgba(245, 158, 11, 0.12);
-  border-top: 1px solid rgba(245, 158, 11, 0.35);
-  border-bottom: 1px solid rgba(245, 158, 11, 0.18);
-  color: #fde68a;
+  padding: 0.85rem 1.1rem 0.95rem;
+  background: var(--midnight-navy);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 3px solid var(--coral);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 0.8125rem;
 }
 
@@ -382,30 +392,36 @@
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
-  margin-bottom: 0.35rem;
+  color: var(--coral);
+  margin-bottom: 0.4rem;
 }
 
 .fdg-print-tip-close {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 0.85rem;
-  color: #fde68a;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.55);
   padding: 0 0.25rem;
   line-height: 1;
-  opacity: 0.75;
-  transition: opacity 0.15s ease;
+  opacity: 1;
+  transition: color 0.15s ease;
 }
 
 .fdg-print-tip-close:hover {
-  opacity: 1;
+  color: var(--white);
 }
 
 .fdg-print-tip-steps {
   margin: 0;
-  padding-left: 1.25rem;
-  color: #fde68a;
+  padding-left: 1.6rem;
+  color: rgba(255, 255, 255, 0.78);
   line-height: 1.65;
+  list-style: decimal;
+}
+
+.fdg-print-tip-steps li::marker {
+  color: rgba(255, 255, 255, 0.78);
 }
 
 /* ----- Paper preview body — light-themed on purpose ----- */
