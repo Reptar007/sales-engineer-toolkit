@@ -21,7 +21,7 @@
     "ratio-estimator": "src/index.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.81.0",
+    "@anthropic-ai/sdk": "^0.97.1",
     "@prisma/client": "^6.17.1",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
@@ -37,7 +37,7 @@
     "redis": "^5.8.2",
     "serve-static": "^1.15.0",
     "socket.io": "^4.8.1",
-    "sqlite3": "^5.1.7",
+    "sqlite3": "^6.0.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
