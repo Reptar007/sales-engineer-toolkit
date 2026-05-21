@@ -43,6 +43,16 @@ sales-engineer-toolkit/
 
 ### Installation
 
+Ensure you are using Node version 24.16.0 or the npm will not install
+If you need to update or install Node v24.16.0 Please refer to this doc and follow the instructions. https://nodejs.org/en/download
+The top bar should be set to:
+Get Node.js® : v24.16.0 LTS
+for : macOS (if using mac)
+using : nvm
+with : npm
+
+Then run the following from the root directory:
+
 ```bash
 # Install all dependencies (root, backend, and frontend)
 npm run install:all
