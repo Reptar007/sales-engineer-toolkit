@@ -38,10 +38,70 @@ sales-engineer-toolkit/
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
-- npm (v8 or higher)
+Ensure you are using Node version 24.16.0 or the npm packages will not install.
+If you need to update or install Node v24.16.0 you may follow the instructions below or get them from this doc: https://nodejs.org/en/download
+
+#### Option 1: Instructions for Mac
+
+1. **Download and install nvm:**
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+```
+
+2. **In lieu of restarting the shell:**
+
+```bash
+\. "$HOME/.nvm/nvm.sh"
+```
+
+3. **Download and install Node.js:**
+
+```bash
+nvm install 24
+```
+
+4. **Verify the Node.js version:**
+
+```bash
+node -v # Should print "v24.16.0".
+```
+
+5. **Verify npm version:**
+
+```bash
+npm -v # Should print "11.13.0".
+```
+
+#### Option 2: Instructions for Windows
+
+1. **Download and install Chocolatey:**
+
+```bash
+powershell -c "irm https://community.chocolatey.org/install.ps1|iex"
+```
+
+2. **Download and install Node.js:**
+
+```bash
+choco install nodejs --version="24.16.0"
+```
+
+3. **Verify the Node.js version:**
+
+```bash
+node -v # Should print "v24.16.0".
+```
+
+4. **Verify npm version:**
+
+```bash
+npm -v # Should print "11.13.0".
+```
 
 ### Installation
+
+Once opperating on Node v24.16.0 run the following from the root directory:
 
 ```bash
 # Install all dependencies (root, backend, and frontend)
