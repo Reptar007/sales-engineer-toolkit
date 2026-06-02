@@ -249,14 +249,23 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
         }
 
         // Recalculate totals for filtered opportunities
-        const filteredTotalCARR = opportunities.reduce((sum, opp) => sum + opp.carrAmount, 0);
+        // Exclude C accounts from quarterly metrics
+        const filteredOpportunities = opportunities.filter((opp) => opp.accountScore !== 'C');
+
+        const filteredTotalCARR = filteredOpportunities.reduce(
+          (sum, opp) => sum + opp.carrAmount,
+          0,
+        );
 
         quarterlyData[quarterName] = {
           quarter: quarterName,
           totalCARR: filteredTotalCARR,
-          totalCARRFormatted: `$${filteredTotalCARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-          opportunityCount: opportunities.length,
-          opportunities: opportunities,
+          totalCARRFormatted: `$${filteredTotalCARR.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`,
+          opportunityCount: filteredOpportunities.length,
+          opportunities: filteredOpportunities,
         };
       });
 
