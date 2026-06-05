@@ -30,6 +30,20 @@ jobs:
       # 5) Prettier formatting check (non-destructive)
       - run: npm run format:check
 
+  # Prisma schema drift guard. Runs independently (no deps, just Node)
+  # so it catches dev (SQLite) vs prod (PostgreSQL) schema divergence
+  # even while other checks are red. Drift here means a feature can work
+  # locally and silently break in production.
+  schema-sync:
+    name: Prisma Schema Sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/check-schema-sync.js
+
   # Optional: run tests across all workspaces when you add them
   tests:
     name: Workspace Tests

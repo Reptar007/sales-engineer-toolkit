@@ -27,6 +27,7 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "schema:check": "node scripts/check-schema-sync.js",
     "prepare": "husky",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
