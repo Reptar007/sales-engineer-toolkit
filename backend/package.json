@@ -2,6 +2,9 @@
   "name": "saleswolf-backend",
   "version": "0.1.0",
   "main": "src/index.js",
+  "engines": {
+    "node": "24.16.0"
+  },
   "scripts": {
     "dev": "nodemon --watch src src/index.js",
     "start": "node src/index.js",
@@ -38,7 +41,7 @@
     "redis": "^5.8.2",
     "serve-static": "^1.15.0",
     "socket.io": "^4.8.1",
-    "sqlite3": "^5.1.7",
+    "sqlite3": "^6.0.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

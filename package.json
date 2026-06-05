@@ -57,11 +57,11 @@
   "author": "",
   "license": "ISC",
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+    "node": "24.16.0"
   },
   "dependencies": {
     "@prisma/client": "^6.17.1",
+    "all": "^0.0.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
