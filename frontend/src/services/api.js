@@ -397,6 +397,140 @@ export async function disconnectLinearProfile() {
   return apiRequest('/users/me/linear', { method: 'DELETE' });
 }
 
+// --- Opps (handoff pages) ----------------------------------------------------
+
+/**
+ * List the team-wide Opp directory.
+ * @param {{ search?: string, seId?: string, includeArchived?: boolean }} [params]
+ */
+export async function listOpps(params = {}) {
+  const query = new URLSearchParams();
+  if (params.search) query.set('search', params.search);
+  if (params.seId) query.set('seId', params.seId);
+  if (params.includeArchived) query.set('includeArchived', '1');
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  return apiRequest(`/opps${suffix}`);
+}
+
+/** Fetch the current SE's Linear-derived + DB-saved opps. */
+export async function listMyOpps() {
+  return apiRequest('/opps/mine');
+}
+
+/** Fetch a single Opp with linked Linear tickets + canEdit flag. */
+export async function getOpp(id) {
+  return apiRequest(`/opps/${id}`);
+}
+
+/**
+ * Create or upsert an Opp by (current SE, oppName).
+ * @param {{ oppName: string, salesforceOpportunityId?: string|null, salesEngineerId?: string }} body
+ */
+export async function createOpp(body) {
+  return apiRequest('/opps', {
+    method: 'POST',
+    body: JSON.stringify(body || {}),
+  });
+}
+
+/** Partial update of editable Opp fields. Throws on 403 for non-owners. */
+export async function updateOpp(id, patch) {
+  return apiRequest(`/opps/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch || {}),
+  });
+}
+
+/**
+ * Hard-delete an Opp. Backend gates this to the owning SE or an admin
+ * (Leads can edit-on-behalf but can't delete). Throws on 403 for anyone
+ * else, 404 if the Opp is already gone.
+ */
+export async function deleteOpp(id) {
+  return apiRequest(`/opps/${id}`, { method: 'DELETE' });
+}
+
+/**
+ * List the caller's currently-open Linear tickets for the manual-link
+ * picker on the Opp detail page. Returns `{ configured, tickets }` --
+ * the picker hides itself when Linear isn't wired up.
+ */
+export async function listMyLinearTickets() {
+  return apiRequest('/opps/linear/my-tickets');
+}
+
+/**
+ * Manually link a Linear ticket to an Opp. `input` can be either a bare
+ * identifier ("AXO-959") or a full Linear URL -- the backend parses both.
+ * Throws on 404 when the ticket doesn't exist in the configured team and
+ * 403 for non-editors.
+ */
+export async function linkLinearTicket(id, input) {
+  return apiRequest(`/opps/${id}/linear-links`, {
+    method: 'POST',
+    body: JSON.stringify({ identifier: input }),
+  });
+}
+
+/** Remove a manual link by identifier. Auto-discovered tickets are unaffected. */
+export async function unlinkLinearTicket(id, identifier) {
+  return apiRequest(`/opps/${id}/linear-links/${encodeURIComponent(identifier)}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * List active Sales Engineers for the reassignment picker on the Opp
+ * detail page. Admin/Lead only on the backend; throws on 403 for other
+ * callers so the UI can hide the picker.
+ */
+export async function listSalesEngineersForOpps() {
+  return apiRequest('/opps/sales-engineers');
+}
+
+/**
+ * Push the Opp to Notion as a database page. Pass the SF + Gong data the
+ * detail page already has loaded so the server doesn't re-query SF; the
+ * backend trusts the caller (same auth gate as PATCH).
+ *
+ * @param {string} id
+ * @param {{ sfData?: object|null, gongConversations?: Array, linearTickets?: object|null }} payload
+ */
+export async function sendOppToNotion(id, payload = {}) {
+  return apiRequest(`/opps/${id}/notion`, {
+    method: 'POST',
+    body: JSON.stringify({
+      sfData: payload.sfData || null,
+      gongConversations: payload.gongConversations || [],
+      // We forward the linked Linear tickets from the detail page so the
+      // Notion handoff section can surface AE-template metadata (Slack
+      // thread, "Type of Ask") without a redundant Linear round-trip on
+      // the backend. Pass null/omit to fall back to whatever the backend
+      // had cached.
+      linearTickets: payload.linearTickets || null,
+    }),
+  });
+}
+
+/**
+ * Ask Claude to mine the opp's Gong call briefs for handoff suggestions
+ * (Integrations / Pain Points / Additional Notes). We forward the Gong
+ * conversations the detail page already loaded so the server doesn't
+ * re-query Salesforce. Returns { suggestions, callsAnalyzed } or
+ * { suggestions: null, reason } when there's nothing to analyze.
+ *
+ * @param {string} id
+ * @param {{ gongConversations?: Array }} payload
+ */
+export async function analyzeOppGong(id, payload = {}) {
+  return apiRequest(`/opps/${id}/analyze-gong`, {
+    method: 'POST',
+    body: JSON.stringify({
+      gongConversations: payload.gongConversations || [],
+    }),
+  });
+}
+
 // Export apiRequest for direct use
 export { apiRequest };
 
@@ -423,4 +557,15 @@ export default {
   fetchUsers,
   searchOpportunities,
   fetchGongConversations,
+  listOpps,
+  listMyOpps,
+  getOpp,
+  createOpp,
+  updateOpp,
+  deleteOpp,
+  listSalesEngineersForOpps,
+  listMyLinearTickets,
+  linkLinearTicket,
+  unlinkLinearTicket,
+  sendOppToNotion,
 };

@@ -17,6 +17,9 @@ import SalesforceCalculator from './projects/salesforce/calculator';
 import SalesforceLookup from './projects/salesforce/lookup';
 import SalesforceMetrics from './projects/salesforce-metrics';
 import TeamPage from './projects/team';
+import OppDirectory from './projects/opps/OppDirectory';
+import MyOpps from './projects/opps/MyOpps';
+import OppDetail from './projects/opps/OppDetail';
 
 /**
  * Main App Component with Routing
@@ -114,6 +117,32 @@ function AppContent() {
               element={
                 <ProtectedRoute>
                   <SalesforceLookup />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Opps -- team directory must come before the dynamic :oppId route. */}
+            <Route
+              path="/projects/opps"
+              element={
+                <ProtectedRoute>
+                  <OppDirectory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/projects/opps/mine"
+              element={
+                <ProtectedRoute>
+                  <MyOpps />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/projects/opps/:oppId"
+              element={
+                <ProtectedRoute>
+                  <OppDetail />
                 </ProtectedRoute>
               }
             />

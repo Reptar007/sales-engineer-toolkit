@@ -123,7 +123,7 @@ This project is configured to use 1Password CLI for secure environment variable 
 2. **Sign in to 1Password**:
 
    ```bash
-   op signin
+   eval $(op signin)
    ```
 
 3. **Set up environment variables** (one-time setup):

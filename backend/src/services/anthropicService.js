@@ -26,13 +26,16 @@ function getClient() {
 }
 
 export const anthropicService = {
-  async callAnthropic(systemPrompt, userPrompt) {
+  // `options.maxTokens` lets callers that need longer / structured output
+  // (e.g. JSON extraction) raise the cap. Defaults preserve the original
+  // 1024-token behavior so existing callers are unaffected.
+  async callAnthropic(systemPrompt, userPrompt, { maxTokens = 1024 } = {}) {
     const anthropic = getClient();
 
     try {
       const message = await anthropic.messages.create({
         model: DEFAULT_MODEL,
-        max_tokens: 1024,
+        max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
       });
