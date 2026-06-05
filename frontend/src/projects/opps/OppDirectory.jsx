@@ -39,7 +39,10 @@ function fullName(se) {
 // are absolute; everything else falls back to a neutral gray.
 function stageVariant(stage) {
   if (!stage) return 'unknown';
-  const s = String(stage).toLowerCase().replace(/^\d+\.\s*/, '').trim();
+  const s = String(stage)
+    .toLowerCase()
+    .replace(/^\d+\.\s*/, '')
+    .trim();
   if (s.includes('closed won') || s === 'won') return 'won';
   if (s.includes('closed lost') || s === 'lost') return 'lost';
   if (s.includes('contract')) return 'contracting';
@@ -54,16 +57,15 @@ function stageVariant(stage) {
 // pill label while keeping the original value in `title` for power users.
 function prettyStage(stage) {
   if (!stage) return '';
-  return String(stage).replace(/^\d+\.\s*/, '').trim();
+  return String(stage)
+    .replace(/^\d+\.\s*/, '')
+    .trim();
 }
 
 function StagePill({ stage }) {
   if (!stage) return <span className="opp-stage-pill opp-stage-pill--unknown">—</span>;
   return (
-    <span
-      className={`opp-stage-pill opp-stage-pill--${stageVariant(stage)}`}
-      title={stage}
-    >
+    <span className={`opp-stage-pill opp-stage-pill--${stageVariant(stage)}`} title={stage}>
       {prettyStage(stage)}
     </span>
   );
@@ -112,8 +114,7 @@ function OppDirectory() {
   // anything; SEs only their own hunts. Leads (edit-on-behalf) don't get
   // the button -- mirrors the gating on the detail page. The backend
   // re-checks regardless.
-  const canDeleteOpp = (opp) =>
-    isAdmin || !!(user?.id && opp.salesEngineer?.userId === user.id);
+  const canDeleteOpp = (opp) => isAdmin || !!(user?.id && opp.salesEngineer?.userId === user.id);
 
   const handleDelete = async (opp, e) => {
     // Stop the row's navigate-on-click from firing.
@@ -203,8 +204,8 @@ function OppDirectory() {
                     <h3>The board is empty</h3>
                     <p>
                       Start a new hunt with the button above, or jump to{' '}
-                      <Link to="/projects/opps/mine">My Hunts</Link> to pick up an
-                      active Linear ticket.
+                      <Link to="/projects/opps/mine">My Hunts</Link> to pick up an active Linear
+                      ticket.
                     </p>
                   </div>
                 </td>

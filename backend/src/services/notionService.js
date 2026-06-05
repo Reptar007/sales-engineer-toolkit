@@ -133,7 +133,6 @@ async function getUserDirectory() {
   try {
     let cursor;
     do {
-       
       const page = await client.users.list({ start_cursor: cursor, page_size: 100 });
       for (const u of page.results || []) {
         if (!u || u.type !== 'person') continue;
@@ -215,10 +214,7 @@ function maybeRichText(schema, name, text) {
   if (!def || def.type !== 'rich_text') return null;
   const content = String(text == null ? '' : text);
   if (!content) return null;
-  return [
-    def.name,
-    { rich_text: [{ type: 'text', text: { content: content.slice(0, 1900) } }] },
-  ];
+  return [def.name, { rich_text: [{ type: 'text', text: { content: content.slice(0, 1900) } }] }];
 }
 
 function maybeNumber(schema, name, value) {
@@ -329,9 +325,7 @@ function bulletLink(label, url) {
     object: 'block',
     type: 'bulleted_list_item',
     bulleted_list_item: {
-      rich_text: [
-        { type: 'text', text: { content: text, link: { url } } },
-      ],
+      rich_text: [{ type: 'text', text: { content: text, link: { url } } }],
     },
   };
 }
@@ -348,9 +342,7 @@ function divider() {
 // Details). Value is clamped to Notion's per-text-node limit.
 function labelValueBullet(label, value) {
   const val = value == null || value === '' ? '' : String(value).slice(0, 1900);
-  const rich = [
-    { type: 'text', text: { content: `${label}:` }, annotations: { bold: true } },
-  ];
+  const rich = [{ type: 'text', text: { content: `${label}:` }, annotations: { bold: true } }];
   if (val) rich.push({ type: 'text', text: { content: ` ${val}` } });
   return {
     object: 'block',
@@ -764,7 +756,6 @@ async function replacePageChildren(client, blockId, children) {
   const existingIds = [];
   let cursor;
   do {
-     
     const res = await client.blocks.children.list({
       block_id: blockId,
       start_cursor: cursor,
@@ -777,13 +768,12 @@ async function replacePageChildren(client, blockId, children) {
   } while (cursor);
 
   for (const id of existingIds) {
-     
     await client.blocks.delete({ block_id: id });
   }
 
   for (let i = 0; i < children.length; i += 100) {
     const chunk = children.slice(i, i + 100);
-     
+
     await client.blocks.children.append({ block_id: blockId, children: chunk });
   }
 }

@@ -105,15 +105,11 @@ function GongInsightsModal({ oppId, sfOpportunityId, onApply, onClose }) {
 
   return (
     <div className="opp-modal-backdrop" onClick={onClose}>
-      <div
-        className="opp-modal opp-modal--insights"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="opp-modal opp-modal--insights" onClick={(e) => e.stopPropagation()}>
         <h2 className="opp-modal__title">Suggestions from Gong calls</h2>
         <p className="opp-modal__sub">
-          Claude read this opp&apos;s Gong call briefs and pulled out what
-          might belong in the handoff. Edit anything, then Append or Replace
-          into the field.
+          Claude read this opp&apos;s Gong call briefs and pulled out what might belong in the
+          handoff. Edit anything, then Append or Replace into the field.
         </p>
 
         {status === 'loading' && (
@@ -128,8 +124,7 @@ function GongInsightsModal({ oppId, sfOpportunityId, onApply, onClose }) {
 
         {status === 'empty' && (
           <p className="opp-section__placeholder">
-            No Gong call briefs are available for this opp yet, so there&apos;s
-            nothing to analyze.
+            No Gong call briefs are available for this opp yet, so there&apos;s nothing to analyze.
           </p>
         )}
 
@@ -156,10 +151,7 @@ function GongInsightsModal({ oppId, sfOpportunityId, onApply, onClose }) {
                         <span className="opp-detail__save-status">Added</span>
                       )}
                       {cardState === 'error' && (
-                        <span
-                          className="opp-detail__save-status"
-                          style={{ color: '#fda4af' }}
-                        >
+                        <span className="opp-detail__save-status" style={{ color: '#fda4af' }}>
                           Failed
                         </span>
                       )}
@@ -174,9 +166,7 @@ function GongInsightsModal({ oppId, sfOpportunityId, onApply, onClose }) {
                         <textarea
                           className="opp-insights__textarea"
                           value={value}
-                          onChange={(e) =>
-                            setDrafts((d) => ({ ...d, [key]: e.target.value }))
-                          }
+                          onChange={(e) => setDrafts((d) => ({ ...d, [key]: e.target.value }))}
                           rows={Math.min(10, Math.max(3, value.split('\n').length + 1))}
                         />
                         <div className="opp-insights__actions">

@@ -81,12 +81,7 @@ function TicketRow({ ticket, oppId, canEdit, onChanged }) {
   const className = `opp-ticket${ticket.isClosed ? ' opp-ticket--closed' : ''}${ticket.manual ? ' opp-ticket--manual' : ''}`;
   if (ticket.url) {
     return (
-      <a
-        className={className}
-        href={ticket.url}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+      <a className={className} href={ticket.url} target="_blank" rel="noopener noreferrer">
         {inner}
       </a>
     );
@@ -149,9 +144,7 @@ function LinearTicketsCard({ linearTickets, oppId, canEdit, onChanged }) {
     return (
       <div className="opp-section">
         {header}
-        <p className="opp-section__placeholder">
-          Linear isn&apos;t configured for this app yet.
-        </p>
+        <p className="opp-section__placeholder">Linear isn&apos;t configured for this app yet.</p>
         {modal}
       </div>
     );

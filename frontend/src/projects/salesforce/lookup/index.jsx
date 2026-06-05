@@ -118,10 +118,7 @@ const SalesforceLookup = () => {
                 <h2 className="lookup-opportunity-name">
                   {selectedOpportunity.name || 'Selected Opportunity'}
                 </h2>
-                <button
-                  className="lookup-back-button"
-                  onClick={() => setSelectedOpportunity(null)}
-                >
+                <button className="lookup-back-button" onClick={() => setSelectedOpportunity(null)}>
                   ← Back to Results
                 </button>
               </div>
@@ -148,7 +145,9 @@ const SalesforceLookup = () => {
                     <div className="lookup-card-body">
                       <div className="lookup-card-field">
                         <span className="lookup-card-label">Account:</span>
-                        <span className="lookup-card-value">{opportunity.accountName || 'N/A'}</span>
+                        <span className="lookup-card-value">
+                          {opportunity.accountName || 'N/A'}
+                        </span>
                       </div>
                       <div className="lookup-card-field">
                         <span className="lookup-card-label">Stage:</span>
@@ -162,7 +161,9 @@ const SalesforceLookup = () => {
                       </div>
                       <div className="lookup-card-field">
                         <span className="lookup-card-label">Close Date:</span>
-                        <span className="lookup-card-value">{formatDate(opportunity.closeDate)}</span>
+                        <span className="lookup-card-value">
+                          {formatDate(opportunity.closeDate)}
+                        </span>
                       </div>
                       <div className="lookup-card-field">
                         <span className="lookup-card-label">Probability:</span>

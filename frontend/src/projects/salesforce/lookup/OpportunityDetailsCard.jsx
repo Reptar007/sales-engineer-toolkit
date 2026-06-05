@@ -43,8 +43,8 @@ export const StagePath = ({ opportunity }) => {
                   isCompleted
                     ? 'lookup-stage-completed'
                     : isCurrent
-                    ? 'lookup-stage-current'
-                    : 'lookup-stage-pending'
+                      ? 'lookup-stage-current'
+                      : 'lookup-stage-pending'
                 }`}
               >
                 {isCompleted && (

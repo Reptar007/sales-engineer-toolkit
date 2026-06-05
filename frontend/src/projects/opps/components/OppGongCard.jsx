@@ -18,8 +18,7 @@ function OppGongCard({ opportunityId }) {
   // expand the Gong-synced brief for that specific call.
   const [expanded, setExpanded] = useState({});
 
-  const toggleSummary = (id) =>
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  const toggleSummary = (id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
   useEffect(() => {
     if (!opportunityId) {
@@ -63,8 +62,7 @@ function OppGongCard({ opportunityId }) {
           // Only show the toggle when Gong actually synced a brief for
           // this specific call -- many opps have a mix of calls with and
           // without summaries, and an always-on toggle would be misleading.
-          const hasSummary =
-            typeof c.summary === 'string' && c.summary.trim().length > 0;
+          const hasSummary = typeof c.summary === 'string' && c.summary.trim().length > 0;
           return (
             <div key={c.id} className="opp-gong-item">
               {c.url ? (
@@ -94,18 +92,13 @@ function OppGongCard({ opportunityId }) {
                     onClick={() => toggleSummary(c.id)}
                     aria-expanded={isOpen}
                   >
-                    <span
-                      className="opp-gong-item__summary-caret"
-                      aria-hidden
-                    >
+                    <span className="opp-gong-item__summary-caret" aria-hidden>
                       {isOpen ? '▾' : '▸'}
                     </span>
                     {isOpen ? 'Hide summary' : 'Show summary'}
                   </button>
                   {isOpen && (
-                    <div className="opp-gong-item__summary-body">
-                      {renderRichText(c.summary)}
-                    </div>
+                    <div className="opp-gong-item__summary-body">{renderRichText(c.summary)}</div>
                   )}
                 </>
               )}
@@ -127,9 +120,7 @@ function OppGongCard({ opportunityId }) {
         <h3 className="opp-section__title">
           Gong
           {count > 0 && (
-            <span style={{ opacity: 0.5, fontWeight: 500, marginLeft: '0.4rem' }}>
-              ({count})
-            </span>
+            <span style={{ opacity: 0.5, fontWeight: 500, marginLeft: '0.4rem' }}>({count})</span>
           )}
         </h3>
       </div>

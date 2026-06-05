@@ -62,8 +62,8 @@ function MyOpps() {
           <div className="opps-page__overline">YOUR PROWL</div>
           <h1>My Hunts</h1>
           <p>
-            Your active Linear tickets grouped by opportunity, plus every handoff
-            page you&apos;ve saved.
+            Your active Linear tickets grouped by opportunity, plus every handoff page you&apos;ve
+            saved.
           </p>
         </div>
         <div className="opps-page__actions">
@@ -92,8 +92,8 @@ function MyOpps() {
             </p>
             {!payload.linear.configured && payload.linear.needsLinearProfile && (
               <p className="opp-section__placeholder">
-                Connect your Linear profile from <Link to="/profile">My Wolf</Link> to see
-                tickets grouped by opportunity here.
+                Connect your Linear profile from <Link to="/profile">My Wolf</Link> to see tickets
+                grouped by opportunity here.
               </p>
             )}
             {payload.linear.configured && payload.linear.groups.length === 0 && (
@@ -130,11 +130,7 @@ function MyOpps() {
               <p className="opp-section__placeholder">No saved hunts yet.</p>
             )}
             {payload.saved.map((opp) => (
-              <Link
-                key={opp.id}
-                to={`/projects/opps/${opp.id}`}
-                className="my-opps__card"
-              >
+              <Link key={opp.id} to={`/projects/opps/${opp.id}`} className="my-opps__card">
                 <div className="my-opps__card__name">{opp.oppName}</div>
                 <div className="my-opps__card__meta">
                   Updated {new Date(opp.updatedAt).toLocaleDateString()}

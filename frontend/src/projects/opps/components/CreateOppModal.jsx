@@ -67,8 +67,8 @@ function CreateOppModal({ onClose, onCreated, initialName = '' }) {
       <div className="opp-modal" onClick={(e) => e.stopPropagation()}>
         <h2 className="opp-modal__title">Start a New Hunt</h2>
         <p className="opp-modal__sub">
-          Search Salesforce to link this hunt to an opportunity, or create
-          a manual one without an SF match.
+          Search Salesforce to link this hunt to an opportunity, or create a manual one without an
+          SF match.
         </p>
 
         <div className="opp-modal__row">
@@ -90,9 +90,7 @@ function CreateOppModal({ onClose, onCreated, initialName = '' }) {
               <div
                 key={opp.id}
                 className="opp-modal__result"
-                onClick={() =>
-                  submit({ oppName: opp.name, salesforceOpportunityId: opp.id })
-                }
+                onClick={() => submit({ oppName: opp.name, salesforceOpportunityId: opp.id })}
               >
                 <div className="opp-modal__result-name">{opp.name || '(unnamed)'}</div>
                 <div className="opp-modal__result-meta">
@@ -104,12 +102,7 @@ function CreateOppModal({ onClose, onCreated, initialName = '' }) {
         )}
 
         <div className="opp-modal__actions">
-          <button
-            type="button"
-            className="opps-page__btn"
-            onClick={onClose}
-            disabled={creating}
-          >
+          <button type="button" className="opps-page__btn" onClick={onClose} disabled={creating}>
             Cancel
           </button>
           <button

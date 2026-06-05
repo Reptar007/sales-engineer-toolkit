@@ -63,9 +63,7 @@ function OppSalesforceCard({ opportunity }) {
         <div className="lookup-detail-section">
           <h3 className="lookup-detail-section-title">Blockers & Product Gaps</h3>
           <div className="lookup-detail-text-field">
-            <div className="lookup-detail-text-value">
-              {renderRichText(opportunity.blockers)}
-            </div>
+            <div className="lookup-detail-text-value">{renderRichText(opportunity.blockers)}</div>
           </div>
         </div>
       )}

@@ -99,9 +99,8 @@ function LinkLinearTicketModal({ oppId, excludeRawIds = [], onClose, onLinked })
       <div className="opp-modal opp-link-modal" role="dialog" aria-modal="true">
         <h3 className="opp-modal__title">Link a Linear ticket</h3>
         <p className="opp-modal__sub">
-          Pick from your open Linear tickets, or paste a different ticket&apos;s
-          identifier (e.g. <code>AXO-959</code>) if the AE assigned it to
-          someone else.
+          Pick from your open Linear tickets, or paste a different ticket&apos;s identifier (e.g.{' '}
+          <code>AXO-959</code>) if the AE assigned it to someone else.
         </p>
 
         <div className="opp-modal__row">
@@ -115,22 +114,19 @@ function LinkLinearTicketModal({ oppId, excludeRawIds = [], onClose, onLinked })
           />
         </div>
 
-        {state.loading && (
-          <p className="opp-section__placeholder">Loading your tickets…</p>
-        )}
+        {state.loading && <p className="opp-section__placeholder">Loading your tickets…</p>}
 
         {!state.loading && !state.configured && (
           <p className="opp-section__placeholder">
-            Linear isn&apos;t configured on the server. Paste an identifier below
-            to attempt a direct link anyway.
+            Linear isn&apos;t configured on the server. Paste an identifier below to attempt a
+            direct link anyway.
           </p>
         )}
 
         {!state.loading && state.configured && state.needsLinearProfile && (
           <p className="opp-section__placeholder">
-            Your Linear account isn&apos;t linked to your app profile yet. Open
-            the Dashboard once to set it up, or paste a ticket identifier
-            below.
+            Your Linear account isn&apos;t linked to your app profile yet. Open the Dashboard once
+            to set it up, or paste a ticket identifier below.
           </p>
         )}
 
@@ -193,12 +189,7 @@ function LinkLinearTicketModal({ oppId, excludeRawIds = [], onClose, onLinked })
         {error && <p className="opp-modal__error">{error}</p>}
 
         <div className="opp-modal__actions">
-          <button
-            type="button"
-            className="opps-page__btn"
-            onClick={onClose}
-            disabled={busy}
-          >
+          <button type="button" className="opps-page__btn" onClick={onClose} disabled={busy}>
             Close
           </button>
         </div>

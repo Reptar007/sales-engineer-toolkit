@@ -32,10 +32,10 @@
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
   "lint-staged": {
-    "*.{js,mjs,cjs,json,md}": [
+    "*.{js,mjs,cjs,jsx,ts,tsx,json,md,css,less,yml,yaml}": [
       "prettier --write"
     ],
-    "*.js": [
+    "*.{js,mjs,cjs,jsx}": [
       "eslint --fix"
     ]
   },

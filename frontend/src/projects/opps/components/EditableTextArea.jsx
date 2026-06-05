@@ -11,14 +11,7 @@ import React, { useState, useEffect, useRef } from 'react';
  * return a promise. We optimistically reflect what the user typed so
  * keystrokes never feel laggy.
  */
-function EditableTextArea({
-  value,
-  editable,
-  placeholder,
-  minHeight,
-  onSave,
-  onStatusChange,
-}) {
+function EditableTextArea({ value, editable, placeholder, minHeight, onSave, onStatusChange }) {
   const [draft, setDraft] = useState(value || '');
   const dirty = useRef(false);
   const saveTimer = useRef(null);

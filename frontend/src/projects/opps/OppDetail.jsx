@@ -231,9 +231,7 @@ function OppDetail() {
   const customSections = useMemo(() => opp?.customSections || [], [opp?.customSections]);
   const patchCustomSection = useCallback(
     (id) => async (next) => {
-      const updated = customSections.map((s) =>
-        s.id === id ? { ...s, bodyMarkdown: next } : s,
-      );
+      const updated = customSections.map((s) => (s.id === id ? { ...s, bodyMarkdown: next } : s));
       await patch({ customSections: updated });
     },
     [customSections, patch],
@@ -288,17 +286,12 @@ function OppDetail() {
   const patchFlow = useCallback(
     (id, delta) =>
       patchCreation({
-        flows: (creation.flows || []).map((f) =>
-          f.id === id ? { ...f, ...delta } : f,
-        ),
+        flows: (creation.flows || []).map((f) => (f.id === id ? { ...f, ...delta } : f)),
       }),
     [creation.flows, patchCreation],
   );
   const addFlow = useCallback(() => {
-    const next = [
-      ...(creation.flows || []),
-      { id: `flow-${Date.now()}`, name: '', url: '' },
-    ];
+    const next = [...(creation.flows || []), { id: `flow-${Date.now()}`, name: '', url: '' }];
     return patchCreation({ flows: next });
   }, [creation.flows, patchCreation]);
   const removeFlow = useCallback(
@@ -405,7 +398,9 @@ function OppDetail() {
   // since the detail page no longer exists.
   const isAdmin = (user?.roles || []).includes('admin');
   const isOwner = !!(
-    user?.id && opp?.salesEngineer?.userId && opp.salesEngineer.userId === user.id
+    user?.id &&
+    opp?.salesEngineer?.userId &&
+    opp.salesEngineer.userId === user.id
   );
   const canDelete = isAdmin || isOwner;
 
@@ -551,9 +546,7 @@ function OppDetail() {
               {notionStatus === 'sending' ? 'Sending…' : 'Send to Notion'}
             </button>
           ) : null}
-          {notionMessage && (
-            <span className="opp-detail__copy-status">{notionMessage}</span>
-          )}
+          {notionMessage && <span className="opp-detail__copy-status">{notionMessage}</span>}
           {/*
             Delete is intentionally a ghost button -- destructive and
             irreversible, but routine enough (closed-won opps get pruned
@@ -586,94 +579,90 @@ function OppDetail() {
             <h3 className="opp-section__title">Handoff Properties</h3>
           </div>
           <div className="opp-properties opp-properties--wide">
-          {/*
+            {/*
             One unified SE field. Renders as a plain read-only value for
             regular SEs, or a select for admins / Leads -- the component
             picks based on the SE-list endpoint response (403 vs 200) so
             we don't have to plumb roles through the page.
           */}
-          <SalesEngineerPicker
-            currentSeId={opp.salesEngineer?.id}
-            currentSeName={fullSeName(opp.salesEngineer)}
-            onChange={(seId) => patch({ salesEngineerId: seId })}
-          />
-          <div className="opp-property">
-            <span className="opp-property__label">AE</span>
-            <EditableField
-              value={opp.aeNameOverride}
-              editable={canEdit}
-              placeholder={sfData?.ownerName || 'AE name'}
-              onSave={(v) => patch({ aeNameOverride: v })}
-              onStatusChange={onSaveStatus}
+            <SalesEngineerPicker
+              currentSeId={opp.salesEngineer?.id}
+              currentSeName={fullSeName(opp.salesEngineer)}
+              onChange={(seId) => patch({ salesEngineerId: seId })}
             />
-          </div>
-          <div className="opp-property">
-            <span className="opp-property__label">CSM</span>
-            <EditableField
-              value={opp.csmName}
-              editable={canEdit}
-              placeholder="CSM name"
-              onSave={(v) => patch({ csmName: v })}
-              onStatusChange={onSaveStatus}
-            />
-          </div>
-          <div className="opp-property">
-            <span className="opp-property__label">QA Lead</span>
-            <EditableField
-              value={opp.qaLeadName}
-              editable={canEdit}
-              placeholder="QA Lead name"
-              onSave={(v) => patch({ qaLeadName: v })}
-              onStatusChange={onSaveStatus}
-            />
-          </div>
-          <div className="opp-property">
-            <span className="opp-property__label">QA Manager</span>
-            {canEdit ? (
-              <select
-                className="opp-property__input"
-                value={opp.qaManagerName || ''}
-                onChange={(e) => patch({ qaManagerName: e.target.value || null })}
-              >
-                <option value="">Unassigned</option>
-                {QA_MANAGERS.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-                {/* Preserve any legacy free-text value not in the roster
+            <div className="opp-property">
+              <span className="opp-property__label">AE</span>
+              <EditableField
+                value={opp.aeNameOverride}
+                editable={canEdit}
+                placeholder={sfData?.ownerName || 'AE name'}
+                onSave={(v) => patch({ aeNameOverride: v })}
+                onStatusChange={onSaveStatus}
+              />
+            </div>
+            <div className="opp-property">
+              <span className="opp-property__label">CSM</span>
+              <EditableField
+                value={opp.csmName}
+                editable={canEdit}
+                placeholder="CSM name"
+                onSave={(v) => patch({ csmName: v })}
+                onStatusChange={onSaveStatus}
+              />
+            </div>
+            <div className="opp-property">
+              <span className="opp-property__label">QA Lead</span>
+              <EditableField
+                value={opp.qaLeadName}
+                editable={canEdit}
+                placeholder="QA Lead name"
+                onSave={(v) => patch({ qaLeadName: v })}
+                onStatusChange={onSaveStatus}
+              />
+            </div>
+            <div className="opp-property">
+              <span className="opp-property__label">QA Manager</span>
+              {canEdit ? (
+                <select
+                  className="opp-property__input"
+                  value={opp.qaManagerName || ''}
+                  onChange={(e) => patch({ qaManagerName: e.target.value || null })}
+                >
+                  <option value="">Unassigned</option>
+                  {QA_MANAGERS.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                  {/* Preserve any legacy free-text value not in the roster
                     so converting to a dropdown never silently drops it. */}
-                {opp.qaManagerName && !QA_MANAGERS.includes(opp.qaManagerName) && (
-                  <option value={opp.qaManagerName}>{opp.qaManagerName}</option>
-                )}
-              </select>
-            ) : (
-              <span className="opp-property__value">
-                {opp.qaManagerName || 'Unassigned'}
-              </span>
-            )}
-          </div>
-          <div className="opp-property">
-            <span className="opp-property__label">QAW Team</span>
-            {canEdit ? (
-              <select
-                className="opp-property__input"
-                value={opp.qawTeam || ''}
-                onChange={(e) => patch({ qawTeam: e.target.value || null })}
-              >
-                <option value="">Unassigned</option>
-                {QAW_TEAMS.map((team) => (
-                  <option key={team} value={team}>
-                    {team}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="opp-property__value">
-                {opp.qawTeam || 'Unassigned'}
-              </span>
-            )}
-          </div>
+                  {opp.qaManagerName && !QA_MANAGERS.includes(opp.qaManagerName) && (
+                    <option value={opp.qaManagerName}>{opp.qaManagerName}</option>
+                  )}
+                </select>
+              ) : (
+                <span className="opp-property__value">{opp.qaManagerName || 'Unassigned'}</span>
+              )}
+            </div>
+            <div className="opp-property">
+              <span className="opp-property__label">QAW Team</span>
+              {canEdit ? (
+                <select
+                  className="opp-property__input"
+                  value={opp.qawTeam || ''}
+                  onChange={(e) => patch({ qawTeam: e.target.value || null })}
+                >
+                  <option value="">Unassigned</option>
+                  {QAW_TEAMS.map((team) => (
+                    <option key={team} value={team}>
+                      {team}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="opp-property__value">{opp.qawTeam || 'Unassigned'}</span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -702,7 +691,9 @@ function OppDetail() {
                 onClick={() => setInsightsOpen(true)}
                 title="Use Claude to pull Integrations / Pain Points / Notes from this opp's Gong call briefs"
               >
-                <span className="opp-insights-btn__spark" aria-hidden="true">✦</span>
+                <span className="opp-insights-btn__spark" aria-hidden="true">
+                  ✦
+                </span>
                 AI suggestions from Calls
               </button>
             )}
@@ -854,9 +845,7 @@ function OppDetail() {
                     aria-checked={active}
                     className={`opp-segmented__btn${active ? ' opp-segmented__btn--active' : ''}`}
                     disabled={!canEdit}
-                    onClick={() =>
-                      patchEstimation({ type: active && canEdit ? null : opt.id })
-                    }
+                    onClick={() => patchEstimation({ type: active && canEdit ? null : opt.id })}
                   >
                     {opt.label}
                   </button>
@@ -922,8 +911,7 @@ function OppDetail() {
         {!sfLoading && !sfData && (
           <p className="opp-section__placeholder">
             No matching Salesforce opportunity found. Open the{' '}
-            <Link to="/projects/salesforce/lookup">Salesforce Lookup</Link> to verify
-            the name.
+            <Link to="/projects/salesforce/lookup">Salesforce Lookup</Link> to verify the name.
           </p>
         )}
         {sfData && <OppSalesforceCard opportunity={sfData} />}

@@ -37,12 +37,7 @@ function EditableField({ value, editable, placeholder, onSave, onStatusChange, t
     }
     if (type === 'url') {
       return (
-        <a
-          className="opp-property__value"
-          href={draft}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a className="opp-property__value" href={draft} target="_blank" rel="noopener noreferrer">
           {draft}
         </a>
       );
