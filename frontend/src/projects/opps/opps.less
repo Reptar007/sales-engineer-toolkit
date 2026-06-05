@@ -1,0 +1,1836 @@
+@import '../../styles/tokens/_index.less';
+
+// =========================================================================
+// Hunt Board (Opps) — Dark Navy Theme
+//
+// Mirrors the Admin Panel / Dashboard shell so the Hunt Board reads as
+// a first-class top-level page rather than a bolt-on:
+//   - Transparent page canvas (parent .main-content owns the padding)
+//   - Hero header with coral overline pill, white 2.5rem title, hairline
+//     border-bottom
+//   - Section cards: midnight-navy fill, hairline white border, layered
+//     drop shadow (same as .admin-page .section)
+//   - Coral primary buttons, ghost secondary buttons
+// =========================================================================
+
+.opps-page {
+  width: 100%;
+  max-width: 100%;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background-color: transparent;
+  color: var(--white);
+  margin-bottom: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+// -------------------------------------------------------------------------
+// Hero header
+// -------------------------------------------------------------------------
+.opps-page__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.25rem 0 1.5rem;
+  margin: 0 0 1.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.opps-page__title-block {
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+
+  h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--white);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  p {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--muted-gray);
+    margin: 0.625rem 0 0;
+  }
+}
+
+.opps-page__overline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--coral);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 0.625rem;
+
+  &::before {
+    content: '';
+    display: inline-block;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: 50%;
+    background-color: var(--coral);
+    box-shadow: 0 0 0.5rem rgba(255, 107, 74, 0.55);
+  }
+}
+
+.opps-page__actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+// -------------------------------------------------------------------------
+// Buttons — ghost (secondary) + coral (primary), matches admin tabs / users-header
+// -------------------------------------------------------------------------
+.opps-page__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--white);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  &--primary {
+    background: rgba(255, 107, 74, 0.14);
+    border-color: rgba(255, 107, 74, 0.5);
+    color: var(--coral);
+
+    &:hover {
+      background: rgba(255, 107, 74, 0.24);
+      border-color: var(--coral);
+      color: var(--coral);
+      opacity: 1;
+    }
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--coral);
+    outline-offset: 2px;
+  }
+}
+
+// -------------------------------------------------------------------------
+// Section card — re-uses the dashboard-panel pattern from .admin-page .section
+// -------------------------------------------------------------------------
+.opps-section {
+  width: 100%;
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  padding: 1.5rem 1.75rem;
+  box-shadow:
+    0 1.25rem 2.5rem rgba(0, 0, 0, 0.55),
+    0 0.5rem 1rem rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--white);
+  margin-bottom: 1.5rem;
+
+  &:last-child { margin-bottom: 0; }
+}
+
+.opps-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0 0 1.25rem 0;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.opps-section__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+// -------------------------------------------------------------------------
+// Search + filter row
+// -------------------------------------------------------------------------
+.opps-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.opps-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  min-width: 280px;
+  flex: 1 1 280px;
+  transition: border-color 0.15s ease;
+
+  &:focus-within {
+    border-color: var(--coral);
+  }
+
+  input {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    color: var(--white);
+    font-size: 0.95rem;
+    outline: none;
+
+    &::placeholder { color: rgba(255, 255, 255, 0.4); }
+  }
+}
+
+.opps-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.875rem;
+  color: var(--muted-gray);
+  cursor: pointer;
+  white-space: nowrap;
+  font-weight: 500;
+
+  input[type='checkbox'] {
+    accent-color: var(--coral);
+    cursor: pointer;
+  }
+}
+
+// -------------------------------------------------------------------------
+// Directory table
+// -------------------------------------------------------------------------
+.opps-table-wrap {
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow:
+    0 1.25rem 2.5rem rgba(0, 0, 0, 0.55),
+    0 0.5rem 1rem rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.opps-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  color: var(--white);
+
+  thead th {
+    background: rgba(255, 255, 255, 0.03);
+    text-align: left;
+    padding: 0.85rem 1.4rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted-gray);
+    font-weight: 700;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  tbody td {
+    padding: 1rem 1.4rem;
+    font-size: 0.92rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  tbody tr {
+    cursor: pointer;
+    transition: background-color 0.12s ease;
+
+    &:last-child td { border-bottom: 0; }
+    &:hover { background: rgba(255, 107, 74, 0.06); }
+  }
+}
+
+.opps-table__name {
+  font-weight: 600;
+  color: var(--white);
+}
+
+.opps-table__owner {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.opps-table__date {
+  color: var(--muted-gray);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+// Trailing actions column. Narrow + right-aligned so it tucks against
+// the table edge; the delete button only fades in on row hover (or
+// keyboard focus) to keep the resting state clean.
+.opps-table__actions-th {
+  width: 5.5rem;
+}
+
+.opps-table__actions {
+  width: 5.5rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.opps-table__delete {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(0.25rem);
+  transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease,
+    border-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.7);
+    color: #fecaca;
+  }
+}
+
+.opps-table tbody tr:hover .opps-table__delete,
+.opps-table__delete:focus-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.opps-table__stage {
+  white-space: nowrap;
+}
+
+// Hunt Board stage pill. Variants follow the QAW SF pipeline in a
+// deliberate cool->warm gradient so the pill's color implies how late
+// in the deal cycle we are:
+//   Qualify  -> cyan   (cold, top of funnel)
+//   Evaluation -> indigo
+//   Proposal -> violet
+//   Contracting -> amber (warming up, near close)
+//   Closed Won -> green
+//   Closed Lost -> red
+// Each variant uses a tinted background + matching border + bright text
+// so it reads as a colored capsule against the dark table rows.
+.opp-stage-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+
+  &--qualify {
+    color: #67e8f9;
+    background: rgba(34, 211, 238, 0.14);
+    border-color: rgba(34, 211, 238, 0.4);
+  }
+
+  &--evaluation {
+    color: #a5b4fc;
+    background: rgba(99, 102, 241, 0.16);
+    border-color: rgba(99, 102, 241, 0.4);
+  }
+
+  &--proposal {
+    color: #c4b5fd;
+    background: rgba(139, 92, 246, 0.18);
+    border-color: rgba(139, 92, 246, 0.4);
+  }
+
+  &--contracting {
+    color: #fcd34d;
+    background: rgba(245, 158, 11, 0.16);
+    border-color: rgba(245, 158, 11, 0.45);
+  }
+
+  &--won {
+    color: #6ee7b7;
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(16, 185, 129, 0.4);
+  }
+
+  &--lost {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(239, 68, 68, 0.4);
+  }
+
+  &--neutral {
+    color: #cbd5e1;
+    background: rgba(148, 163, 184, 0.16);
+    border-color: rgba(148, 163, 184, 0.35);
+  }
+
+  &--unknown {
+    color: rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 500;
+  }
+}
+
+.opps-empty {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.55);
+
+  h3 {
+    color: var(--white);
+    margin: 0 0 0.4rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+
+  p { margin: 0; font-size: 0.92rem; }
+
+  a {
+    color: var(--coral);
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+  }
+}
+
+// -------------------------------------------------------------------------
+// My Hunt Board layout
+// -------------------------------------------------------------------------
+.my-opps__columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+
+  @media (max-width: 960px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.my-opps__column {
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  padding: 1.5rem 1.75rem;
+  box-shadow:
+    0 1.25rem 2.5rem rgba(0, 0, 0, 0.55),
+    0 0.5rem 1rem rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--white);
+
+  h2 {
+    margin: 0 0 0.4rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -0.01em;
+  }
+
+  &-sub {
+    margin: 0 0 1.25rem;
+    font-size: 0.875rem;
+    color: var(--muted-gray);
+  }
+}
+
+.my-opps__card {
+  display: block;
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--white);
+  text-decoration: none;
+  margin-bottom: 0.6rem;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+
+  &:last-child { margin-bottom: 0; }
+
+  &:hover {
+    background: rgba(255, 107, 74, 0.08);
+    border-color: rgba(255, 107, 74, 0.35);
+    transform: translateY(-1px);
+  }
+
+  &__name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: var(--white);
+  }
+
+  &__meta {
+    font-size: 0.78rem;
+    color: var(--muted-gray);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Hunt Board detail (handoff) page
+// -------------------------------------------------------------------------
+.opp-detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted-gray);
+  background: transparent;
+  border: 0;
+  padding: 0 0 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease;
+
+  &:hover { color: var(--white); }
+}
+
+.opp-detail__hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0 1.75rem;
+  margin-bottom: 1.75rem;
+  // Coral hairline at the bottom anchors the hero visually and ties it to
+  // the rest of the coral accent system (overline pill, button, focus rings).
+  border-bottom: 1px solid rgba(255, 107, 74, 0.25);
+}
+
+.opp-detail__hero-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 320px;
+
+  .opps-page__overline { margin-bottom: 0.85rem; }
+}
+
+.opp-detail__title {
+  // A touch bigger + tighter than the section titles so the page name
+  // dominates even when sections are stacked above the fold.
+  font-size: 2.75rem;
+  font-weight: 800;
+  margin: 0 0 0.55rem;
+  color: var(--white);
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.opp-detail__owner-line {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+  flex-wrap: wrap;
+
+  strong { color: var(--white); font-weight: 600; }
+}
+
+.opp-detail__readonly-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--muted-gray);
+}
+
+.opp-detail__sections {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1.5rem;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.opp-detail__col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+// Per-section card on the detail page — same midnight-navy treatment as
+// the directory section but with a tighter top-bar so the title/edit
+// affordances stay visually subordinate to the page title.
+.opp-section {
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  padding: 1.35rem 1.55rem;
+  box-shadow:
+    0 1.25rem 2.5rem rgba(0, 0, 0, 0.55),
+    0 0.5rem 1rem rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--white);
+
+  // Full-width band for the Handoff Properties row that sits between the
+  // hero and the two-column body. Slightly more generous padding so the
+  // primary "who's involved" content has visual breathing room.
+  &--wide {
+    padding: 1.5rem 1.75rem 1.6rem;
+    margin-bottom: 1.5rem;
+  }
+
+  // Flex-column variant so a card placed in a stretched grid row can let
+  // its body fill the remaining height (and scroll internally when the
+  // content overflows). Used by Tech Specs + Gong side-by-side.
+  &--flex {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1.1rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  // Coral left-bar accent ties every card title back to the page overline
+  // and primary button -- small but consistent visual cue that says
+  // "this is a Hunt Board section".
+  &__title {
+    position: relative;
+    margin: 0;
+    padding-left: 0.85rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -0.01em;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.2em;
+      bottom: 0.2em;
+      width: 3px;
+      border-radius: 2px;
+      background: var(--coral);
+      box-shadow: 0 0 0.5rem rgba(255, 107, 74, 0.45);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.4rem;
+  }
+}
+
+.opp-section__textarea {
+  width: 100%;
+  min-height: 100px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  color: var(--white);
+  font: inherit;
+  font-size: 0.92rem;
+  padding: 0.7rem 0.85rem;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease;
+
+  &::placeholder { color: rgba(255, 255, 255, 0.35); }
+  &:focus { border-color: var(--coral); }
+}
+
+.opp-section__placeholder {
+  color: rgba(255, 255, 255, 0.45);
+  font-style: italic;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.opp-section__view {
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--white);
+}
+
+.opp-properties {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem 1.5rem;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+
+  // Wider variant for the Handoff Properties band. Fixed 3 columns so
+  // the 6 fields land as a tidy 3x2 grid (SE / AE / CSM on top, QA Lead
+  // / QA Manager / Product Tour URL underneath) and Linear can sit next
+  // to the card without the property row getting cramped.
+  &--wide {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.1rem 1.5rem;
+
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+.opp-property {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+
+  // Coral, slightly brighter labels make every field read as a deliberate
+  // "row" rather than a wall of grey text -- big readability win on the
+  // wide handoff band.
+  &__label {
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--coral);
+    font-weight: 700;
+    opacity: 0.85;
+  }
+
+  &__value {
+    font-size: 0.98rem;
+    color: var(--white);
+    font-weight: 500;
+    word-break: break-word;
+  }
+
+  // Inputs get a faint coral wash on the border at rest so the editable
+  // fields visually announce themselves, and the focus state goes solid
+  // coral with a subtle glow.
+  &__input {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 107, 74, 0.2);
+    border-radius: 0.4rem;
+    color: var(--white);
+    padding: 0.5rem 0.7rem;
+    font: inherit;
+    font-size: 0.92rem;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+
+    &::placeholder { color: rgba(255, 255, 255, 0.35); }
+    &:hover { border-color: rgba(255, 107, 74, 0.4); }
+    &:focus {
+      border-color: var(--coral);
+      background: rgba(0, 0, 0, 0.4);
+      box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.15);
+    }
+  }
+}
+
+// -------------------------------------------------------------------------
+// Creation section -- flows list with add/remove
+// -------------------------------------------------------------------------
+.opp-flows {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.65rem;
+  }
+}
+
+.opp-flow-row {
+  display: grid;
+  // name : url : remove-button. Name gets slightly less width than the
+  // URL since URLs are typically longer and benefit from the breathing
+  // room when displayed read-only.
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+
+  &:last-child { margin-bottom: 0; }
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr auto;
+
+    > :nth-child(2) {
+      grid-column: 1 / 3;
+    }
+  }
+
+  &__remove {
+    width: 1.75rem;
+    height: 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: transparent;
+    color: var(--muted-gray);
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+
+    &:hover {
+      background: rgba(244, 63, 94, 0.14);
+      border-color: rgba(244, 63, 94, 0.35);
+      color: #fca5a5;
+    }
+  }
+}
+
+// -------------------------------------------------------------------------
+// Estimation section -- segmented type toggle
+// -------------------------------------------------------------------------
+.opp-segmented {
+  display: inline-flex;
+  gap: 0;
+  padding: 0.2rem;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 107, 74, 0.2);
+  width: fit-content;
+
+  &__btn {
+    padding: 0.4rem 1rem;
+    background: transparent;
+    border: 0;
+    border-radius: 0.35rem;
+    color: rgba(255, 255, 255, 0.65);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease;
+
+    &:hover:not(:disabled) {
+      color: var(--white);
+    }
+
+    &--active {
+      background: rgba(255, 107, 74, 0.18);
+      color: var(--coral);
+      box-shadow: inset 0 0 0 1px rgba(255, 107, 74, 0.35);
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      // Keep the active highlight readable even in disabled (read-only)
+      // mode so non-editors can still see which type was picked.
+      &.opp-segmented__btn--active {
+        opacity: 0.85;
+      }
+    }
+  }
+}
+
+// -------------------------------------------------------------------------
+// Linked Linear tickets card
+// -------------------------------------------------------------------------
+.opp-linked-bucket {
+  margin-bottom: 1.1rem;
+
+  &:last-child { margin-bottom: 0; }
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    margin-bottom: 0.5rem;
+  }
+
+  &__title {
+    font-weight: 700;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted-gray);
+  }
+
+  &__count {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.4);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// Subtle "Slack thread" affordance rendered in section headers (Creation /
+// Estimation) when a linked Linear ticket exposes a Slack URL. Visually
+// quieter than the inline pill on the Linear card so it complements
+// rather than competes with the section title.
+.opp-section__slack-link {
+  margin-left: auto;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #d8b8ff;
+  background: rgba(74, 21, 75, 0.28);
+  border: 1px solid rgba(216, 184, 255, 0.3);
+  border-radius: 9999px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    background: rgba(122, 38, 138, 0.45);
+    color: #fff;
+  }
+}
+
+.opp-ticket {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 0.45rem;
+  font-size: 0.875rem;
+  color: var(--white);
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:last-child { margin-bottom: 0; }
+  &--closed { opacity: 0.55; }
+
+  &:hover {
+    background: rgba(255, 107, 74, 0.08);
+    border-color: rgba(255, 107, 74, 0.3);
+  }
+
+  &__id {
+    font-variant-numeric: tabular-nums;
+    color: var(--muted-gray);
+    font-size: 0.78rem;
+    margin-right: 0.75rem;
+    font-weight: 600;
+  }
+
+  &__title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__state {
+    margin-left: 0.75rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted-gray);
+    font-weight: 600;
+  }
+
+  // Slack pill -- links straight to the AE's Slack request thread for
+  // this Linear ticket, extracted from the ticket description. We use
+  // Slack's signature purple so the affordance is immediately recognizable
+  // as "go to Slack" without needing an icon.
+  &__slack {
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #d8b8ff;
+    background: rgba(74, 21, 75, 0.35);
+    border: 1px solid rgba(216, 184, 255, 0.35);
+    border-radius: 9999px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color 0.12s ease, color 0.12s ease;
+
+    &:hover {
+      background: rgba(122, 38, 138, 0.45);
+      color: #fff;
+    }
+  }
+
+  // Coral pill marking manually-linked tickets so a Lead reading the
+  // page knows the SE added it by hand (vs. the auto-discovery from
+  // the AE Request project picking it up).
+  &__manual-pill {
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.45rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--coral);
+    background: rgba(255, 107, 74, 0.12);
+    border: 1px solid rgba(255, 107, 74, 0.35);
+    border-radius: 9999px;
+    white-space: nowrap;
+  }
+
+  // Small "x" affordance that only appears on manually-linked rows for
+  // editors. Sits inside the row but stops click propagation so it
+  // doesn't trip the parent anchor's navigation.
+  &__unlink {
+    margin-left: 0.5rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 0;
+    background: transparent;
+    color: var(--muted-gray);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease;
+
+    &:hover {
+      background: rgba(244, 63, 94, 0.18);
+      color: #fca5a5;
+    }
+    &:disabled { opacity: 0.4; cursor: not-allowed; }
+  }
+}
+
+// Small "+ Link a ticket" button up in the section header. Same base as
+// other ghost buttons but tightened up so it doesn't overpower the title.
+.opp-linked-link-btn {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+// Inline "Link one manually" link inside the empty-state placeholder text.
+.opp-linked-inline-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--coral);
+  cursor: pointer;
+  text-decoration: underline;
+
+  &:hover { opacity: 0.85; }
+}
+
+// Banner-y line shown when one of the persisted manual links can't be
+// resolved (ticket was deleted / moved to a different team).
+.opp-linked-unresolved {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.4rem;
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.2);
+  color: #fda4af;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+// -------------------------------------------------------------------------
+// Tech Specs + Gong side-by-side row
+// -------------------------------------------------------------------------
+// Top band: Handoff Properties + Linked Linear tickets sit side-by-side
+// so the "who's involved + what's already filed" pair reads above the
+// Tech Specs / Gong / Notes columns. Same 60/40 split as the tech-row
+// below for visual rhythm.
+.opp-detail__top-row {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 1.25rem;
+  align-items: stretch;
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+
+  // The Handoff Properties card carries its own bottom margin from the
+  // generic .opp-section--wide rule -- zero it out here so the row's
+  // own margin-bottom is the single source of truth.
+  > .opp-section--wide { margin-bottom: 0; }
+}
+
+.opp-detail__tech-row {
+  display: grid;
+  // 60 / 40 split -- Tech Specs is the primary content (multi-line
+  // textareas), Gong gets a bit more room than a strict sidebar so call
+  // titles don't truncate too aggressively.
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 1.25rem;
+  align-items: stretch;
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Creation + Estimation sit on their own full-width row below Tech
+// Specs / Gong. 50 / 50 -- the two are peer artifacts (one from the AE
+// hand-off demo, one from the SE estimation step), so they get equal
+// visual weight.
+.opp-detail__handoff-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  align-items: stretch;
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Salesforce on its own full-width row. The card just inherits the
+// generic .opp-section treatment; this modifier exists so we can space
+// it from the row above without leaning on the inner card's margin.
+.opp-detail__full-row {
+  margin-bottom: 1.5rem;
+}
+
+// Notes + custom sections stack at the bottom, full-width. Vertical
+// flex so the "+ Add section" ghost button can align-self: flex-start
+// without growing to row width.
+.opp-detail__notes-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+// -------------------------------------------------------------------------
+// Gong list -- fills its card and scrolls internally when full
+// -------------------------------------------------------------------------
+.opp-gong-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  // flex: 1 makes the list expand to fill the card's remaining height,
+  // min-height: 0 lets it actually shrink so overflow-y can take effect
+  // (without this the parent grid would push the row taller instead).
+  flex: 1 1 auto;
+  min-height: 0;
+  // Hard cap so opps with 15+ Gong calls don't blow out the tech row.
+  // Roughly 5 collapsed call rows visible before the user needs to scroll
+  // -- matches the typical viewport height of Technical Specs next to it.
+  max-height: 28rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+
+  // Tidy scrollbar so the list reads as part of the dark card instead of
+  // a stark white track.
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+  }
+}
+
+.opp-gong-item {
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+
+  &:hover {
+    background: rgba(255, 107, 74, 0.08);
+    border-color: rgba(255, 107, 74, 0.3);
+  }
+
+  &__title {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+    color: var(--coral);
+    text-decoration: none;
+    line-height: 1.35;
+
+    &:hover { text-decoration: underline; }
+  }
+
+  &__meta {
+    font-size: 0.75rem;
+    color: var(--muted-gray);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+  }
+
+  // Coral-tinted "Show summary / Hide summary" toggle. Visually echoes the
+  // section overlines (uppercase, letter-spaced) so it reads as "metadata
+  // action" rather than a primary CTA. Only rendered when the call has a
+  // Gong-synced brief.
+  &__summary-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.45rem;
+    padding: 0.2rem 0.4rem 0.2rem 0;
+    background: transparent;
+    border: 0;
+    color: var(--coral);
+    font: inherit;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    opacity: 0.85;
+    transition: opacity 0.12s ease;
+
+    &:hover { opacity: 1; }
+    &:focus-visible {
+      outline: 2px solid var(--coral);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+  }
+
+  &__summary-caret {
+    display: inline-block;
+    font-size: 0.7rem;
+    line-height: 1;
+  }
+
+  // Indented rich-text block that expands inline below the toggle. We
+  // give it a faint coral left-bar to tie it to the surrounding accent
+  // system and so multi-call lists clearly delineate which body belongs
+  // to which call.
+  &__summary-body {
+    margin-top: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    border-left: 2px solid rgba(255, 107, 74, 0.5);
+    background: rgba(255, 107, 74, 0.04);
+    border-radius: 0.25rem;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.82);
+
+    // Tidy up rich-text artifacts coming from Salesforce long-text fields.
+    p { margin: 0 0 0.5rem; &:last-child { margin-bottom: 0; } }
+    ul, ol { margin: 0 0 0.5rem; padding-left: 1.1rem; }
+    li { margin-bottom: 0.2rem; }
+    a { color: var(--coral); text-decoration: none; &:hover { text-decoration: underline; } }
+    strong { color: var(--white); }
+  }
+}
+
+// -------------------------------------------------------------------------
+// Selects (SE reassignment picker etc.)
+// -------------------------------------------------------------------------
+select.opp-property__input {
+  appearance: none;
+  background-image: linear-gradient(
+      45deg,
+      transparent 50%,
+      rgba(255, 255, 255, 0.5) 50%
+    ),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.5) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 1.75rem;
+  cursor: pointer;
+
+  option {
+    background: var(--midnight-navy);
+    color: var(--white);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Create-Opp modal
+// -------------------------------------------------------------------------
+.opp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--modal-backdrop, rgba(0, 0, 0, 0.7));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+  backdrop-filter: blur(2px);
+}
+
+.opp-modal {
+  width: min(620px, 100%);
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  padding: 1.75rem;
+  box-shadow:
+    0 1.5rem 3rem rgba(0, 0, 0, 0.6),
+    0 0.5rem 1rem rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  &__title {
+    margin: 0 0 0.4rem;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -0.01em;
+  }
+
+  &__sub {
+    color: var(--muted-gray);
+    font-size: 0.92rem;
+    margin: 0 0 1.25rem;
+  }
+
+  &__row {
+    display: flex;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+
+    input {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 0.5rem;
+      color: var(--white);
+      padding: 0.6rem 0.85rem;
+      font: inherit;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s ease;
+
+      &::placeholder { color: rgba(255, 255, 255, 0.35); }
+      &:focus { border-color: var(--coral); }
+    }
+  }
+
+  &__results {
+    max-height: 260px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  &__result {
+    padding: 0.7rem 0.9rem;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background-color 0.12s ease;
+
+    &:last-child { border-bottom: 0; }
+    &:hover { background: rgba(255, 107, 74, 0.08); }
+
+    &-name {
+      font-weight: 600;
+      margin-bottom: 0.15rem;
+      color: var(--white);
+    }
+
+    &-meta {
+      font-size: 0.78rem;
+      color: var(--muted-gray);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  &__error {
+    margin: 0.75rem 0 0;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.4rem;
+    background: rgba(244, 63, 94, 0.08);
+    border: 1px solid rgba(244, 63, 94, 0.25);
+    color: #fda4af;
+    font-size: 0.85rem;
+  }
+
+  // Wider variant for the "Suggest from calls" review panel -- the three
+  // suggestion cards each hold an editable multi-line textarea, so they
+  // need more room than the default create/search modal.
+  &--insights {
+    width: min(720px, 100%);
+  }
+}
+
+// -------------------------------------------------------------------------
+// "AI suggestions from Calls" trigger button. Coral-forward so it reads as
+// the AI accent action, distinct from the neutral ghost buttons around it.
+// -------------------------------------------------------------------------
+.opp-insights-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 107, 74, 0.16);
+  border: 1px solid rgba(255, 107, 74, 0.5);
+  color: var(--coral);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.05s ease;
+
+  &__spark {
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+
+  &:hover {
+    background: rgba(255, 107, 74, 0.26);
+    border-color: var(--coral);
+    box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.12);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--coral);
+    outline-offset: 2px;
+  }
+}
+
+// -------------------------------------------------------------------------
+// Gong AI insights review panel
+// -------------------------------------------------------------------------
+.opp-insights__loading {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.5rem 0.25rem 1.75rem;
+}
+
+.opp-insights__spinner {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 107, 74, 0.22);
+  border-top-color: var(--coral);
+  animation: opp-insights-spin 0.8s linear infinite;
+}
+
+@keyframes opp-insights-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.opp-insights__loading-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+
+  strong {
+    color: var(--white);
+    font-size: 0.95rem;
+  }
+
+  span {
+    color: var(--muted-gray);
+    font-size: 0.82rem;
+  }
+}
+
+.opp-insights__meta {
+  margin: 0 0 0.85rem;
+  font-size: 0.8rem;
+  color: var(--muted-gray);
+}
+
+.opp-insights__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-bottom: 1.25rem;
+}
+
+.opp-insights__card {
+  padding: 0.9rem 1rem;
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  &-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+}
+
+.opp-insights__hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  color: var(--muted-gray);
+}
+
+.opp-insights__textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  color: var(--white);
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    border-color: var(--coral);
+  }
+}
+
+.opp-insights__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+// -------------------------------------------------------------------------
+// Link-Linear-ticket picker modal
+// -------------------------------------------------------------------------
+.opp-link-modal {
+  width: min(640px, 100%);
+
+  &__search {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 107, 74, 0.25);
+    border-radius: 0.5rem;
+    color: var(--white);
+    padding: 0.65rem 0.85rem;
+    font: inherit;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &::placeholder { color: rgba(255, 255, 255, 0.4); }
+    &:focus {
+      border-color: var(--coral);
+      box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.15);
+    }
+  }
+
+  // Scrollable list of pickable tickets. Capped so the modal doesn't
+  // grow taller than the viewport when an SE has 30+ open tickets.
+  &__list {
+    max-height: 360px;
+    overflow-y: auto;
+    margin: 0.85rem 0;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+
+    &::-webkit-scrollbar { width: 6px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+    }
+  }
+
+  // Each row is a button so the entire surface is clickable + keyboard
+  // focusable. Uses a 3-row grid (id / title / meta) so long titles
+  // wrap cleanly instead of pushing the meta line off-row.
+  &__item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 0.6rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.65rem 0.85rem;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: var(--white);
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 0.12s ease;
+
+    &:last-child { border-bottom: 0; }
+    &:hover { background: rgba(255, 107, 74, 0.08); }
+    &:focus-visible {
+      background: rgba(255, 107, 74, 0.12);
+      outline: 2px solid var(--coral);
+      outline-offset: -2px;
+    }
+    &:disabled { opacity: 0.4; cursor: not-allowed; }
+  }
+
+  &__item-id {
+    grid-row: 1 / 3;
+    align-self: center;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted-gray);
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  &__item-title {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: 0.92rem;
+    font-weight: 500;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  &__item-meta {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 0.2rem;
+    font-size: 0.72rem;
+    color: var(--muted-gray);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+  }
+
+  // "Can't find it? Link <input>" fallback row. Appears when the SE
+  // has typed something the list doesn't match.
+  &__paste-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 0.5rem 0 0;
+    padding: 0.6rem 0.75rem;
+    border-radius: 0.5rem;
+    background: rgba(255, 107, 74, 0.06);
+    border: 1px solid rgba(255, 107, 74, 0.2);
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.78);
+
+    code {
+      background: rgba(0, 0, 0, 0.35);
+      padding: 0.1rem 0.4rem;
+      border-radius: 0.25rem;
+      font-size: 0.85em;
+    }
+  }
+}
+
+// -------------------------------------------------------------------------
+// Error + save status
+// -------------------------------------------------------------------------
+.opp-detail__error,
+.opps-error {
+  padding: 0.85rem 1.1rem;
+  border-radius: 0.5rem;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: #fda4af;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.opp-detail__save-status {
+  font-size: 0.78rem;
+  color: var(--muted-gray);
+  font-style: italic;
+}
+
+.opp-detail__copy-status {
+  margin-left: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--coral);
+  font-weight: 600;
+}
+
+// -------------------------------------------------------------------------
+// "Send to Notion" / "Open in Notion" hero button. Same shape as
+// .opps-page__btn but uses a slightly darker neutral so it doesn't compete
+// with the coral primary action ("Copy as Slack handoff"). Linked state
+// flips to a coral pill that reads as a tappable confirmation -- "the page
+// exists, go open it".
+// -------------------------------------------------------------------------
+.opp-detail__notion-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--white);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--coral);
+    outline-offset: 2px;
+  }
+
+  &--linked {
+    background: rgba(255, 107, 74, 0.14);
+    border-color: rgba(255, 107, 74, 0.5);
+    color: var(--coral);
+
+    &:hover {
+      background: rgba(255, 107, 74, 0.24);
+      border-color: var(--coral);
+      color: var(--coral);
+    }
+  }
+
+  // "Update Notion" re-sync button -- sits next to the coral "Open in
+  // Notion" link, so we keep it quieter (neutral ghost) to signal it's
+  // the secondary action of the pair.
+  &--update {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.85);
+
+    &:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.32);
+      color: var(--white);
+    }
+  }
+}
+
+// -------------------------------------------------------------------------
+// Destructive "Delete" button. Ghost styling at rest -- it shouldn't compete
+// with primary actions visually -- but goes full-red on hover so the
+// destructive intent is obvious before the confirm dialog fires.
+// -------------------------------------------------------------------------
+.opp-detail__delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.5rem;
+  background: transparent;
+  border: 1px solid rgba(255, 99, 99, 0.35);
+  color: rgba(255, 140, 140, 0.85);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 99, 99, 0.18);
+    border-color: rgba(255, 99, 99, 0.7);
+    color: rgb(255, 170, 170);
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(255, 99, 99, 0.7);
+    outline-offset: 2px;
+  }
+}

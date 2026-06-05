@@ -8,6 +8,7 @@ import teamRoutes from './teams.js';
 import userRoutes from '../user.js';
 import dashboardRoutes from './dashboard.js';
 import integrationsRoutes from './integrations.js';
+import oppsRoutes from './opps.js';
 
 const router = express.Router();
 
@@ -24,6 +25,8 @@ router.use('/users', userRoutes);
 router.use('/dashboard', dashboardRoutes);
 
 router.use('/integrations', integrationsRoutes);
+
+router.use('/opps', oppsRoutes);
 
 // Mount project-specific routes
 router.use('/ratio-estimator', ratioEstimatorRoutes);
@@ -46,6 +49,7 @@ router.get('/', (req, res) => {
       health: '/api/health',
       dashboard: '/api/dashboard',
       integrations: '/api/integrations',
+      opps: '/api/opps',
     },
   });
 });

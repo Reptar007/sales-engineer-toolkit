@@ -11,6 +11,7 @@ import { getGoalsByYearFromDb, getGoalsForYear, upsertGoalsForYear } from './goa
 import { loadAssignedAENames, withQuarterlyDataForUser } from './userMetricsFilter.js';
 import { authenticateToken } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/rbac.js';
+import { decodeHtmlEntities } from '../../lib/htmlEntities.js';
 import {
   getSalesforceConfig,
   getOpportunityCarrFieldApiName,
@@ -570,6 +571,71 @@ router.get('/gong/discover', authenticateToken, async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Gong call brief / summary field discovery.
+//
+// The Gong-Salesforce package syncs an AI-authored brief into the
+// Gong__Gong_Call__c custom object, but the exact field name varies between
+// orgs (Gong__Brief__c, Gong__Call_Brief__c, Gong__Highlights__c, etc.).
+// Rather than hard-coding a guess we describe the object once per process
+// and pick fields whose API name *and* label hint at a brief/summary -- then
+// only the long-text/textarea ones, so we don't accidentally pull a number
+// or picklist field.
+//
+// The result is cached for the life of the process (Salesforce schema is
+// effectively static between deploys; the existing connection cache uses
+// the same strategy).
+// ---------------------------------------------------------------------------
+let _gongSummaryFieldsCache = null; // { fields: string[], primary: string }
+
+// Priority order when multiple brief-ish fields exist. "brief" wins because
+// that's literally Gong's own product name for the AI call summary; the
+// rest are fallbacks for orgs with different sync configurations.
+const GONG_SUMMARY_PRIORITY = [
+  /brief/i,
+  /summary/i,
+  /key.?points?/i,
+  /highlights?/i,
+  /outline/i,
+  /next.?steps?/i,
+];
+
+async function discoverGongSummaryFields(connection) {
+  if (_gongSummaryFieldsCache) return _gongSummaryFieldsCache;
+  try {
+    const meta = await connection.sobject('Gong__Gong_Call__c').describe();
+    const candidates = (meta.fields || []).filter((f) => {
+      const name = f.name || '';
+      const label = f.label || '';
+      const isText = f.type === 'textarea' || f.type === 'string' || f.type === 'richtextarea';
+      if (!isText) return false;
+      // Skip obvious non-content text fields that happen to contain matching
+      // words (e.g. "Summary URL", "Brief Status").
+      if (/url|status|state|owner|name|count/i.test(name)) return false;
+      return GONG_SUMMARY_PRIORITY.some((re) => re.test(name) || re.test(label));
+    });
+
+    // Sort by our priority order so the highest-priority field is first.
+    candidates.sort((a, b) => {
+      const score = (f) =>
+        GONG_SUMMARY_PRIORITY.findIndex((re) => re.test(f.name) || re.test(f.label));
+      return score(a) - score(b);
+    });
+
+    _gongSummaryFieldsCache = {
+      fields: candidates.map((f) => f.name),
+      primary: candidates[0]?.name || null,
+    };
+  } catch (err) {
+    // If we can't describe the object (permissions, package missing, etc.),
+    // cache an empty result so we don't keep hammering describe on every
+    // request. The Gong route will still return metadata-only calls.
+    console.warn('Gong summary field discovery failed:', err?.message || err);
+    _gongSummaryFieldsCache = { fields: [], primary: null };
+  }
+  return _gongSummaryFieldsCache;
+}
+
 // Get Gong conversations for an opportunity
 router.get(
   '/opportunity/:opportunityId/gong-conversations',
@@ -598,20 +664,42 @@ router.get(
       // - Duration: Gong__Call_Duration__c (string in MM:SS format) or Gong__Call_Duration_sec__c (seconds as double)
       // - Created: CreatedDate or Gong__Call_Start__c
 
+      // Discover (and cache) any synced brief/summary fields so we can
+      // include them in the SELECT clause. If none exist in this org the
+      // list is empty and the SOQL is unchanged.
+      const summaryMeta = await discoverGongSummaryFields(conn);
+      const extraSelects = summaryMeta.fields.length ? `, ${summaryMeta.fields.join(', ')}` : '';
+
       let result = { records: [], totalSize: 0 };
 
       try {
         result = await conn.query(
-          `SELECT Id, Name, Gong__Title__c, Gong__Call_Duration__c, Gong__Call_Duration_sec__c, 
-         Gong__Call_Start__c, Gong__View_call__c, CreatedDate, LastModifiedDate
-         FROM Gong__Gong_Call__c 
+          `SELECT Id, Name, Gong__Title__c, Gong__Call_Duration__c, Gong__Call_Duration_sec__c,
+         Gong__Call_Start__c, Gong__View_call__c, CreatedDate, LastModifiedDate${extraSelects}
+         FROM Gong__Gong_Call__c
          WHERE Gong__Primary_Opportunity__c = '${opportunityId.replace(/'/g, "\\'")}'
          ORDER BY CreatedDate DESC
          LIMIT 20`,
         );
         // eslint-disable-next-line no-unused-vars
       } catch (err) {
-        result = { records: [], totalSize: 0 };
+        // If a discovered field can't actually be queried (e.g. FLS denies
+        // it for this user), invalidate the cache and retry once with just
+        // the base fields so the user still gets call metadata.
+        _gongSummaryFieldsCache = { fields: [], primary: null };
+        try {
+          result = await conn.query(
+            `SELECT Id, Name, Gong__Title__c, Gong__Call_Duration__c, Gong__Call_Duration_sec__c,
+           Gong__Call_Start__c, Gong__View_call__c, CreatedDate, LastModifiedDate
+           FROM Gong__Gong_Call__c
+           WHERE Gong__Primary_Opportunity__c = '${opportunityId.replace(/'/g, "\\'")}'
+           ORDER BY CreatedDate DESC
+           LIMIT 20`,
+          );
+          // eslint-disable-next-line no-unused-vars
+        } catch (innerErr) {
+          result = { records: [], totalSize: 0 };
+        }
       }
 
       // Ensure result has records array
@@ -660,6 +748,24 @@ router.get(
           }
         }
 
+        // Pick the first non-empty value from the discovered brief fields,
+        // in priority order. We trim because Salesforce long-text fields
+        // sometimes round-trip as a single whitespace, and decode HTML
+        // entities because Gong-synced briefs arrive entity-escaped
+        // (apostrophes as `&#39;`, ampersands as `&amp;` etc.) -- without
+        // this both the FE display and the Notion handoff page leak the
+        // raw entity tokens to the reader.
+        let summary = null;
+        let summaryField = null;
+        for (const fieldName of summaryMeta.fields) {
+          const raw = record[fieldName];
+          if (typeof raw === 'string' && raw.trim()) {
+            summary = decodeHtmlEntities(raw);
+            summaryField = fieldName;
+            break;
+          }
+        }
+
         return {
           id: record.Id || '',
           name: record.Name || '',
@@ -668,6 +774,8 @@ router.get(
           createdDate: createdDate,
           lastModifiedDate: record.LastModifiedDate || null,
           url: url,
+          summary,
+          summaryField,
         };
       });
 
