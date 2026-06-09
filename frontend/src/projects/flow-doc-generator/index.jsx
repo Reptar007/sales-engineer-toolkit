@@ -70,7 +70,6 @@ function DocOutput({ doc }) {
   const [showPrintTip, setShowPrintTip] = useState(false);
   const helpers = doc.helpers || [];
 
-
   const handleStepNameChange = useCallback((index, newName) => {
     setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, name: newName } : s)));
   }, []);
