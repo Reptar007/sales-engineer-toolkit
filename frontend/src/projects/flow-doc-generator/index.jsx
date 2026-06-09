@@ -68,8 +68,6 @@ function DocOutput({ doc }) {
   const [summary, setSummary] = useState(doc.summary);
   const [steps, setSteps] = useState(doc.steps);
   const [showPrintTip, setShowPrintTip] = useState(false);
-  const helpers = doc.helpers || [];
-
 
   const handleStepNameChange = useCallback((index, newName) => {
     setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, name: newName } : s)));
@@ -117,23 +115,6 @@ function DocOutput({ doc }) {
   </div>`,
     )
     .join('')}
-  ${
-    helpers.length > 0
-      ? `
-  <div class="fdg-summary-block">
-    <h2 class="fdg-section-heading">Helper Files</h2>
-  </div>
-  ${helpers
-    .map(
-      (helper) => `
-  <div class="fdg-step">
-    <h3 class="fdg-step-name-heading">${helper.path}</h3>
-    <pre>${helper.code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-  </div>`,
-    )
-    .join('')}`
-      : ''
-  }
 </body>
 </html>`;
 
@@ -219,24 +200,6 @@ function DocOutput({ doc }) {
             <TestStep key={`step-${i}`} step={step} index={i} onNameChange={handleStepNameChange} />
           ))}
         </section>
-
-        {helpers.length > 0 && (
-          <section className="fdg-helpers-section">
-            <h3 className="fdg-section-heading">Helper Files</h3>
-            {helpers.map((helper, i) => (
-              <div className="fdg-step" key={`helper-${i}`}>
-                <h4 className="fdg-step-name-heading">
-                  <span className="fdg-helper-path">{helper.path}</span>
-                </h4>
-                <div className="fdg-code-wrapper">
-                  <pre className="fdg-code-block">
-                    <code>{helper.code}</code>
-                  </pre>
-                </div>
-              </div>
-            ))}
-          </section>
-        )}
       </div>
     </div>
   );
@@ -262,7 +225,6 @@ function authHeaders() {
 function FlowDocGenerator() {
   const toast = useToast();
   const [flowUrl, setFlowUrl] = useState('');
-  const [includeHelpers, setIncludeHelpers] = useState(false);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
@@ -304,7 +266,7 @@ function FlowDocGenerator() {
       // Environment URL: fetch the flow list first so the user can choose
       // which flows to generate (instead of generating all of them).
       const endpoint = bulk ? '/flow-doc/list-flows' : '/flow-doc/generate';
-      const body = bulk ? { environmentUrl: trimmed } : { flowUrl: trimmed, includeHelpers };
+      const body = bulk ? { environmentUrl: trimmed } : { flowUrl: trimmed };
 
       const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
@@ -328,7 +290,7 @@ function FlowDocGenerator() {
     } finally {
       setLoading(false);
     }
-  }, [flowUrl, includeHelpers]);
+  }, [flowUrl]);
 
   const togglePath = useCallback((filePath) => {
     setSelectedPaths((prev) => {
@@ -370,7 +332,6 @@ function FlowDocGenerator() {
         body: JSON.stringify({
           environmentUrl: flowUrl.trim(),
           filePaths: [...selectedPaths],
-          includeHelpers,
         }),
       });
 
@@ -387,7 +348,7 @@ function FlowDocGenerator() {
     } finally {
       setGenerating(false);
     }
-  }, [flowUrl, selectedPaths, includeHelpers]);
+  }, [flowUrl, selectedPaths]);
 
   const openOppModal = useCallback(async () => {
     if (selectedPaths.size === 0) return;
@@ -475,7 +436,7 @@ function FlowDocGenerator() {
               Paste a flow URL (single doc) or an environment URL (one doc per flow) and click{' '}
               <strong>Generate</strong>
             </li>
-            <li>The AI summarizes each flow, extracts its test steps, and pulls in helper files</li>
+            <li>The AI summarizes each flow and extracts its test steps</li>
             <li>
               Click any field — title, summary, or step names — to edit them before downloading
             </li>
@@ -522,19 +483,6 @@ function FlowDocGenerator() {
             {loading ? 'Generating...' : 'Generate'}
           </button>
         </div>
-
-        <label className="fdg-helpers-toggle">
-          <input
-            type="checkbox"
-            checked={includeHelpers}
-            onChange={(e) => setIncludeHelpers(e.target.checked)}
-            disabled={loading}
-          />
-          <span>Include helper files</span>
-          <span className="fdg-helpers-hint">
-            Pulls in utility/helper files imported by the flow. Leave off for a cleaner doc.
-          </span>
-        </label>
       </div>
 
       {loading && (
