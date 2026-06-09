@@ -1,12 +1,20 @@
 import express from 'express';
+import path from 'path';
 import { anthropicService } from '../../../services/anthropicService.js';
 
 const router = express.Router();
 
 /**
  * Parse a QA Wolf app URL into environmentId, relativePath, and the API base URL.
- * Expected format:
- *   https://app.qawolf.com/<org>/environments/<ENV_ID>/automate/ide?file=src%2Fflows%2Fsome-flow.flow.js
+ *
+ * Supports two shapes:
+ *   Single flow URL (has a ?file= param):
+ *     https://app.qawolf.com/<org>/environments/<ENV_ID>/automate/ide?file=src%2Fflows%2Fsome-flow.flow.js
+ *   Environment URL (no ?file= param), used for bulk generation:
+ *     https://app.qawolf.com/<org>/environments/<ENV_ID>/automate/ide
+ *
+ * `relativePath` is `null` when no ?file= param is present so callers can decide
+ * whether a file is required (single) or optional (bulk).
  *
  * The tRPC base URL is derived from the pasted URL's origin so prod/staging URLs
  * always hit the correct host regardless of the QAW_BASE_URL env var.
@@ -29,12 +37,6 @@ function parseQawolfUrl(flowUrl) {
 
   const environmentId = segments[envIndex + 1];
   const relativePath = parsed.searchParams.get('file');
-
-  if (!relativePath) {
-    throw new Error(
-      'Could not extract file path from URL. Make sure the URL contains a ?file= query parameter.',
-    );
-  }
 
   // Derive tRPC base from the URL origin so prod and staging URLs both work
   const trpcBase = `${parsed.origin}/api/trpc`;
@@ -124,9 +126,347 @@ function extractTestSteps(source) {
   return steps;
 }
 
+/**
+ * Pull import/require specifiers out of flow source code so we can resolve them
+ * to helper/utility files. QA Wolf flows reference utilities both relatively
+ * (`../utilities/foo`) and via the tsconfig baseUrl (`utilities/foo`), so we
+ * capture every specifier and let `resolveHelperPaths` decide which ones map to
+ * real first-party files in the environment tree (node modules simply won't
+ * match anything in the tree and get dropped there).
+ */
+function extractImportPaths(source) {
+  const specifiers = new Set();
+
+  // import ... from '<spec>'  and  import '<spec>'
+  const importRegex = /import\s+(?:[^'"]*?\s+from\s+)?["']([^"']+)["']/g;
+  // require('<spec>')
+  const requireRegex = /require\(\s*["']([^"']+)["']\s*\)/g;
+
+  for (const regex of [importRegex, requireRegex]) {
+    let match;
+    while ((match = regex.exec(source)) !== null) {
+      specifiers.add(match[1]);
+    }
+  }
+
+  return [...specifiers];
+}
+
+const HELPER_EXTENSIONS = ['.ts', '.js', '.tsx', '.jsx', '.mjs', '.cjs'];
+const HELPER_EXT_RE = /\.(ts|js|tsx|jsx|mjs|cjs)$/;
+// Directories that hold first-party shared helpers in a QA Wolf repo.
+const HELPER_DIR_RE = /(^|\/)(utilities|helpers|lib)\//;
+
+function stripHelperExt(p) {
+  return p.replace(HELPER_EXT_RE, '');
+}
+
+/**
+ * Given a base path (no extension assumed), return the first matching file in
+ * the tree, trying the path as-is, with each helper extension, and as an
+ * index file.
+ */
+function matchInTree(base, knownPaths) {
+  if (HELPER_EXT_RE.test(base)) {
+    return knownPaths.has(base) ? base : null;
+  }
+  for (const ext of HELPER_EXTENSIONS) {
+    if (knownPaths.has(base + ext)) return base + ext;
+  }
+  for (const ext of HELPER_EXTENSIONS) {
+    if (knownPaths.has(`${base}/index${ext}`)) return `${base}/index${ext}`;
+  }
+  return null;
+}
+
+/**
+ * Resolve import specifiers from a flow file into concrete repo paths, matched
+ * against the environment's real file tree. Handles three import styles:
+ *
+ *   1. Relative:        "../utilities/foo"  -> resolved against the flow's dir
+ *   2. baseUrl / alias: "utilities/foo"     -> tried as-is and under "src/"
+ *   3. Last resort:     match the specifier's basename to a file living in a
+ *      utilities/helpers/lib directory (covers odd alias configs).
+ *
+ * Only paths that actually exist in the tree are returned, so node modules and
+ * bad guesses are dropped rather than triggering 404 fetches.
+ */
+function resolveHelperPaths(relativePath, specifiers, knownPaths) {
+  const resolved = new Set();
+  if (!knownPaths || knownPaths.size === 0) return [];
+
+  const baseDir = path.posix.dirname(relativePath);
+  const knownArr = [...knownPaths];
+
+  for (const spec of specifiers) {
+    let match = null;
+
+    if (spec.startsWith('.')) {
+      // 1. Relative to the flow file.
+      match = matchInTree(path.posix.normalize(path.posix.join(baseDir, spec)), knownPaths);
+    } else {
+      // 2. baseUrl-style: try as-is, then under a "src/" root.
+      match =
+        matchInTree(spec, knownPaths) ||
+        matchInTree(path.posix.normalize(path.posix.join('src', spec)), knownPaths);
+    }
+
+    // 3. Fallback: match the basename to a file in a helper directory.
+    if (!match) {
+      const baseName = stripHelperExt(path.posix.basename(spec));
+      match =
+        knownArr.find(
+          (p) => HELPER_DIR_RE.test(p) && stripHelperExt(path.posix.basename(p)) === baseName,
+        ) || null;
+    }
+
+    if (match) resolved.add(match);
+  }
+
+  return [...resolved];
+}
+
+/**
+ * Recursively collect every string leaf in an arbitrary JSON structure.
+ * The gitwolf.getFiles response shape is not guaranteed, so we walk it
+ * defensively and pull out anything that looks like a file path.
+ */
+function collectAllStrings(node, out = []) {
+  if (node == null) return out;
+  if (typeof node === 'string') {
+    out.push(node);
+  } else if (Array.isArray(node)) {
+    for (const item of node) collectAllStrings(item, out);
+  } else if (typeof node === 'object') {
+    for (const value of Object.values(node)) collectAllStrings(value, out);
+  }
+  return out;
+}
+
+/**
+ * Walk the gitwolf.getFiles response and collect every flow file path
+ * (`*.flow.js` / `*.flow.ts`), regardless of the tree's exact shape.
+ */
+function enumerateFlowFiles(filesData) {
+  const strings = collectAllStrings(filesData);
+  const flows = new Set();
+  for (const s of strings) {
+    if (/\.flow\.(js|ts)$/.test(s)) flows.add(s);
+  }
+  return [...flows].sort();
+}
+
+/**
+ * Set of every path-like string in the file tree, used to resolve helper
+ * import specifiers to the file that actually exists.
+ */
+function collectKnownPaths(filesData) {
+  const strings = collectAllStrings(filesData);
+  const paths = new Set();
+  for (const s of strings) {
+    if (/\.[a-z0-9]+$/i.test(s) && s.includes('/')) paths.add(s);
+  }
+  return paths;
+}
+
+/**
+ * Fetch raw contents for a single file via gitwolf.getFileContents.
+ * Throws QawAuthError on 401/403 so callers can surface a 401.
+ */
+async function fetchFileContents({ trpcBase, authHeader, branchId, commitHash, filePath }) {
+  const contentsUrl = `${trpcBase}/gitwolf.getFileContents?input=${encodeURIComponent(
+    JSON.stringify({ json: { branchId, commitHash, path: filePath } }),
+  )}`;
+  const contentsRes = await fetch(contentsUrl, { headers: authHeader });
+  const rawText = await contentsRes.text();
+
+  if (contentsRes.status === 401 || contentsRes.status === 403) {
+    throw new QawAuthError();
+  }
+
+  if (!contentsRes.ok) {
+    throw new Error(`QA Wolf API returned ${contentsRes.status}: ${rawText.slice(0, 300)}`);
+  }
+
+  const contentsData = JSON.parse(rawText);
+  const data = contentsData?.result?.data?.json ?? contentsData?.result?.data ?? contentsData;
+  const fileSource = data?.content;
+
+  if (typeof fileSource !== 'string') {
+    throw new Error(`Unexpected response shape. Got keys: ${Object.keys(data || {}).join(', ')}`);
+  }
+
+  return fileSource;
+}
+
+/**
+ * Resolve the git branch/commit context for an environment and return the raw
+ * files payload so callers can also enumerate flows / resolve helpers.
+ * Throws QawAuthError on 401/403.
+ */
+async function fetchGitContext({ trpcBase, authHeader, environmentId }) {
+  const filesUrl = `${trpcBase}/gitwolf.getFiles?input=${encodeURIComponent(
+    JSON.stringify({ json: { environmentId } }),
+  )}`;
+  const filesRes = await fetch(filesUrl, { headers: authHeader });
+  const rawText = await filesRes.text();
+
+  if (filesRes.status === 401 || filesRes.status === 403) {
+    throw new QawAuthError();
+  }
+
+  if (!filesRes.ok) {
+    throw new Error(`QA Wolf API returned ${filesRes.status}: ${rawText.slice(0, 300)}`);
+  }
+
+  const filesData = JSON.parse(rawText);
+  const data = filesData?.result?.data?.json ?? filesData?.result?.data ?? filesData;
+  const branchId = data?.branch?.id;
+  const commitHash = data?.commitHash;
+
+  if (!branchId || !commitHash) {
+    throw new Error(
+      `Could not extract branch/commit info. Got keys: ${Object.keys(data || {}).join(', ')}`,
+    );
+  }
+
+  return { branchId, commitHash, filesData: data };
+}
+
+/**
+ * Generate an AI summary of a flow, including helper file source for context.
+ * Non-fatal: returns a placeholder string if the AI call fails.
+ */
+async function summarizeFlow({ relativePath, fileSource, helpers }) {
+  try {
+    const systemPrompt =
+      'You are a senior QA engineer writing professional technical documentation for a sales leave-behind document. ' +
+      'Your response must be exactly 2 - 4 sentences, no more. ' +
+      'Never use em dashes. Use plain punctuation only.';
+
+    let userPrompt =
+      `Summarize what the following QA Wolf automated test flow verifies end-to-end in exactly 2 - 4 sentences. ` +
+      `Be specific about the features and user actions covered. Stop after the second sentence.\n\n` +
+      `Flow file path: ${relativePath}\n\n` +
+      `Flow source code:\n${fileSource}`;
+
+    if (helpers && helpers.length > 0) {
+      const helperBlocks = helpers
+        .map((h) => `Helper file path: ${h.path}\n${h.code}`)
+        .join('\n\n');
+      userPrompt +=
+        `\n\nThe flow relies on the following helper files. Use them to understand shared logic, ` +
+        `but keep the summary focused on what the flow verifies:\n\n${helperBlocks}`;
+    }
+
+    let summary = await anthropicService.callAnthropic(systemPrompt, userPrompt);
+
+    // Hard-enforce 2 sentences: split after a sentence-ending punctuation
+    // followed by a capital letter.
+    const sentenceParts = summary.split(/(?<=[.!?])\s+(?=[A-Z])/);
+    if (sentenceParts.length > 2) {
+      summary = sentenceParts.slice(0, 2).join(' ').trim();
+    }
+    return summary;
+  } catch (err) {
+    console.error('Error generating summary:', err);
+    return 'AI summary unavailable. Please review the flow steps below.';
+  }
+}
+
+/**
+ * Build a full flow doc (title, summary, steps, helpers) for a single flow file.
+ * Reused by both the single-flow and bulk endpoints. Expects the caller to have
+ * already resolved the git context (branchId/commitHash) and file tree.
+ *
+ * Throws QawAuthError if fetching the main flow file fails auth (so the route
+ * can return 401). Helper fetches are best-effort and never fail the doc.
+ */
+async function generateFlowDoc({
+  trpcBase,
+  authHeader,
+  branchId,
+  commitHash,
+  relativePath,
+  orgSlug,
+  knownPaths,
+  includeHelpers = false,
+}) {
+  // 1. Fetch the main flow file
+  const fileSource = await fetchFileContents({
+    trpcBase,
+    authHeader,
+    branchId,
+    commitHash,
+    filePath: relativePath,
+  });
+
+  // 2. Optionally resolve + fetch helper files referenced via relative imports.
+  // Helpers are opt-in (best-effort): they're only useful for some flows, so we
+  // skip the extra fetches entirely unless the caller asks for them.
+  const helpers = [];
+  if (includeHelpers) {
+    const specifiers = extractImportPaths(fileSource);
+    const helperPaths = resolveHelperPaths(relativePath, specifiers, knownPaths);
+    for (const helperPath of helperPaths) {
+      try {
+        const code = await fetchFileContents({
+          trpcBase,
+          authHeader,
+          branchId,
+          commitHash,
+          filePath: helperPath,
+        });
+        helpers.push({ path: helperPath, code: code.trim() });
+      } catch (err) {
+        // Skip helpers we can't fetch (404, resolution miss, etc.) — non-fatal.
+        console.warn(`Skipping helper ${helperPath}: ${err.message}`);
+      }
+    }
+  }
+
+  // 3. Extract test steps
+  const steps = extractTestSteps(fileSource);
+
+  // 4. AI summary (includes helper context)
+  const summary = await summarizeFlow({ relativePath, fileSource, helpers });
+
+  const flowName = flowNameFromPath(relativePath);
+  const orgName = orgNameFromSlug(orgSlug);
+  const docTitle = orgName ? `${orgName} - ${flowName}` : flowName;
+
+  return {
+    flowName: docTitle,
+    filePath: relativePath,
+    summary,
+    steps,
+    helpers,
+  };
+}
+
+/**
+ * Run an async mapper over items with a bounded concurrency so bulk generation
+ * doesn't fire dozens of Anthropic calls simultaneously and trip rate limits.
+ */
+async function mapWithConcurrency(items, limit, mapper) {
+  const results = new Array(items.length);
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
 // POST /api/flow-doc/generate
 router.post('/generate', async (req, res) => {
-  const { flowUrl } = req.body;
+  const { flowUrl, includeHelpers } = req.body;
 
   if (!flowUrl || typeof flowUrl !== 'string') {
     return res.status(400).json({ error: 'flowUrl is required.' });
@@ -146,33 +486,23 @@ router.post('/generate', async (req, res) => {
     return res.status(400).json({ error: err.message });
   }
 
+  if (!relativePath) {
+    return res.status(400).json({
+      error:
+        'Could not extract file path from URL. Make sure the URL contains a ?file= query parameter, or use the environment URL for bulk generation.',
+    });
+  }
+
   const authHeader = { Authorization: `Bearer ${qawBearerToken}` };
 
-  // 2. Fetch branchId (gitWolfBranchId) and commitHash via gitwolf.getFiles
-  let gitWolfBranchId, commitHash;
+  // 2. Resolve git context (branch/commit + file tree)
+  let branchId, commitHash, filesData;
   try {
-    const filesUrl = `${trpcBase}/gitwolf.getFiles?input=${encodeURIComponent(JSON.stringify({ json: { environmentId } }))}`;
-    const filesRes = await fetch(filesUrl, { headers: authHeader });
-    const rawText = await filesRes.text();
-
-    if (filesRes.status === 401 || filesRes.status === 403) {
-      throw new QawAuthError();
-    }
-
-    if (!filesRes.ok) {
-      throw new Error(`QA Wolf API returned ${filesRes.status}: ${rawText.slice(0, 300)}`);
-    }
-
-    const filesData = JSON.parse(rawText);
-    const data = filesData?.result?.data?.json ?? filesData?.result?.data ?? filesData;
-    gitWolfBranchId = data?.branch?.id;
-    commitHash = data?.commitHash;
-
-    if (!gitWolfBranchId || !commitHash) {
-      throw new Error(
-        `Could not extract branch/commit info. Got keys: ${Object.keys(data || {}).join(', ')}`,
-      );
-    }
+    ({ branchId, commitHash, filesData } = await fetchGitContext({
+      trpcBase,
+      authHeader,
+      environmentId,
+    }));
   } catch (err) {
     console.error('Error fetching environment files:', err);
     if (err instanceof QawAuthError) {
@@ -181,77 +511,180 @@ router.post('/generate', async (req, res) => {
     return res.status(502).json({ error: `Failed to fetch environment info: ${err.message}` });
   }
 
-  // 3. Fetch raw file contents
-  let fileSource;
+  // 3. Generate the doc
   try {
-    const contentsUrl = `${trpcBase}/gitwolf.getFileContents?input=${encodeURIComponent(JSON.stringify({ json: { branchId: gitWolfBranchId, commitHash, path: relativePath } }))}`;
-    const contentsRes = await fetch(contentsUrl, { headers: authHeader });
-    const rawText = await contentsRes.text();
-
-    if (contentsRes.status === 401 || contentsRes.status === 403) {
-      throw new QawAuthError();
-    }
-
-    if (!contentsRes.ok) {
-      throw new Error(`QA Wolf API returned ${contentsRes.status}: ${rawText.slice(0, 300)}`);
-    }
-
-    const contentsData = JSON.parse(rawText);
-    const data = contentsData?.result?.data?.json ?? contentsData?.result?.data ?? contentsData;
-    fileSource = data?.content;
-
-    if (typeof fileSource !== 'string') {
-      throw new Error(`Unexpected response shape. Got keys: ${Object.keys(data || {}).join(', ')}`);
-    }
+    const knownPaths = collectKnownPaths(filesData);
+    const doc = await generateFlowDoc({
+      trpcBase,
+      authHeader,
+      branchId,
+      commitHash,
+      relativePath,
+      orgSlug,
+      knownPaths,
+      includeHelpers: includeHelpers === true,
+    });
+    return res.json({ success: true, ...doc });
   } catch (err) {
-    console.error('Error fetching file contents:', err);
+    console.error('Error generating flow doc:', err);
     if (err instanceof QawAuthError) {
       return res.status(401).json({ error: err.message });
     }
     return res.status(502).json({ error: `Failed to fetch flow file: ${err.message}` });
   }
+});
 
-  // 4. Extract test steps
-  const steps = extractTestSteps(fileSource);
+// POST /api/flow-doc/list-flows
+// Returns the list of flows in an environment WITHOUT generating any docs, so
+// the user can choose which ones to generate.
+router.post('/list-flows', async (req, res) => {
+  const { environmentUrl } = req.body;
 
-  // 5. Generate AI summary via Anthropic
-  let summary;
-  try {
-    const systemPrompt =
-      'You are a senior QA engineer writing professional technical documentation for a sales leave-behind document. ' +
-      'Your response must be exactly 2 - 4 sentences, no more. ' +
-      'Never use em dashes. Use plain punctuation only.';
-
-    const userPrompt =
-      `Summarize what the following QA Wolf automated test flow verifies end-to-end in exactly 2 - 4 sentences. ` +
-      `Be specific about the features and user actions covered. Stop after the second sentence.\n\n` +
-      `Flow file path: ${relativePath}\n\n` +
-      `Flow source code:\n${fileSource}`;
-
-    summary = await anthropicService.callAnthropic(systemPrompt, userPrompt);
-
-    // Hard-enforce 2 sentences: split on ". " or "." followed by capital or end-of-string
-    // Use a positive lookahead so we split after the period, not before the next word
-    const sentenceParts = summary.split(/(?<=[.!?])\s+(?=[A-Z])/);
-    if (sentenceParts.length > 2) {
-      summary = sentenceParts.slice(0, 2).join(' ').trim();
-    }
-  } catch (err) {
-    console.error('Error generating summary:', err);
-    // Non-fatal: return a placeholder so the doc is still useful
-    summary = 'AI summary unavailable. Please review the flow steps below.';
+  if (!environmentUrl || typeof environmentUrl !== 'string') {
+    return res.status(400).json({ error: 'environmentUrl is required.' });
   }
 
-  const flowName = flowNameFromPath(relativePath);
-  const orgName = orgNameFromSlug(orgSlug);
-  const docTitle = orgName ? `${orgName} - ${flowName}` : flowName;
+  const qawBearerToken = process.env.QAW_BEARER_TOKEN;
+  if (!qawBearerToken) {
+    return res.status(500).json({ error: 'QAW_BEARER_TOKEN is not configured on the server.' });
+  }
+
+  let environmentId, trpcBase, orgSlug;
+  try {
+    ({ environmentId, trpcBase, orgSlug } = parseQawolfUrl(environmentUrl));
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  const authHeader = { Authorization: `Bearer ${qawBearerToken}` };
+
+  let filesData;
+  try {
+    ({ filesData } = await fetchGitContext({ trpcBase, authHeader, environmentId }));
+  } catch (err) {
+    console.error('Error fetching environment files:', err);
+    if (err instanceof QawAuthError) {
+      return res.status(401).json({ error: err.message });
+    }
+    return res.status(502).json({ error: `Failed to fetch environment info: ${err.message}` });
+  }
+
+  const flowPaths = enumerateFlowFiles(filesData);
+  if (flowPaths.length === 0) {
+    return res.status(404).json({
+      error: 'No flow files (*.flow.js) were found in this environment.',
+    });
+  }
+
+  const flows = flowPaths.map((filePath) => ({
+    filePath,
+    flowName: flowNameFromPath(filePath),
+  }));
 
   return res.json({
     success: true,
-    flowName: docTitle,
-    filePath: relativePath,
-    summary,
-    steps,
+    environmentName: orgNameFromSlug(orgSlug),
+    flows,
+  });
+});
+
+// POST /api/flow-doc/generate-bulk
+router.post('/generate-bulk', async (req, res) => {
+  const { environmentUrl, filePaths, includeHelpers } = req.body;
+
+  if (!environmentUrl || typeof environmentUrl !== 'string') {
+    return res.status(400).json({ error: 'environmentUrl is required.' });
+  }
+
+  const qawBearerToken = process.env.QAW_BEARER_TOKEN;
+  if (!qawBearerToken) {
+    return res.status(500).json({ error: 'QAW_BEARER_TOKEN is not configured on the server.' });
+  }
+
+  // 1. Parse URL (file param is ignored for bulk)
+  let environmentId, trpcBase, orgSlug;
+  try {
+    ({ environmentId, trpcBase, orgSlug } = parseQawolfUrl(environmentUrl));
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  const authHeader = { Authorization: `Bearer ${qawBearerToken}` };
+
+  // 2. Resolve git context + file tree
+  let branchId, commitHash, filesData;
+  try {
+    ({ branchId, commitHash, filesData } = await fetchGitContext({
+      trpcBase,
+      authHeader,
+      environmentId,
+    }));
+  } catch (err) {
+    console.error('Error fetching environment files:', err);
+    if (err instanceof QawAuthError) {
+      return res.status(401).json({ error: err.message });
+    }
+    return res.status(502).json({ error: `Failed to fetch environment info: ${err.message}` });
+  }
+
+  // 3. Enumerate flow files
+  const flowPaths = enumerateFlowFiles(filesData);
+  if (flowPaths.length === 0) {
+    return res.status(404).json({
+      error: 'No flow files (*.flow.js) were found in this environment.',
+    });
+  }
+
+  // Restrict to the user-selected flows. If none are provided we fall back to
+  // all flows (backwards compatible), but the UI always sends a selection.
+  let targetPaths = flowPaths;
+  if (Array.isArray(filePaths) && filePaths.length > 0) {
+    const allowed = new Set(flowPaths);
+    targetPaths = filePaths.filter((p) => allowed.has(p));
+    if (targetPaths.length === 0) {
+      return res.status(400).json({
+        error: 'None of the selected flows were found in this environment.',
+      });
+    }
+  }
+
+  const knownPaths = collectKnownPaths(filesData);
+
+  // 4. Generate a doc per flow with bounded concurrency; capture per-flow failures
+  const failures = [];
+  let authFailed = false;
+
+  const docs = await mapWithConcurrency(targetPaths, 4, async (relativePath) => {
+    try {
+      return await generateFlowDoc({
+        trpcBase,
+        authHeader,
+        branchId,
+        commitHash,
+        relativePath,
+        orgSlug,
+        knownPaths,
+        includeHelpers: includeHelpers === true,
+      });
+    } catch (err) {
+      if (err instanceof QawAuthError) authFailed = true;
+      failures.push({ filePath: relativePath, error: err.message });
+      return null;
+    }
+  });
+
+  const successfulDocs = docs.filter(Boolean);
+
+  // If everything failed on auth, surface the actionable 401.
+  if (successfulDocs.length === 0 && authFailed) {
+    return res.status(401).json({ error: QAW_INVALID_TOKEN_MESSAGE });
+  }
+
+  return res.json({
+    success: true,
+    environmentName: orgNameFromSlug(orgSlug),
+    docs: successfulDocs,
+    failures,
   });
 });
 
@@ -260,9 +693,11 @@ router.get('/', (_req, res) => {
   res.json({
     project: 'Flow Doc Generator',
     description: 'Generate technical leave-behind documents from QA Wolf flow URLs',
-    version: '1.0.0',
+    version: '2.0.0',
     endpoints: {
       generate: 'POST /api/flow-doc/generate',
+      listFlows: 'POST /api/flow-doc/list-flows',
+      generateBulk: 'POST /api/flow-doc/generate-bulk',
     },
   });
 });

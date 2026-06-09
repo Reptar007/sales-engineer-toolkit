@@ -699,11 +699,22 @@ function OppDetail() {
             )}
           </div>
           <div className="opp-properties" style={{ gridTemplateColumns: '1fr' }}>
+            <div className="opp-property">
+              <span className="opp-property__label">Demo URL</span>
+              <EditableField
+                value={creation.demoWorkspaceUrl}
+                editable={canEdit}
+                placeholder="https://app.qawolf.com/…"
+                type="url"
+                onSave={(v) => patchCreation({ demoWorkspaceUrl: v })}
+                onStatusChange={onSaveStatus}
+              />
+            </div>
             {['url', 'vpn', 'user', 'integrations'].map((key) => {
               const labels = {
                 url: 'URL / APK / IPA',
                 vpn: 'Any VPN',
-                user: 'User',
+                user: 'Credentials',
                 integrations: 'Integrations',
               };
               return (
@@ -747,19 +758,6 @@ function OppDetail() {
                 Slack thread ↗
               </a>
             )}
-          </div>
-          <div className="opp-properties" style={{ gridTemplateColumns: '1fr' }}>
-            <div className="opp-property">
-              <span className="opp-property__label">Demo Workspace URL</span>
-              <EditableField
-                value={creation.demoWorkspaceUrl}
-                editable={canEdit}
-                placeholder="https://app.qawolf.com/…"
-                type="url"
-                onSave={(v) => patchCreation({ demoWorkspaceUrl: v })}
-                onStatusChange={onSaveStatus}
-              />
-            </div>
           </div>
           <div className="opp-flows">
             <div className="opp-flows__header">
