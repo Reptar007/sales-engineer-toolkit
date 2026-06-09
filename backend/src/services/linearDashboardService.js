@@ -1082,6 +1082,542 @@ export async function getTicketsCreatedByAEForTeam(userId, year) {
   }
 }
 
+// -------------------------------------------------------------------------
+// Opp-page helper: find every Linear ticket whose title or description
+// references a given Opportunity Name, regardless of who owns it. Used by
+// the Opp handoff page so a Lead can see the full constellation of work
+// (estimation, creation, AI demo prep, misc) in one card without having
+// to dig through Linear filters.
+// -------------------------------------------------------------------------
+
+const OPP_TICKETS_QUERY = `
+  query OppTickets($teamId: ID!, $needle: String!, $after: String) {
+    issues(
+      filter: {
+        team: { id: { eq: $teamId } }
+        or: [
+          { title: { containsIgnoreCase: $needle } }
+          { description: { containsIgnoreCase: $needle } }
+        ]
+      }
+      first: 100
+      after: $after
+    ) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id
+        identifier
+        title
+        description
+        url
+        priority
+        dueDate
+        createdAt
+        completedAt
+        state { name type }
+        project { id name }
+        assignee { id name email }
+        labels { nodes { id name } }
+      }
+    }
+  }
+`;
+
+// Categorize a ticket for the Opp page. Reuses the same title regexes as
+// the team-page roll-up so naming stays consistent across surfaces.
+//   creation  -> "Test Creation - ..."
+//   scope     -> "Exploratory Estimation" / "Ratio Estimation"
+//   aiDemo    -> AI Demo / AI Workshop labels or matching title
+//   other     -> everything else (intro calls, follow-ups, ad-hoc work)
+function categorizeOppTicket(issue) {
+  const labels = Array.isArray(issue?.labels?.nodes) ? issue.labels.nodes : [];
+  const hasAiDemoLabel = labels.some((label) =>
+    /^ai\s*(?:demo|workshop)$/i.test((label?.name || '').trim()),
+  );
+  const title = typeof issue?.title === 'string' ? issue.title : '';
+  if (hasAiDemoLabel || AI_DEMO_TITLE_RE.test(title)) return 'aiDemo';
+  if (ESTIMATION_TITLE_RE.test(title)) return 'scope';
+  if (/test\s+creation/i.test(title)) return 'creation';
+  return 'other';
+}
+
+// A ticket "really" matches an Opportunity Name when:
+//   - the description contains the explicit `Opportunity Name: {name}` line, OR
+//   - the title contains the name (case-insensitive).
+// We post-filter the GraphQL response because `containsIgnoreCase` matches
+// any substring anywhere -- e.g. the name "Acme" would otherwise pull in
+// every ticket that happened to mention "acme" in passing. Restricting to
+// the labeled description field and title keeps the card honest.
+function isStrongOppMatch(issue, oppName) {
+  if (!oppName) return false;
+  const normalized = oppName.trim().toLowerCase();
+  if (!normalized) return false;
+  const title = (issue.title || '').toLowerCase();
+  if (title.includes(normalized)) return true;
+  const fromField = extractDescriptionField(issue.description, 'Opportunity Name');
+  if (fromField && fromField.toLowerCase() === normalized) return true;
+  return false;
+}
+
+// Pull the Slack thread URL out of a Linear ticket description. AE-request
+// tickets created from Slack include a "Slack Thread: <url>" line in the
+// labeled body. We accept either the labeled-field form or a bare Slack
+// URL found anywhere in the description so we don't miss tickets where
+// the template was hand-edited.
+function extractSlackThread(description) {
+  if (!description || typeof description !== 'string') return null;
+  const labeled = extractDescriptionField(description, 'Slack Thread');
+  if (labeled) {
+    const m = labeled.match(/https?:\/\/[^\s)>\]]+/);
+    if (m) return m[0];
+  }
+  const fallback = description.match(/https?:\/\/[a-z0-9-]+\.slack\.com\/[^\s)>\]]+/i);
+  return fallback ? fallback[0] : null;
+}
+
+// Extract the AE-template "Type of Ask" field. Used by the Opp detail
+// page to auto-pre-select the Estimation Type radio when a scoping ticket
+// is linked. Falls back to "Main Ask" since older templates used that.
+function extractTypeOfAsk(description) {
+  if (!description) return null;
+  return (
+    extractDescriptionField(description, 'Type of Ask') ||
+    extractDescriptionField(description, 'Main Ask') ||
+    null
+  );
+}
+
+function mapOppTicket(issue) {
+  const state = issue.state || {};
+  const isClosed = ['completed', 'canceled'].includes((state.type || '').toLowerCase());
+  return {
+    id: issue.identifier || issue.id,
+    rawId: issue.id,
+    title: issue.title,
+    url: issue.url || null,
+    state: state.name || null,
+    stateType: state.type || null,
+    isClosed,
+    priority: issue.priority ?? null,
+    dueDate: issue.dueDate || null,
+    createdAt: issue.createdAt || null,
+    completedAt: issue.completedAt || null,
+    project: issue.project?.name || null,
+    assignee: issue.assignee
+      ? {
+          name: issue.assignee.name || null,
+          email: issue.assignee.email || null,
+        }
+      : null,
+    labels: Array.isArray(issue.labels?.nodes)
+      ? issue.labels.nodes.map((l) => l?.name).filter(Boolean)
+      : [],
+    // Auto-extracted from the ticket description. Surfaced on the Opp
+    // page so the SE can jump from a Creation / Scope ticket straight to
+    // the AE's Slack request thread without round-tripping through Linear.
+    slackThread: extractSlackThread(issue.description),
+    typeOfAsk: extractTypeOfAsk(issue.description),
+  };
+}
+
+/**
+ * Fetch every Linear ticket in the configured team that references the given
+ * opportunity name, grouped by Opp-page category. Used by GET /opps/:id to
+ * render the "Linked Linear tickets" card. Returns an empty shape when Linear
+ * isn't configured rather than throwing, so the Opp page still renders.
+ *
+ * @param {string} oppName
+ * @returns {Promise<{
+ *   configured: boolean,
+ *   creation: object[], scope: object[], aiDemo: object[], other: object[],
+ *   total: number,
+ * }>}
+ */
+export async function findLinearTicketsForOpp(oppName) {
+  const empty = {
+    configured: false,
+    creation: [],
+    scope: [],
+    aiDemo: [],
+    other: [],
+    total: 0,
+  };
+
+  const teamId = process.env.LINEAR_TEAM_ID?.trim();
+  if (!teamId || !process.env.LINEAR_API_KEY?.trim()) return empty;
+  if (!oppName?.trim()) return { ...empty, configured: true };
+
+  const needle = oppName.trim();
+  const all = [];
+  let after = null;
+  try {
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const data = await linearGraphQL(OPP_TICKETS_QUERY, { teamId, needle, after });
+      const nodes = data?.issues?.nodes ?? [];
+      all.push(...nodes);
+      const pageInfo = data?.issues?.pageInfo;
+      if (!pageInfo?.hasNextPage || !pageInfo.endCursor) break;
+      after = pageInfo.endCursor;
+    }
+  } catch (err) {
+    console.error('Linear: opp ticket lookup failed for', oppName, '-', err.message);
+    return { ...empty, configured: true };
+  }
+
+  const buckets = { creation: [], scope: [], aiDemo: [], other: [] };
+  for (const issue of all) {
+    if (!isStrongOppMatch(issue, oppName)) continue;
+    const cat = categorizeOppTicket(issue);
+    buckets[cat].push(mapOppTicket(issue));
+  }
+
+  // Sort each bucket: open before closed, then newest first by createdAt.
+  for (const key of Object.keys(buckets)) {
+    buckets[key].sort((a, b) => {
+      if (a.isClosed !== b.isClosed) return a.isClosed ? 1 : -1;
+      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return tb - ta;
+    });
+  }
+
+  const total =
+    buckets.creation.length + buckets.scope.length + buckets.aiDemo.length + buckets.other.length;
+
+  return { configured: true, ...buckets, total };
+}
+
+// ---------------------------------------------------------------------------
+// Manual Linear-ticket lookup (for SEs adding mis-named tickets by hand).
+// ---------------------------------------------------------------------------
+
+// Lookup by issue identifier (e.g. "AXO-959"). Linear's GraphQL has a direct
+// `issueVcsBranchSearch` -- but the simpler and more reliable approach is to
+// filter the team's issues by `number` after extracting the prefix/number
+// from the identifier. We restrict to LINEAR_TEAM_ID so a stray "ABC-123"
+// from a different team can't be linked into our Opp.
+const ISSUE_BY_NUMBER_QUERY = `
+  query IssueByNumber($teamId: ID!, $number: Float!) {
+    issues(filter: { team: { id: { eq: $teamId } }, number: { eq: $number } }, first: 1) {
+      nodes {
+        id
+        identifier
+        title
+        description
+        url
+        priority
+        dueDate
+        createdAt
+        completedAt
+        state { name type }
+        project { id name }
+        assignee { id name email }
+        labels { nodes { id name } }
+      }
+    }
+  }
+`;
+
+// Accept either a bare identifier ("AXO-959") or a full Linear URL
+// ("https://linear.app/qawolf/issue/AXO-959/some-slug") and normalize to
+// `{ prefix, number }`. Returns null when nothing identifier-shaped is
+// found in the input.
+export function parseLinearIdentifier(input) {
+  if (!input || typeof input !== 'string') return null;
+  const cleaned = input.trim();
+  if (!cleaned) return null;
+  // Match the prefix-number pattern wherever it appears in the string so
+  // pasting a URL just works without the SE stripping the slug.
+  const match = cleaned.match(/([A-Z][A-Z0-9]{0,9})-(\d+)/);
+  if (!match) return null;
+  return {
+    identifier: `${match[1].toUpperCase()}-${match[2]}`,
+    prefix: match[1].toUpperCase(),
+    number: Number(match[2]),
+  };
+}
+
+/**
+ * Fetch a single Linear ticket by identifier (e.g. "AXO-959"). Used by the
+ * manual-link endpoint so we can (a) validate the ticket exists before
+ * persisting and (b) hydrate display state for the UI.
+ *
+ * @param {string} identifier  Bare identifier or full Linear URL.
+ * @returns {Promise<{ status: 'ok', ticket: object } | { status: 'not_configured' | 'invalid' | 'not_found' | 'error', message?: string }>}
+ */
+export async function getLinearTicketByIdentifier(identifier) {
+  const teamId = process.env.LINEAR_TEAM_ID?.trim();
+  if (!teamId || !process.env.LINEAR_API_KEY?.trim()) {
+    return { status: 'not_configured' };
+  }
+  const parsed = parseLinearIdentifier(identifier);
+  if (!parsed) {
+    return { status: 'invalid', message: 'Could not parse a Linear ticket identifier from input.' };
+  }
+  try {
+    const data = await linearGraphQL(ISSUE_BY_NUMBER_QUERY, {
+      teamId,
+      number: parsed.number,
+    });
+    const issue = data?.issues?.nodes?.[0];
+    if (!issue) return { status: 'not_found' };
+    // Guard against same-number tickets in a different team prefix. The
+    // GraphQL filter is already scoped by team, but checking identifier
+    // is a cheap belt-and-braces.
+    if (issue.identifier && issue.identifier !== parsed.identifier) {
+      return { status: 'not_found' };
+    }
+    return { status: 'ok', ticket: mapOppTicket(issue) };
+  } catch (err) {
+    console.error('Linear: ticket lookup failed for', parsed.identifier, '-', err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+
+/**
+ * Resolve a list of manually-linked Linear identifiers and merge them into
+ * a `findLinearTicketsForOpp` result. Manually-linked tickets are flagged
+ * with `manual: true` so the UI can render an unlink affordance; duplicates
+ * (a ticket that's both auto-discovered and manually linked) are deduped on
+ * `rawId` with the auto-discovered entry winning -- but still flagged
+ * `manual: true` so the SE can unlink it.
+ *
+ * Tickets that no longer exist in Linear (deleted, archived to oblivion, or
+ * accessible to a user who lacks permission) are silently dropped from the
+ * returned buckets but still included in `unresolved` so the UI can surface
+ * the dangling identifier.
+ *
+ * @param {ReturnType<findLinearTicketsForOpp>} baseBuckets
+ * @param {string[]} identifiers
+ */
+export async function mergeManualLinearLinks(baseBuckets, identifiers) {
+  if (!Array.isArray(identifiers) || identifiers.length === 0) {
+    return { ...baseBuckets, manualIdentifiers: [], unresolved: [] };
+  }
+  const teamId = process.env.LINEAR_TEAM_ID?.trim();
+  if (!teamId || !process.env.LINEAR_API_KEY?.trim()) {
+    return {
+      ...baseBuckets,
+      manualIdentifiers: identifiers,
+      unresolved: identifiers,
+    };
+  }
+
+  // De-dupe + normalize identifiers up front so a sloppy double-link
+  // doesn't fire two GraphQL calls.
+  const seen = new Set();
+  const normalized = [];
+  for (const raw of identifiers) {
+    const parsed = parseLinearIdentifier(raw);
+    if (!parsed) continue;
+    if (seen.has(parsed.identifier)) continue;
+    seen.add(parsed.identifier);
+    normalized.push(parsed.identifier);
+  }
+
+  const results = await Promise.all(normalized.map((id) => getLinearTicketByIdentifier(id)));
+
+  // Index existing auto-discovered tickets so we can flag those that are
+  // *also* manually linked rather than duplicating them.
+  const byRawId = new Map();
+  for (const cat of ['creation', 'scope', 'aiDemo', 'other']) {
+    for (const t of baseBuckets[cat] || []) {
+      if (t.rawId) byRawId.set(t.rawId, t);
+    }
+  }
+
+  const buckets = {
+    creation: [...(baseBuckets.creation || [])],
+    scope: [...(baseBuckets.scope || [])],
+    aiDemo: [...(baseBuckets.aiDemo || [])],
+    other: [...(baseBuckets.other || [])],
+  };
+  const unresolved = [];
+
+  results.forEach((res, i) => {
+    const identifier = normalized[i];
+    if (res.status !== 'ok' || !res.ticket) {
+      unresolved.push(identifier);
+      return;
+    }
+    const ticket = { ...res.ticket, manual: true };
+    const existing = byRawId.get(ticket.rawId);
+    if (existing) {
+      existing.manual = true;
+      return;
+    }
+    // Re-categorize by title so manual links land in the right bucket.
+    // We don't have the raw `issue` object here, but mapOppTicket preserved
+    // the title and labels (via the bucket structure) -- categorizeOppTicket
+    // takes the raw shape, so we fake one with just the fields it inspects.
+    const cat = categorizeOppTicket({
+      title: ticket.title,
+      labels: { nodes: (ticket.labels || []).map((name) => ({ name })) },
+    });
+    buckets[cat].push(ticket);
+  });
+
+  // Re-sort buckets (open above closed, newest first) so manual additions
+  // slot into the right position rather than appearing at the bottom.
+  for (const key of Object.keys(buckets)) {
+    buckets[key].sort((a, b) => {
+      if (a.isClosed !== b.isClosed) return a.isClosed ? 1 : -1;
+      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return tb - ta;
+    });
+  }
+
+  const total =
+    buckets.creation.length + buckets.scope.length + buckets.aiDemo.length + buckets.other.length;
+
+  return {
+    ...baseBuckets,
+    ...buckets,
+    total,
+    manualIdentifiers: normalized,
+    unresolved,
+  };
+}
+
+// Dedicated picker query -- mirrors TEAM_ISSUES_QUERY but adds the extra
+// fields mapOppTicket() expects (assignee + createdAt) so the picker can
+// show "assigned to X, created Y" hints without a second fetch.
+const PICKER_ISSUES_QUERY = `
+  query MyPickerIssues($teamId: ID!, $assigneeId: ID!, $after: String) {
+    issues(
+      filter: {
+        team: { id: { eq: $teamId } }
+        assignee: { id: { eq: $assigneeId } }
+        state: { type: { nin: ["completed", "canceled"] } }
+      }
+      first: 100
+      after: $after
+    ) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id
+        identifier
+        title
+        url
+        priority
+        dueDate
+        createdAt
+        completedAt
+        state { name type }
+        project { id name }
+        assignee { id name email }
+        labels { nodes { id name } }
+      }
+    }
+  }
+`;
+
+/**
+ * Return the logged-in SE's currently-open Linear tickets in the same shape
+ * `findLinearTicketsForOpp` uses, so the manual-link picker can render
+ * them with familiar fields (identifier, title, state, project, etc.).
+ *
+ * Intentionally broader than the dashboard's "Active Hunts" view -- we
+ * don't filter out internal projects or non-opportunity tickets, because
+ * the SE explicitly knows which ticket they're trying to link.
+ */
+export async function listMyOpenLinearTickets(userId) {
+  const empty = { configured: false, tickets: [] };
+  const teamId = process.env.LINEAR_TEAM_ID?.trim();
+  if (!teamId || !process.env.LINEAR_API_KEY?.trim()) return empty;
+
+  const resolved = await loadOrResolveLinearUserId(userId);
+  if (resolved.status === 'no_sales_engineer') {
+    return { ...empty, configured: true, reason: 'no_sales_engineer' };
+  }
+  if (resolved.status === 'needs_profile') {
+    return { ...empty, configured: true, needsLinearProfile: true };
+  }
+
+  const all = [];
+  let after = null;
+  try {
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const data = await linearGraphQL(PICKER_ISSUES_QUERY, {
+        teamId,
+        assigneeId: resolved.linearUserId,
+        after,
+      });
+      const nodes = data?.issues?.nodes ?? [];
+      all.push(...nodes);
+      const pageInfo = data?.issues?.pageInfo;
+      if (!pageInfo?.hasNextPage || !pageInfo.endCursor) break;
+      after = pageInfo.endCursor;
+    }
+  } catch (err) {
+    console.error('Linear: my-tickets fetch failed for user', userId, '-', err.message);
+    return { ...empty, configured: true };
+  }
+
+  const tickets = all.map(mapOppTicket);
+
+  // Newest first -- recently-created tickets are far more likely to be
+  // the one the SE is hunting for.
+  tickets.sort((a, b) => {
+    const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+    const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+    return tb - ta;
+  });
+
+  return { configured: true, tickets };
+}
+
+/**
+ * Group the current SE's open AE Request tickets by `Opportunity Name:` so
+ * the "My Opps" page can list one card per opp without forcing the SE to
+ * create a DB row first. Falls back to `{ configured: false, groups: [] }`
+ * when the user has no SalesEngineer record / Linear isn't wired up.
+ *
+ * @param {string} userId  app User.id
+ * @returns {Promise<{
+ *   configured: boolean,
+ *   reason?: 'no_sales_engineer',
+ *   needsLinearProfile?: true,
+ *   groups: Array<{ oppName: string, tickets: object[] }>,
+ * }>}
+ */
+export async function getMyOppNamesFromLinear(userId) {
+  const empty = { configured: false, groups: [] };
+  const resolved = await loadOrResolveLinearUserId(userId);
+  if (resolved.status === 'no_sales_engineer') {
+    return { ...empty, reason: 'no_sales_engineer' };
+  }
+  if (resolved.status === 'needs_profile') {
+    return { ...empty, needsLinearProfile: true };
+  }
+
+  let issues = [];
+  try {
+    issues = await fetchMyTeamIssues(resolved.linearUserId);
+  } catch (err) {
+    console.error('Linear: my-opps fetch failed for user', userId, '-', err.message);
+    return empty;
+  }
+
+  // Bucket by Opportunity Name. Tickets that don't have one (or live in an
+  // excluded project) are skipped so the list stays focused on real opps.
+  const byName = new Map();
+  for (const issue of issues) {
+    if (isExcludedProjectName(issue.project?.name)) continue;
+    const oppName = extractDescriptionField(issue.description, 'Opportunity Name');
+    if (!oppName) continue;
+    if (!byName.has(oppName)) byName.set(oppName, []);
+    byName.get(oppName).push(mapOppTicket(issue));
+  }
+
+  const groups = Array.from(byName.entries())
+    .map(([oppName, tickets]) => ({ oppName, tickets }))
+    .sort((a, b) => a.oppName.localeCompare(b.oppName));
+
+  return { configured: true, groups };
+}
+
 /**
  * Per-user dashboard payload.
  * @param {string} userId  app User.id from req.user.id

@@ -60,7 +60,13 @@ export default function useDashboardBootstrap({ minDurationMs = 900, maxDuration
             ...(config?.snapshotYears || []),
           ]),
         ].filter((y) => Number.isFinite(y));
-        const year = candidates[0];
+        // Only warm the snapshot cache for a year we actually have a
+        // snapshot for. The current/live year is served from a Salesforce
+        // report (widgets fetch that themselves), so hitting the snapshot
+        // endpoint for a non-snapshot year just 404s and noises up the
+        // console without warming anything useful.
+        const snapshotYears = new Set(config?.snapshotYears || []);
+        const year = candidates.find((y) => snapshotYears.has(y));
         if (!year) return null;
         return fetchSalesforceSnapshotMetrics(year).catch(() => null);
       })

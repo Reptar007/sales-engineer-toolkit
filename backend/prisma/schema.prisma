@@ -107,6 +107,7 @@ model SalesEngineer {
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   team            Team             @relation(fields: [teamId], references: [id])
   teamAssignments TeamAssignment[]
+  opps            Opp[]
 
   @@index([userId])
   @@index([teamId])
@@ -148,6 +149,76 @@ model TeamAssignment {
   @@index([salesEngineerId])
   @@index([accountExecutiveId])
   @@map("team_assignments")
+}
+
+/// Per-opportunity handoff page owned by a single SE. SE-authored content
+/// (technical specs, notes, custom sections, people snapshots) lives here;
+/// SF / Gong / Linear data is fetched live at read time and never persisted.
+model Opp {
+  id                      String   @id @default(cuid())
+  salesEngineerId         String
+  oppName                 String
+  salesforceOpportunityId String?
+
+  // People snapshots (plain strings -- CSMs / QA Leads typically aren't app users).
+  aeNameOverride String?
+  csmName        String?
+  qaLeadName     String?
+  qaManagerName  String?
+
+  // SE-authored content. JSON blobs keep the schema flat and 1:1 with a
+  // future Notion page sync (one row -> one page).
+  technicalSpecsJson String?
+  // QAE team assignment (Alpacas / Badgers / etc.). Surfaces in the
+  // Hunt Board handoff page and gets written to the Notion DB's
+  // "QAE Team" select column on send.
+  qawTeam            String?
+  // SF stage snapshot. Refreshed by the FE whenever the detail page
+  // hydrates Salesforce data so the Hunt Board directory can render a
+  // stage pill without N synchronous SF queries on every list load.
+  // Stale-by-design between visits -- the SF card on the detail page is
+  // the authoritative source.
+  currentStage       String?
+  stageSyncedAt      DateTime?
+  notesMarkdown      String?
+  customSectionsJson String?
+
+  // Manually-linked Linear tickets -- JSON array of
+  //   { identifier: "AXO-959", addedAt, addedByUserId }
+  // for cases where the AE didn't follow naming conventions and the
+  // auto-discovery query in findLinearTicketsForOpp won't catch the ticket.
+  // These are resolved against Linear at read time so we never store stale
+  // ticket state in our DB.
+  manualLinearLinksJson String?
+
+  // Test creation handoff details -- demo workspace + the list of flows
+  // the AE built. Shape:
+  //   { demoWorkspaceUrl: string, flows: [{ id, name, url }] }
+  creationJson String?
+
+  // Estimation handoff details -- type (ratio vs exploratory) plus the
+  // type-specific artifacts and the shared spreadsheet URL. Shape:
+  //   { type: 'ratio' | 'exploratory' | null,
+  //     ratioDocUrl, exploratoryNotes, spreadsheetUrl }
+  estimationJson String?
+
+  // Notion handoff page. Populated the first time an SE clicks
+  // "Send to Notion" on the Hunt Board page; afterwards the FE shows
+  // "Open in Notion" using the cached URL. A re-sync overwrites these
+  // with a fresh page (old page stays in Notion -- SE can archive there).
+  notionPageId   String?
+  notionPageUrl  String?
+  notionSyncedAt DateTime?
+
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  salesEngineer SalesEngineer @relation(fields: [salesEngineerId], references: [id], onDelete: Cascade)
+
+  @@unique([salesEngineerId, oppName])
+  @@index([salesEngineerId])
+  @@map("opps")
 }
 
 model QuarterlyGoal {

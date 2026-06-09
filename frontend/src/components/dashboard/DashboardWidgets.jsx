@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   fetchDashboardCalendar,
   fetchDashboardLinear,
   startGoogleCalendarOAuth,
 } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
+import CreateOppModal from '../../projects/opps/components/CreateOppModal';
 import { MOCK_LINEAR_BOARD } from './dashboardWidgetMockData';
 import './DashboardWidgets.less';
 
@@ -364,6 +365,20 @@ function flattenHuntRows(projects) {
   return rows;
 }
 
+// Whether a hunt row originated from an AE request (vs a CSM request,
+// internal creations task, or unprojected "Other" work). Only AE
+// requests represent a net-new sales opportunity worth spinning up a
+// Hunt Board for, so the row-hover "New Hunt" shortcut is gated to
+// them. Matched on the Linear project name with `csm` explicitly
+// excluded so a future rename like "AE / CSM Requests" never leaks the
+// button onto CSM work.
+function isAeRequestRow(row) {
+  const name = (row?.projectName || '').toLowerCase();
+  if (!name) return false;
+  if (name.includes('csm')) return false;
+  return /\bae\b/.test(name);
+}
+
 // Pick the strings rendered in the Opportunity column. Prefer the
 // structured `oppName` / `typeOfAsk` extracted from the issue's SE
 // template description; fall back to title parsing when the issue
@@ -441,6 +456,11 @@ function LinearGlyph() {
 
 function DashboardLinearCard({ state }) {
   const { status, projects } = state;
+  const navigate = useNavigate();
+  // Name to seed the "Start a New Hunt" modal. `null` keeps the modal
+  // closed; a string (possibly empty) opens it pre-filled so the SE can
+  // spin up a Hunt Board page straight from an incoming Linear request.
+  const [huntDraftName, setHuntDraftName] = useState(null);
 
   const renderBody = () => {
     if (status === 'loading') {
@@ -547,17 +567,31 @@ function DashboardLinearCard({ state }) {
               return (
                 <tr key={row.id} className={`dashboard-hunts__row${rowModifier}`} title={rowTitle}>
                   <td className="dashboard-hunts__cell dashboard-hunts__cell--opp">
-                    <p className="dashboard-hunts__opp" title={opp}>
-                      {opp}
-                    </p>
-                    {ask && (
-                      <p className="dashboard-hunts__ask" title={ask}>
-                        <span className="dashboard-hunts__ask-arrow" aria-hidden="true">
-                          ↳
-                        </span>
-                        <span className="dashboard-hunts__ask-text">{ask}</span>
-                      </p>
-                    )}
+                    <div className="dashboard-hunts__opp-wrap">
+                      <div className="dashboard-hunts__opp-main">
+                        <p className="dashboard-hunts__opp" title={opp}>
+                          {opp}
+                        </p>
+                        {ask && (
+                          <p className="dashboard-hunts__ask" title={ask}>
+                            <span className="dashboard-hunts__ask-arrow" aria-hidden="true">
+                              ↳
+                            </span>
+                            <span className="dashboard-hunts__ask-text">{ask}</span>
+                          </p>
+                        )}
+                      </div>
+                      {isAeRequestRow(row) && (
+                        <button
+                          type="button"
+                          className="dashboard-hunts__create"
+                          title={`Start a Hunt Board page for ${opp}`}
+                          onClick={() => setHuntDraftName(opp === 'Untitled hunt' ? '' : opp)}
+                        >
+                          <span aria-hidden="true">+</span> New Hunt
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td
                     className={`dashboard-hunts__cell dashboard-hunts__cell--ae${
@@ -622,6 +656,16 @@ function DashboardLinearCard({ state }) {
         </span>
       </div>
       {renderBody()}
+      {huntDraftName !== null && (
+        <CreateOppModal
+          initialName={huntDraftName}
+          onClose={() => setHuntDraftName(null)}
+          onCreated={(opp) => {
+            setHuntDraftName(null);
+            if (opp?.id) navigate(`/projects/opps/${opp.id}`);
+          }}
+        />
+      )}
     </section>
   );
 }
