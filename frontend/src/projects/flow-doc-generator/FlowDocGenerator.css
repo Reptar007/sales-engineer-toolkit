@@ -257,31 +257,6 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
-.fdg-helpers-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.85rem;
-  font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.8);
-  cursor: pointer;
-  user-select: none;
-  flex-wrap: wrap;
-}
-
-.fdg-helpers-toggle input[type='checkbox'] {
-  width: 1rem;
-  height: 1rem;
-  accent-color: var(--coral);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.fdg-helpers-hint {
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.75rem;
-}
-
 /* =========================
  * Loading + error states
  * ========================= */
@@ -647,29 +622,6 @@
   background: #ecfdf5;
   color: #065f46;
   border-color: #6ee7b7;
-}
-
-/* =========================
- * Helper files section — lives inside the paper preview, mirrors the
- * steps section but labels each block with its repo path instead of a
- * numbered step pill.
- * ========================= */
-
-.fdg-helpers-section {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #e5e7eb;
-}
-
-.fdg-helper-path {
-  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', Menlo, monospace;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: #3d3df5;
-  word-break: break-all;
 }
 
 /* =========================
