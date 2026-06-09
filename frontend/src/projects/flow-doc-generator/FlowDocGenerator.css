@@ -257,6 +257,31 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
+.fdg-helpers-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  user-select: none;
+  flex-wrap: wrap;
+}
+
+.fdg-helpers-toggle input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--coral);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.fdg-helpers-hint {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.75rem;
+}
+
 /* =========================
  * Loading + error states
  * ========================= */
@@ -606,4 +631,327 @@
   background: #ecfdf5;
   color: #065f46;
   border-color: #6ee7b7;
+}
+
+/* =========================
+ * Helper files section — lives inside the paper preview, mirrors the
+ * steps section but labels each block with its repo path instead of a
+ * numbered step pill.
+ * ========================= */
+
+.fdg-helpers-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.fdg-helper-path {
+  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', Menlo, monospace;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #3d3df5;
+  word-break: break-all;
+}
+
+/* =========================
+ * Bulk results — list of doc cards + per-flow failure summary
+ * ========================= */
+
+.fdg-doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.fdg-doc-count {
+  margin: 0;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.fdg-warning {
+  padding: 0.85rem 1.1rem;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-left: 3px solid #f59e0b;
+  border-radius: 0.6rem;
+  color: #fde68a;
+  font-size: 0.875rem;
+}
+
+.fdg-failure-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  line-height: 1.5;
+}
+
+.fdg-failure-list li {
+  word-break: break-word;
+}
+
+/* =========================
+ * Flow selection panel — shown for environment URLs so the user picks
+ * which flows to generate instead of generating all of them.
+ * ========================= */
+
+.fdg-select-panel {
+  background: var(--midnight-navy);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 1.1rem 1.3rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 24px -18px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fdg-select-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.fdg-select-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--white);
+}
+
+.fdg-select-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.fdg-select-toolbar {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.fdg-filter-input {
+  flex: 1;
+  min-width: 12rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.8125rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--white);
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.fdg-filter-input:focus {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.25);
+}
+
+.fdg-filter-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.fdg-text-btn {
+  padding: 0.5rem 0.85rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.5rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.fdg-text-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.fdg-flow-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.6rem;
+}
+
+.fdg-flow-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  cursor: pointer;
+  border-radius: 0.4rem;
+  transition: background-color 0.12s ease;
+}
+
+.fdg-flow-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.fdg-flow-item input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  accent-color: var(--coral);
+  cursor: pointer;
+}
+
+.fdg-flow-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--white);
+  flex-shrink: 0;
+}
+
+.fdg-flow-path {
+  font-family: 'SFMono-Regular', 'Consolas', Menlo, monospace;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin-left: auto;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fdg-flow-empty {
+  padding: 0.85rem 0.75rem;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}
+
+.fdg-select-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+/* =========================
+ * Save-to-Opp modal
+ * ========================= */
+
+.fdg-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1000;
+}
+
+.fdg-modal-card {
+  width: 100%;
+  max-width: 26rem;
+  background: var(--midnight-navy);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.85rem;
+  padding: 1.25rem 1.4rem;
+  box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.75);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.fdg-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fdg-modal-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--white);
+}
+
+.fdg-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 0.25rem;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.fdg-modal-close:hover:not(:disabled) {
+  color: var(--white);
+}
+
+.fdg-modal-subtitle {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+}
+
+.fdg-modal-empty {
+  margin: 0;
+  padding: 0.85rem;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.55rem;
+  text-align: center;
+}
+
+.fdg-opp-select {
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.875rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.55rem;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--white);
+  outline: none;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.fdg-opp-select:focus {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.25);
+}
+
+.fdg-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
 }
