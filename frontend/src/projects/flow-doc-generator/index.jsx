@@ -70,12 +70,12 @@ function DocOutput({ doc }) {
   const [showPrintTip, setShowPrintTip] = useState(false);
   const helpers = doc.helpers || [];
 
+
   const handleStepNameChange = useCallback((index, newName) => {
     setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, name: newName } : s)));
   }, []);
 
   const handleDownload = () => {
-    setShowPrintTip(true);
     const logoUrl = `${window.location.origin}/QAWolf_logo_blue.png`;
 
     const html = `<!DOCTYPE html>
