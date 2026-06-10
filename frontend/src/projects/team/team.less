@@ -176,7 +176,45 @@
   margin: 0 0 1.5rem;
 }
 
-// Pill-style segmented control for the year / current-quarter scope.
+// Scope cluster: a year dropdown sitting beside the full-year / quarter
+// pills. Kept together on the right of the controls row; wraps as a unit.
+.team-page__scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+// Year dropdown — mirrors the dark-theme select used in the ticket filter
+// bar so the two controls read as the same family.
+.team-page__year {
+  appearance: none;
+  height: 2.5rem;
+  padding: 0 2rem 0 0.9rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 0.7rem;
+
+  &:focus-visible {
+    outline: 2px solid var(--coral);
+    outline-offset: 2px;
+  }
+
+  option {
+    color: initial;
+  }
+}
+
+// Pill-style segmented control for the full-year / quarter scope.
 // Lives inside the section header on the right and toggles which
 // opps the AE roster renders. Visually inspired by the dashboard's
 // other quiet pill elements (.dashboard-source-pill, etc.) — dark
@@ -966,4 +1004,944 @@
   color: rgba(255, 255, 255, 0.5);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+// ---------------------------------------------------------------------------
+// Lead "Pack" view — one sortable table of every SE in the pack. Lives
+// inside a `.dashboard-panel` so it shares the same card surface as the
+// rest of the team page; the table itself borrows the dim-uppercase
+// header treatment from `.team-c-opps-row--head` and the coral CARR
+// column from `.team-c-opps-row__carr` for visual continuity.
+// ---------------------------------------------------------------------------
+// Inset the table from the card edges so the names aren't jammed
+// against the left border and the "Completed" column isn't kissing the
+// right one. The first/last cells stay flush to the table itself; this
+// padding provides the gutter to the panel.
+.team-pack {
+  padding: 1.25rem 1.75rem;
+}
+
+// Horizontal scroll container so the five columns never squeeze into
+// unreadable widths on narrow viewports — the table keeps its min-width
+// and the panel scrolls instead.
+.team-pack__scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+// Fixed layout so the explicit column widths below are honored exactly:
+// the name column (no width) soaks up the remaining space while each of
+// the three numeric columns is a predictable 9rem, keeping the headers
+// directly above their numbers with even, readable spacing.
+.team-pack__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  min-width: 680px;
+}
+
+.team-pack__th {
+  padding: 0 1rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  vertical-align: bottom;
+  white-space: nowrap;
+
+  &:first-child {
+    padding-left: 0;
+  }
+
+  &:last-child {
+    padding-right: 0;
+  }
+
+  &--left {
+    text-align: left;
+  }
+
+  &--right {
+    text-align: right;
+    width: 9rem;
+  }
+}
+
+// The header label doubles as the sort control. Styled as a flush text
+// button (no chrome) so it reads as a column header until hovered.
+.team-pack__sort {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 0.15s ease;
+
+  .team-pack__th--right & {
+    width: 100%;
+    text-align: right;
+  }
+
+  &:hover {
+    color: var(--white);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--coral);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  .team-pack__th.is-active & {
+    color: var(--coral);
+  }
+}
+
+.team-pack__row {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  // Data rows are drill-downs into a per-SE detail panel — make that
+  // affordance obvious with a pointer + hover wash, and keep keyboard
+  // users in the loop with a focus ring.
+  &--clickable {
+    cursor: pointer;
+    transition: background 0.12s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--coral);
+      outline-offset: -2px;
+      border-radius: 4px;
+    }
+  }
+
+  // Footer total row: a heavier top rule and brighter text so the
+  // pack-wide bottom line reads as a summary rather than another SE.
+  &--total {
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+
+    .team-pack__td {
+      font-weight: 700;
+      color: var(--white);
+      padding-top: 0.7rem;
+    }
+
+    .team-pack__td--carr {
+      color: var(--coral);
+    }
+  }
+}
+
+// "Back to the pack" control. Lives in the controls row (opposite the
+// scope pills) as a compact pill button so it reads as a clear, tappable
+// breadcrumb instead of floating awkwardly above the heading.
+.team-pack__back {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.95rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  &:hover {
+    color: var(--coral);
+    border-color: var(--coral);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--coral);
+    outline-offset: 2px;
+  }
+}
+
+// Per-SE detail tiles (reuses the `.team-page__totals` grid for the
+// column layout). Self-contained so the panel renders correctly even
+// though the page no longer loads the shared `.metric-summary` widget.
+.team-pack-detail__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1.1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+
+.team-pack-detail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.team-pack-detail__label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+// Icon chip in the tile head, echoing the homepage `.metric-summary__icon`
+// treatment (coral glyph on a soft tinted square) so the detail view reads
+// as part of the same family as the other pages' metric cards.
+.team-pack-detail__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 8px;
+  color: var(--coral);
+  background: rgba(255, 107, 74, 0.12);
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+.team-pack-detail__value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--white);
+  font-variant-numeric: tabular-nums;
+}
+
+.team-pack-detail__hint {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+// --- Drill-down ticket lists ------------------------------------------------
+// The SE's actual Linear tickets, shown below the headline tiles. Two
+// stacked groups (open workload + completed-in-scope), each a list of
+// linkable rows with a category chip and a date.
+.team-tickets {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  margin-top: 1.75rem;
+}
+
+// Today's-calendar block in the SE drill-down. Sits between the headline
+// tiles and the ticket lists. Reuses the global `dashboard-calendar`
+// styles for the event rows; this only owns the heading + spacing.
+.team-cal {
+  margin-top: 1.75rem;
+}
+
+.team-cal__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.85rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--white);
+}
+
+// Column filter bar above the lists: a title search plus category /
+// project / status dropdowns. Wraps on narrow widths; the search grows
+// to fill leftover space.
+.team-tickets__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.team-tickets__search,
+.team-tickets__select {
+  appearance: none;
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.22);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--coral);
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.team-tickets__search {
+  flex: 1 1 12rem;
+  min-width: 9rem;
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+  }
+}
+
+.team-tickets__select {
+  flex: 0 0 auto;
+  max-width: 14rem;
+  padding-right: 1.75rem;
+  cursor: pointer;
+  // Custom caret so the native select matches the dark theme.
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 0.7rem;
+
+  option {
+    color: initial;
+  }
+}
+
+.team-tickets__clear {
+  appearance: none;
+  flex: 0 0 auto;
+  height: 2.25rem;
+  padding: 0 0.85rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--coral);
+  background: transparent;
+  border: 1px solid rgba(255, 107, 74, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 107, 74, 0.1);
+    border-color: var(--coral);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--coral);
+    outline-offset: 2px;
+  }
+}
+
+.team-tickets__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.85rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--white);
+}
+
+// Collapsible-group header. A full-width text button so the whole row is
+// a click target; the chevron rotates to point down when expanded.
+.team-tickets__toggle {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  margin: 0 0 0.85rem;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--white);
+  text-align: left;
+
+  &:hover .team-tickets__heading-text {
+    color: var(--coral);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--coral);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+.team-tickets__heading-text {
+  transition: color 0.12s ease;
+}
+
+.team-tickets__toggle-icon {
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  color: rgba(255, 255, 255, 0.55);
+  transform: rotate(-90deg);
+  transition: transform 0.15s ease;
+
+  &.is-open {
+    transform: rotate(0deg);
+  }
+}
+
+.team-tickets__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 9999px;
+}
+
+.team-tickets__empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.team-tickets__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.team-tickets__row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0.95rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+// Category chip. Fixed width so the titles line up in a clean column
+// regardless of label length.
+.team-tickets__chip {
+  flex: 0 0 auto;
+  width: 5.5rem;
+  text-align: center;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 6px;
+  color: var(--white);
+
+  &--creation {
+    background: rgba(255, 107, 74, 0.18);
+    color: #ff8c6b;
+  }
+
+  &--scoping {
+    background: rgba(41, 121, 255, 0.18);
+    color: #6ea8ff;
+  }
+
+  &--aidemo {
+    background: rgba(76, 175, 80, 0.18);
+    color: #7bd17f;
+  }
+
+  &--other {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+  }
+}
+
+.team-tickets__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.team-tickets__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--white);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.team-tickets__title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-tickets__title-icon {
+  flex: 0 0 auto;
+  width: 0.85rem;
+  height: 0.85rem;
+  opacity: 0;
+  color: var(--coral);
+  transition: opacity 0.12s ease;
+}
+
+a.team-tickets__title:hover {
+  color: var(--coral);
+
+  .team-tickets__title-icon {
+    opacity: 1;
+  }
+}
+
+a.team-tickets__title:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
+  border-radius: 3px;
+
+  .team-tickets__title-icon {
+    opacity: 1;
+  }
+}
+
+// Right-aligned metadata group (status · due date · completed date).
+// Pushed to the far edge so each row spans the full width of the bar
+// instead of bunching everything on the left.
+.team-tickets__side {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 0.5rem;
+}
+
+.team-tickets__project {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 22rem;
+}
+
+// Workflow-state pill (e.g. "In Progress", "Done"). Color-coded by tone
+// (see `statusTone` in index.jsx) so a lead can scan states at a glance;
+// unknown states fall back to the neutral `--default` treatment.
+.team-tickets__status {
+  flex: 0 0 auto;
+  padding: 0.12rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  white-space: nowrap;
+
+  // Each tone: tinted fill, matching border, and a brightened text color.
+  &--default {
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  &--todo {
+    color: #9fb6d6;
+    background: rgba(159, 182, 214, 0.15);
+    border: 1px solid rgba(159, 182, 214, 0.3);
+  }
+
+  &--backlog {
+    color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  &--progress {
+    color: #6ea8ff;
+    background: rgba(41, 121, 255, 0.16);
+    border: 1px solid rgba(41, 121, 255, 0.4);
+  }
+
+  &--review {
+    color: #c79bff;
+    background: rgba(167, 122, 255, 0.16);
+    border: 1px solid rgba(167, 122, 255, 0.4);
+  }
+
+  &--blocked {
+    color: #ff8c6b;
+    background: rgba(255, 107, 74, 0.16);
+    border: 1px solid rgba(255, 107, 74, 0.42);
+  }
+
+  &--done {
+    color: #7bd17f;
+    background: rgba(76, 175, 80, 0.16);
+    border: 1px solid rgba(76, 175, 80, 0.4);
+  }
+
+  &--canceled {
+    color: rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-decoration: line-through;
+  }
+}
+
+.team-tickets__due {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+
+  // Urgency tones for near-term / overdue deadlines on open tickets.
+  &--default {
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  &--soon {
+    color: #f4c25b;
+  }
+
+  &--today {
+    color: #ff8c6b;
+  }
+
+  &--overdue {
+    color: #ff6b4a;
+    font-weight: 700;
+  }
+}
+
+.team-tickets__due-icon {
+  width: 0.8rem;
+  height: 0.8rem;
+  opacity: 0.8;
+}
+
+.team-tickets__date {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.team-pack__td {
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.85);
+
+  &:first-child {
+    padding-left: 0;
+  }
+
+  &:last-child {
+    padding-right: 0;
+  }
+
+  &--name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--white);
+  }
+
+  &--num {
+    width: 9rem;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &--carr {
+    font-weight: 700;
+    color: var(--coral);
+  }
+}
+
+// --- Pack grouped bar chart -------------------------------------------------
+// Replaces the pack table on the team page: one group of three bars
+// (Creation / Scoping / Completed) per SE. The SVG scales to the panel
+// width via its viewBox; each group is a clickable button that drills
+// into the SE detail panel.
+// Pack-wide summary cards above the chart.
+.team-pack-totals {
+  margin-bottom: 1.25rem;
+}
+
+// --- Closed CARR by SE breakdown -------------------------------------------
+// Horizontal ranked bars under the chart: SE name, a proportional CARR
+// bar, and the formatted amount. Shares the dark panel surface.
+.team-carr {
+  margin-top: 1.25rem;
+  padding: 1.5rem 1.75rem;
+  height: auto;
+  overflow: visible;
+}
+
+.team-carr__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.team-carr__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--white);
+}
+
+.team-carr__total {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--success-green-alt);
+  font-variant-numeric: tabular-nums;
+}
+
+.team-carr__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.team-carr__row {
+  display: grid;
+  grid-template-columns: 9rem 1fr 5rem;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.team-carr__name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-carr__track {
+  position: relative;
+  height: 0.85rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.team-carr__bar {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(76, 175, 80, 0.7), var(--success-green-alt));
+  transition: width 0.3s ease;
+}
+
+.team-carr__amount {
+  text-align: right;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--white);
+  font-variant-numeric: tabular-nums;
+}
+
+.team-carr__note {
+  margin: 1.1rem 0 0;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+@media (max-width: 600px) {
+  .team-carr__row {
+    grid-template-columns: 7rem 1fr 4.5rem;
+    gap: 0.6rem;
+  }
+}
+
+.team-pack-chart {
+  padding: 1.5rem 1.75rem 1.25rem;
+  // The shared `.dashboard-panel` locks itself to a fixed 24rem height
+  // with `overflow-y: auto`, which clips the chart and forces a scroll.
+  // The chart already scales to a sensible height via its viewBox, so
+  // let the panel grow to fit and drop the inner scrollbar.
+  height: auto;
+  overflow: visible;
+}
+
+.team-pack-chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.team-pack-chart__grid {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+
+.team-pack-chart__ytick {
+  fill: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.team-pack-chart__xlabel {
+  fill: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 600;
+  transition: fill 0.12s ease;
+}
+
+.team-pack-chart__hit {
+  fill: transparent;
+}
+
+.team-pack-chart__group {
+  cursor: pointer;
+  outline: none;
+
+  &:hover {
+    .team-pack-chart__bar {
+      opacity: 0.82;
+    }
+
+    .team-pack-chart__xlabel {
+      fill: var(--coral);
+    }
+
+    .team-pack-chart__hit {
+      fill: rgba(255, 255, 255, 0.04);
+    }
+  }
+
+  &:focus-visible {
+    .team-pack-chart__xlabel {
+      fill: var(--coral);
+      text-decoration: underline;
+    }
+
+    .team-pack-chart__hit {
+      fill: rgba(255, 255, 255, 0.06);
+    }
+  }
+}
+
+// Per-bar value label, revealed only while that bar is hovered. Sits
+// just above the bar's cap. `pointer-events: none` so the text never
+// steals the hover from the bar (which would make it flicker).
+.team-pack-chart__bar-value {
+  fill: var(--white);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.team-pack-chart__bar-cell:hover .team-pack-chart__bar-value {
+  opacity: 1;
+}
+
+.team-pack-chart__bar {
+  transition: opacity 0.12s ease;
+
+  &--creation {
+    fill: var(--coral);
+  }
+
+  &--scoping {
+    fill: var(--electric-blue);
+  }
+
+  &--completed {
+    fill: var(--success-green-alt);
+  }
+}
+
+.team-pack-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.team-pack-chart__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+
+  &--creation .team-pack-chart__legend-swatch {
+    background: var(--coral);
+  }
+
+  &--scoping .team-pack-chart__legend-swatch {
+    background: var(--electric-blue);
+  }
+
+  &--completed .team-pack-chart__legend-swatch {
+    background: var(--success-green-alt);
+  }
+}
+
+.team-pack-chart__legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
 }

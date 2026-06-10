@@ -320,3 +320,36 @@ export async function getTodayCalendarForDashboard(userId) {
   }
   return { configured: false, events: [], source: null };
 }
+
+/**
+ * Today's calendar for a single Sales Engineer, for the lead Pack drill-down.
+ * Resolves the SE to their app user, then reads *only* that user's connected
+ * Google calendar — never the shared service-account calendar, which would
+ * show one identical calendar for every SE. `configured: false` means the SE
+ * hasn't linked their Google account yet.
+ *
+ * @returns {Promise<{ seId: string, name: string, configured: boolean, source: 'oauth' | null, events: Array }>}
+ */
+export async function getCalendarForSE(seId) {
+  const prisma = await getPrisma();
+  const se = await prisma.salesEngineer.findUnique({
+    where: { id: seId },
+    include: { user: true },
+  });
+  if (!se) {
+    const err = new Error('Sales Engineer not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const fullName = `${se.user?.firstName || ''} ${se.user?.lastName || ''}`.trim();
+  const base = { seId: se.id, name: fullName || se.user?.email || 'Unknown SE' };
+
+  const result = await getTodayCalendarEventsForUser(se.userId);
+  return {
+    ...base,
+    configured: result.configured,
+    source: result.configured ? 'oauth' : null,
+    events: result.events,
+  };
+}
