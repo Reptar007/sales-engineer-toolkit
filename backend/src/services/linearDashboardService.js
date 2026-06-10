@@ -467,6 +467,7 @@ const CLOSED_TICKETS_QUERY = `
         identifier
         title
         url
+        dueDate
         createdAt
         completedAt
         state { name type }
@@ -655,6 +656,127 @@ function emptyQuarterlyBuckets(year) {
  *   error?: 'linear_unavailable',
  * }>}
  */
+// Collapse a flat list of completed Linear issues into the per-quarter +
+// yearly-total roll-up the team page renders. Extracted from
+// `getClosedLinearTicketsForUser` so the pack-overview service can reuse
+// the exact same binning/averaging without duplicating the (subtle)
+// category/month logic. Pure over its inputs — no Prisma, no Linear I/O.
+function aggregateClosedIssues(issues, year) {
+  // First pass: bin the raw issues into per-quarter, per-category
+  // arrays. We hold onto the full issue objects (not just counts)
+  // because the second pass needs createdAt/completedAt to compute
+  // averages — running the maths inline would force two iterations
+  // anyway and would leak avg-tracking state into the loop.
+  const grouped = {};
+  const allByCategory = {
+    estimation: [],
+    creation: [],
+    aiDemo: [],
+    other: [],
+  };
+  for (const issue of issues) {
+    const quarterKey = quarterKeyOfDate(issue.completedAt);
+    if (!quarterKey) continue;
+    if (!grouped[quarterKey]) {
+      grouped[quarterKey] = {
+        estimation: [],
+        creation: [],
+        aiDemo: [],
+        other: [],
+      };
+    }
+    const category = classifyClosedIssue(issue);
+    grouped[quarterKey][category].push(issue);
+    allByCategory[category].push(issue);
+  }
+
+  // Second pass: collapse each bucket into the count + avg shape
+  // the frontend renders. Buckets the SE didn't touch this quarter
+  // keep the empty defaults from `emptyQuarterlyBuckets` (including
+  // the pre-seeded byMonth zero-bars).
+  const byQuarter = emptyQuarterlyBuckets(year);
+  for (const [quarterKey, bucket] of Object.entries(grouped)) {
+    if (!byQuarter[quarterKey]) continue;
+    const all = [...bucket.estimation, ...bucket.creation, ...bucket.aiDemo, ...bucket.other];
+
+    // Build the byMonth array fresh from the empty seed so the
+    // three months stay in chronological order even when the
+    // grouping happened to populate them out of order.
+    const quarter = byQuarter[quarterKey].quarter;
+    const byMonth = monthsOfQuarter(quarter).map(emptyMonthBucket);
+    const monthIndex = new Map(byMonth.map((m) => [m.month, m]));
+    // Walk each issue in this quarter and increment the month
+    // bucket it falls into. We classify per issue instead of
+    // reusing `category` from the outer loop because the month
+    // sub-totals need the same per-issue branching.
+    for (const issue of all) {
+      const completed = issue.completedAt ? new Date(issue.completedAt) : null;
+      if (!completed || Number.isNaN(completed.getTime())) continue;
+      const month = completed.getUTCMonth() + 1;
+      const monthBucket = monthIndex.get(month);
+      if (!monthBucket) continue;
+      const cat = classifyClosedIssue(issue);
+      monthBucket[cat] += 1;
+      monthBucket.total += 1;
+    }
+
+    byQuarter[quarterKey] = {
+      quarter,
+      estimation: bucket.estimation.length,
+      creation: bucket.creation.length,
+      aiDemo: bucket.aiDemo.length,
+      other: bucket.other.length,
+      total: all.length,
+      avgDaysEstimation: averageDaysToClose(bucket.estimation),
+      avgDaysCreation: averageDaysToClose(bucket.creation),
+      avgDaysAiDemo: averageDaysToClose(bucket.aiDemo),
+      avgDaysOther: averageDaysToClose(bucket.other),
+      avgDaysTotal: averageDaysToClose(all),
+      byMonth,
+      // Slim row shape (id/identifier/title/completedAt/url) so the
+      // frontend can render a "Show N 'Other' tickets" disclosure
+      // without us shipping the full Linear issue blob over the
+      // wire. Sorted newest-first so the most recent unmatched
+      // tickets surface at the top of the list.
+      otherTickets: bucket.other
+        .slice()
+        .sort((a, b) => {
+          const ta = a.completedAt ? Date.parse(a.completedAt) : 0;
+          const tb = b.completedAt ? Date.parse(b.completedAt) : 0;
+          return tb - ta;
+        })
+        .map((issue) => ({
+          id: issue.id,
+          identifier: issue.identifier || null,
+          title: issue.title || '(untitled)',
+          completedAt: issue.completedAt || null,
+          url: issue.url || null,
+        })),
+    };
+  }
+
+  const allIssues = [
+    ...allByCategory.estimation,
+    ...allByCategory.creation,
+    ...allByCategory.aiDemo,
+    ...allByCategory.other,
+  ];
+  const total = {
+    estimation: allByCategory.estimation.length,
+    creation: allByCategory.creation.length,
+    aiDemo: allByCategory.aiDemo.length,
+    other: allByCategory.other.length,
+    total: allIssues.length,
+    avgDaysEstimation: averageDaysToClose(allByCategory.estimation),
+    avgDaysCreation: averageDaysToClose(allByCategory.creation),
+    avgDaysAiDemo: averageDaysToClose(allByCategory.aiDemo),
+    avgDaysOther: averageDaysToClose(allByCategory.other),
+    avgDaysTotal: averageDaysToClose(allIssues),
+  };
+
+  return { byQuarter, total };
+}
+
 export async function getClosedLinearTicketsForUser(userId, year) {
   const empty = {
     configured: false,
@@ -684,124 +806,225 @@ export async function getClosedLinearTicketsForUser(userId, year) {
 
   try {
     const issues = await fetchMyClosedTickets(resolved.linearUserId, year);
-
-    // First pass: bin the raw issues into per-quarter, per-category
-    // arrays. We hold onto the full issue objects (not just counts)
-    // because the second pass needs createdAt/completedAt to compute
-    // averages — running the maths inline would force two iterations
-    // anyway and would leak avg-tracking state into the loop.
-    const grouped = {};
-    const allByCategory = {
-      estimation: [],
-      creation: [],
-      aiDemo: [],
-      other: [],
-    };
-    for (const issue of issues) {
-      const quarterKey = quarterKeyOfDate(issue.completedAt);
-      if (!quarterKey) continue;
-      if (!grouped[quarterKey]) {
-        grouped[quarterKey] = {
-          estimation: [],
-          creation: [],
-          aiDemo: [],
-          other: [],
-        };
-      }
-      const category = classifyClosedIssue(issue);
-      grouped[quarterKey][category].push(issue);
-      allByCategory[category].push(issue);
-    }
-
-    // Second pass: collapse each bucket into the count + avg shape
-    // the frontend renders. Buckets the SE didn't touch this quarter
-    // keep the empty defaults from `emptyQuarterlyBuckets` (including
-    // the pre-seeded byMonth zero-bars).
-    const byQuarter = emptyQuarterlyBuckets(year);
-    for (const [quarterKey, bucket] of Object.entries(grouped)) {
-      if (!byQuarter[quarterKey]) continue;
-      const all = [...bucket.estimation, ...bucket.creation, ...bucket.aiDemo, ...bucket.other];
-
-      // Build the byMonth array fresh from the empty seed so the
-      // three months stay in chronological order even when the
-      // grouping happened to populate them out of order.
-      const quarter = byQuarter[quarterKey].quarter;
-      const byMonth = monthsOfQuarter(quarter).map(emptyMonthBucket);
-      const monthIndex = new Map(byMonth.map((m) => [m.month, m]));
-      // Walk each issue in this quarter and increment the month
-      // bucket it falls into. We classify per issue instead of
-      // reusing `category` from the outer loop because the month
-      // sub-totals need the same per-issue branching.
-      for (const issue of all) {
-        const completed = issue.completedAt ? new Date(issue.completedAt) : null;
-        if (!completed || Number.isNaN(completed.getTime())) continue;
-        const month = completed.getUTCMonth() + 1;
-        const monthBucket = monthIndex.get(month);
-        if (!monthBucket) continue;
-        const cat = classifyClosedIssue(issue);
-        monthBucket[cat] += 1;
-        monthBucket.total += 1;
-      }
-
-      byQuarter[quarterKey] = {
-        quarter,
-        estimation: bucket.estimation.length,
-        creation: bucket.creation.length,
-        aiDemo: bucket.aiDemo.length,
-        other: bucket.other.length,
-        total: all.length,
-        avgDaysEstimation: averageDaysToClose(bucket.estimation),
-        avgDaysCreation: averageDaysToClose(bucket.creation),
-        avgDaysAiDemo: averageDaysToClose(bucket.aiDemo),
-        avgDaysOther: averageDaysToClose(bucket.other),
-        avgDaysTotal: averageDaysToClose(all),
-        byMonth,
-        // Slim row shape (id/identifier/title/completedAt/url) so the
-        // frontend can render a "Show N 'Other' tickets" disclosure
-        // without us shipping the full Linear issue blob over the
-        // wire. Sorted newest-first so the most recent unmatched
-        // tickets surface at the top of the list.
-        otherTickets: bucket.other
-          .slice()
-          .sort((a, b) => {
-            const ta = a.completedAt ? Date.parse(a.completedAt) : 0;
-            const tb = b.completedAt ? Date.parse(b.completedAt) : 0;
-            return tb - ta;
-          })
-          .map((issue) => ({
-            id: issue.id,
-            identifier: issue.identifier || null,
-            title: issue.title || '(untitled)',
-            completedAt: issue.completedAt || null,
-            url: issue.url || null,
-          })),
-      };
-    }
-
-    const allIssues = [
-      ...allByCategory.estimation,
-      ...allByCategory.creation,
-      ...allByCategory.aiDemo,
-      ...allByCategory.other,
-    ];
-    const total = {
-      estimation: allByCategory.estimation.length,
-      creation: allByCategory.creation.length,
-      aiDemo: allByCategory.aiDemo.length,
-      other: allByCategory.other.length,
-      total: allIssues.length,
-      avgDaysEstimation: averageDaysToClose(allByCategory.estimation),
-      avgDaysCreation: averageDaysToClose(allByCategory.creation),
-      avgDaysAiDemo: averageDaysToClose(allByCategory.aiDemo),
-      avgDaysOther: averageDaysToClose(allByCategory.other),
-      avgDaysTotal: averageDaysToClose(allIssues),
-    };
-
+    const { byQuarter, total } = aggregateClosedIssues(issues, year);
     return { configured: true, year, byQuarter, total };
   } catch (err) {
     console.error('Linear: closed-ticket fetch failed for user', userId, '-', err.message);
     return { ...empty, error: 'linear_unavailable' };
   }
+}
+
+// ---- Pack-wide closed-ticket roll-up (lead "Pack" view) ------------------
+//
+// Lead-facing variant of `getClosedLinearTicketsForUser`: instead of a
+// single SE, walk EVERY active Sales Engineer and return each one's closed
+// roll-up (Creation / Scoping / completed counts). Linear-only — the team
+// page surfaces these directly without any Salesforce/AE attribution.
+
+// Run `mapper` over `items` with at most `size` promises in flight at once.
+// Each SE is its own paginated Linear query, so unbounded Promise.all would
+// fire N concurrent multi-page fetches; chunking keeps the Linear API
+// (and our worker) from getting hammered when the pack grows.
+async function mapWithConcurrency(items, size, mapper) {
+  const results = [];
+  for (let i = 0; i < items.length; i += size) {
+    const chunk = items.slice(i, i + size);
+    const settled = await Promise.all(chunk.map(mapper));
+    results.push(...settled);
+  }
+  return results;
+}
+
+// Zeroed closed roll-up for SEs we couldn't fetch Linear data for (no
+// resolvable Linear profile, or a per-SE fetch error). Mirrors the shape
+// of `aggregateClosedIssues` so the frontend can read every row the same
+// way regardless of whether Linear resolved.
+function emptyClosedRollup(year) {
+  return {
+    byQuarter: emptyQuarterlyBuckets(year),
+    total: {
+      estimation: 0,
+      creation: 0,
+      aiDemo: 0,
+      other: 0,
+      total: 0,
+      avgDaysEstimation: null,
+      avgDaysCreation: null,
+      avgDaysAiDemo: null,
+      avgDaysOther: null,
+      avgDaysTotal: null,
+    },
+  };
+}
+
+/**
+ * Per-SE closed-ticket roll-up for the lead Pack view.
+ *
+ * Loads every active Sales Engineer, resolves each SE's Linear user id,
+ * fetches their completed tickets for the year (aggregated with the same
+ * logic the personal team-page roll-up uses) AND their currently-open
+ * in-flight tickets (the `open` count = live workload, independent of the
+ * year/quarter scope). SEs whose Linear profile can't be resolved (or
+ * whose fetch fails) still appear with zeroed counts so the lead always
+ * sees the full pack.
+ *
+ * @param {number} year
+ * @returns {Promise<{
+ *   configured: boolean,
+ *   year: number,
+ *   sets: Array<{
+ *     seId: string,
+ *     userId: string,
+ *     name: string,
+ *     email: string | null,
+ *     open: number,
+ *     closed: { byQuarter: Record<string, object>, total: object },
+ *   }>,
+ * }>}
+ */
+export async function getClosedTicketsForAllSEs(year) {
+  const teamId = process.env.LINEAR_TEAM_ID?.trim();
+  const apiKey = process.env.LINEAR_API_KEY?.trim();
+  const configured = Boolean(teamId && apiKey);
+
+  const prisma = await getPrisma();
+  const ses = await prisma.salesEngineer.findMany({
+    where: { isActive: true },
+    include: { user: true },
+    orderBy: { id: 'asc' },
+  });
+
+  const sets = await mapWithConcurrency(ses, 4, async (se) => {
+    const fullName = `${se.user?.firstName || ''} ${se.user?.lastName || ''}`.trim();
+    const base = {
+      seId: se.id,
+      userId: se.userId,
+      name: fullName || se.user?.email || 'Unknown SE',
+      email: se.user?.email || null,
+    };
+
+    if (!configured) {
+      return { ...base, open: 0, closed: emptyClosedRollup(year) };
+    }
+
+    try {
+      const resolved = await loadOrResolveLinearUserId(se.userId);
+      if (resolved.status !== 'ok') {
+        return { ...base, open: 0, closed: emptyClosedRollup(year) };
+      }
+      // Pull closed (year) and open (live) tickets in parallel. Open
+      // tickets are the SE's "current workload" — what's assigned and
+      // still in flight right now, so it ignores the year/quarter scope.
+      const [closedIssues, openIssues] = await Promise.all([
+        fetchMyClosedTickets(resolved.linearUserId, year),
+        fetchMyTeamIssues(resolved.linearUserId),
+      ]);
+      const { byQuarter, total } = aggregateClosedIssues(closedIssues, year);
+      // Exclude internal/tooling projects so the count matches the
+      // "Active Hunts" definition the dashboard uses.
+      const open = openIssues.filter((i) => !isExcludedProjectName(i.project?.name)).length;
+      return { ...base, open, closed: { byQuarter, total } };
+    } catch (err) {
+      console.error('Linear: pack ticket fetch failed for SE', se.id, '-', err.message);
+      return { ...base, open: 0, closed: emptyClosedRollup(year) };
+    }
+  });
+
+  // Stable alphabetical order so the lead's table doesn't reshuffle on
+  // every fetch (the frontend re-sorts by whichever column anyway).
+  sets.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
+  return { configured, year, sets };
+}
+
+// Lightweight ticket shape for the pack drill-down list. We hand-roll
+// this instead of reusing `mapIssue` because that helper drops the
+// `url` (and we want a deep-link) and is geared at the open-issues
+// widget specifically. `category` reuses the same classifier the
+// roll-up counts with so the list and the headline tiles always agree.
+function mapTicketForList(issue) {
+  // Prefer Linear's native due date; fall back to the "Due Date" field
+  // SE ticket templates stash in the description (only present for the
+  // open-issues query, which fetches `description`). Closed tickets fall
+  // through to the native field or null.
+  const dueDate = issue.dueDate || extractDescriptionField(issue.description, 'Due Date') || null;
+  return {
+    id: issue.identifier || issue.id,
+    title: issue.title || 'Untitled ticket',
+    url: issue.url || null,
+    project: issue.project?.name || null,
+    status: issue.state?.name || null,
+    dueDate,
+    category: classifyClosedIssue(issue),
+    completedAt: issue.completedAt || null,
+    createdAt: issue.createdAt || null,
+  };
+}
+
+/**
+ * Actual Linear tickets for a single Sales Engineer, for the pack
+ * drill-down. Returns the SE's live open workload plus every ticket they
+ * completed in `year`, each as a linkable row. Lead-only data — the route
+ * that calls this is gated to admins / SE leads.
+ *
+ * @param {string} seId  SalesEngineer.id
+ * @param {number} year  calendar year for the closed-ticket window
+ * @returns {Promise<{
+ *   configured: boolean,
+ *   seId: string,
+ *   name: string,
+ *   year: number,
+ *   open: object[],
+ *   closed: object[],
+ * }>}
+ */
+export async function getTicketsForSE(seId, year) {
+  const prisma = await getPrisma();
+  const se = await prisma.salesEngineer.findUnique({
+    where: { id: seId },
+    include: { user: true },
+  });
+  if (!se) {
+    const err = new Error('Sales Engineer not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const fullName = `${se.user?.firstName || ''} ${se.user?.lastName || ''}`.trim();
+  const base = {
+    seId: se.id,
+    name: fullName || se.user?.email || 'Unknown SE',
+    year,
+  };
+
+  const teamId = process.env.LINEAR_TEAM_ID?.trim();
+  const apiKey = process.env.LINEAR_API_KEY?.trim();
+  if (!teamId || !apiKey) {
+    return { ...base, configured: false, open: [], closed: [] };
+  }
+
+  const resolved = await loadOrResolveLinearUserId(se.userId);
+  if (resolved.status !== 'ok') {
+    return { ...base, configured: true, open: [], closed: [] };
+  }
+
+  const [openRaw, closedRaw] = await Promise.all([
+    fetchMyTeamIssues(resolved.linearUserId),
+    fetchMyClosedTickets(resolved.linearUserId, year),
+  ]);
+
+  // Open workload mirrors the "Active Hunts" definition: drop internal /
+  // tooling projects so the list matches the count on the chart.
+  const open = openRaw.filter((i) => !isExcludedProjectName(i.project?.name)).map(mapTicketForList);
+
+  // Most-recently-closed first so the list reads top-down chronologically.
+  const closed = closedRaw.map(mapTicketForList).sort((a, b) => {
+    const ta = a.completedAt ? Date.parse(a.completedAt) : 0;
+    const tb = b.completedAt ? Date.parse(b.completedAt) : 0;
+    return tb - ta;
+  });
+
+  return { ...base, configured: true, open, closed };
 }
 
 // ---- Tickets created BY AE (team page roll-up) ---------------------------

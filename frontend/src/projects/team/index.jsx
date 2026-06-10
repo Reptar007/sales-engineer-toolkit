@@ -1,21 +1,22 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import {
-  LuChartBar,
-  LuClipboardCheck,
-  LuFilePen,
-  LuHammer,
+  LuArrowLeft,
+  LuCalendar,
+  LuChevronDown,
+  LuCircleCheck,
+  LuExternalLink,
+  LuFilePlus,
+  LuInbox,
+  LuRuler,
   LuSparkles,
-  LuTrendingUp,
-  LuTrophy,
 } from 'react-icons/lu';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  fetchDashboardLinearClosed,
-  fetchDashboardLinearTicketsByAE,
-  fetchSalesforceReport,
-  fetchSalesforceSnapshotMetrics,
-  getSalesforceConfig,
+  fetchPackCarr,
+  fetchPackOverview,
+  fetchPackSeCalendar,
+  fetchPackSeTickets,
 } from '../../services/api';
 import { toTeamSlug } from './slug';
 import './team.less';
@@ -47,280 +48,127 @@ const TEAM_MASCOTS = {
   },
 };
 
-// We share localStorage keys with `<CurrentQuarterMetrics />` on purpose —
-// when the SE has already loaded The Den, the team page hydrates from
-// the warm cache instead of waiting on a fresh Salesforce round-trip,
-// and vice versa.
-const CONFIG_CACHE_KEY = 'currentQuarterMetrics.config';
-const DATA_CACHE_KEY = 'currentQuarterMetrics.dataByYear';
-
-// Resolve the year whose metrics report we should pull. Mirrors the same
-// logic CurrentQuarterMetrics uses: prefer the current calendar year if
-// it has data, otherwise fall back to the most recent configured year
-// that has either a snapshot or a live report ID.
-function resolveDataYear(config) {
-  const calendarYear = new Date().getFullYear();
-  if (!config) return calendarYear;
-  const hasData = (yr) =>
-    (config.snapshotYears || []).includes(yr) || !!config.reportIdsByYear?.[yr]?.metrics;
-  if (hasData(calendarYear)) return calendarYear;
-  const allYears = [
-    ...new Set([
-      ...Object.keys(config.reportIdsByYear || {}).map(Number),
-      ...(config.snapshotYears || []),
-    ]),
-  ].sort((a, b) => b - a);
-  return allYears.find(hasData) ?? calendarYear;
+// Calendar helpers for the year/quarter scope controls.
+function getCurrentYear() {
+  return new Date().getFullYear();
 }
 
-function readCachedConfig() {
-  try {
-    const raw = localStorage.getItem(CONFIG_CACHE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+// Years offered in the scope dropdown: current year and the two prior.
+const AVAILABLE_YEARS = [getCurrentYear(), getCurrentYear() - 1, getCurrentYear() - 2];
+
+// `quarter` of 0 means "full year"; 1-4 selects a specific quarter. The
+// report's roll-ups are keyed like "Q2 CY2026", so build that on demand.
+function buildQuarterKey(year, quarter) {
+  return quarter ? `Q${quarter} CY${year}` : null;
 }
 
-function readCachedData(year) {
-  try {
-    const raw = localStorage.getItem(DATA_CACHE_KEY);
-    if (!raw) return null;
-    const byYear = JSON.parse(raw);
-    return byYear?.[year] ?? null;
-  } catch {
-    return null;
-  }
+// Human label for the active scope — "Q2 2026" or just "2026".
+function buildPeriodLabel(year, quarter) {
+  return quarter ? `Q${quarter} ${year}` : `${year}`;
 }
 
-function writeCachedData(year, payload) {
-  try {
-    const raw = localStorage.getItem(DATA_CACHE_KEY);
-    const byYear = raw ? JSON.parse(raw) : {};
-    byYear[year] = payload;
-    localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(byYear));
-  } catch {
-    // ignore quota / serialization issues — cache is best-effort
-  }
+// Compact USD for the CARR breakdown: $1.2M / $540K / $0. Keeps the bars
+// readable without long, comma-heavy numbers.
+function formatCompactUSD(amount) {
+  const n = Number(amount) || 0;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${Math.round(n)}`;
 }
 
-function normalizeName(name) {
-  return typeof name === 'string' ? name.trim().toLowerCase() : '';
-}
+// Grouped bar chart geometry. The viewBox is fixed in user-space units
+// and CSS scales the SVG to fill its container, so tweaks here reflow
+// automatically without touching the JSX.
+const CHART = { w: 760, h: 340, padTop: 16, padRight: 12, padBottom: 56, padLeft: 40 };
 
-// Find the bucket for an AE in the backend's `byAE` map. We do an
-// exact normalized-name match first, then fall back to a fuzzy match
-// (same last name + first-name prefix overlap) to catch the common
-// nickname-vs-formal-name drift between Salesforce and Linear:
-//
-//   roster: "Robert Linsmayer"
-//   ticket: "Requested By: Rob Linsmayer"   → both should match
-//
-// The fuzzy rule requires both:
-//   • last word matches exactly (case-insensitive)
-//   • one first word is a prefix of the other and ≥ 2 chars
-// so "Rob Linsmayer" ↔ "Robert Linsmayer" matches but
-// "Robert Smith"   ↔ "Robert Jones"      does not.
-function findBucketForAE(byAE, aeName) {
-  const exactKey = normalizeName(aeName);
-  if (!exactKey || !byAE) return null;
-  if (byAE[exactKey]) return byAE[exactKey];
+// The three series rendered per SE group, in draw order (left→right).
+// Each `key` matches a field on the computed pack rows and a `--{key}`
+// color modifier in the LESS.
+const CHART_SERIES = [
+  { key: 'creation', label: 'Creation' },
+  { key: 'scoping', label: 'Scoping' },
+  { key: 'completed', label: 'Completed' },
+];
 
-  const aeParts = exactKey.split(/\s+/).filter(Boolean);
-  if (aeParts.length < 2) return null;
-  const aeFirst = aeParts[0];
-  const aeLast = aeParts[aeParts.length - 1];
+// Human labels + accent class for each closed-ticket category the
+// backend classifier emits. Shared by the drill-down ticket-list chips
+// so the categories read the same as the chart legend.
+const CATEGORY_META = {
+  creation: { label: 'Creation', cls: 'creation' },
+  estimation: { label: 'Scoping', cls: 'scoping' },
+  aiDemo: { label: 'AI Demo', cls: 'aidemo' },
+  other: { label: 'Other', cls: 'other' },
+};
 
-  for (const [key, bucket] of Object.entries(byAE)) {
-    const parts = key.split(/\s+/).filter(Boolean);
-    if (parts.length < 2) continue;
-    if (parts[parts.length - 1] !== aeLast) continue;
-    const candidateFirst = parts[0];
-    const minLen = Math.min(aeFirst.length, candidateFirst.length);
-    if (minLen < 2) continue;
-    const a = aeFirst.slice(0, minLen);
-    const b = candidateFirst.slice(0, minLen);
-    if (a === b) return bucket;
-  }
-  return null;
-}
-
-// Decide whether an opp counts as a "C-scored" deal that should be
-// excluded from CARR goal math. We key off **Account Score** rather
-// than Sales Score because ICP signals (AAR, geo, engineer count,
-// etc.) can promote an opp from Sales=C to Account=E — those E deals
-// should still count toward the goal. Empty `accountScore` (legacy
-// 2025 reports + pre-2026 snapshots) returns false, which keeps
-// historical years' totals identical to what they were before this
-// feature shipped.
-function isCScore(opp) {
-  const raw = (opp?.accountScore || '').trim().toUpperCase();
-  return raw === 'C' || raw.startsWith('C ') || raw.startsWith('C-');
-}
-
-/**
- * Walk every closed-won opp in the metrics payload and bucket them by
- * AE name (case-insensitive, whitespace-trimmed — same comparison the
- * backend uses in `userMetricsFilter.js` for SE-scoped views), routing
- * C-scored deals into a separate map so the team page can show them
- * under their own panel without polluting the goal-eligible totals.
- *
- * Returns `{ goalEligibleByAE, cScoreByAE }`, each Map<aeKey, Opp[]>
- * sorted by effective date desc (most recent close first).
- */
-function groupOppsByAE(data) {
-  const goalEligibleByAE = new Map();
-  const cScoreByAE = new Map();
-  if (!data) return { goalEligibleByAE, cScoreByAE };
-  // Prefer the flat list when present; the per-quarter buckets are the
-  // same source of truth either way.
-  const opps = Array.isArray(data.allOpportunities)
-    ? data.allOpportunities
-    : Object.entries(data.quarterlyData || {})
-        .filter(([key]) => key !== 'Total')
-        .flatMap(([, q]) => q?.opportunities ?? []);
-
-  for (const opp of opps) {
-    const key = normalizeName(opp.aeName);
-    if (!key) continue;
-    const target = isCScore(opp) ? cScoreByAE : goalEligibleByAE;
-    if (!target.has(key)) target.set(key, []);
-    target.get(key).push(opp);
-  }
-
-  const sortByDateDesc = (a, b) => {
-    const da = a.effectiveDate ? Date.parse(a.effectiveDate) : 0;
-    const db = b.effectiveDate ? Date.parse(b.effectiveDate) : 0;
-    return db - da;
-  };
-  for (const list of goalEligibleByAE.values()) list.sort(sortByDateDesc);
-  for (const list of cScoreByAE.values()) list.sort(sortByDateDesc);
-
-  return { goalEligibleByAE, cScoreByAE };
-}
-
-// Format a CARR amount as "$48,000" with no decimals — matches the
-// home-page metric tiles' compact treatment instead of the report's
-// raw "$48,000.00" string. Falls back to the formatted label from
-// the report when the numeric amount is missing.
-function formatCarr(opp) {
-  const amount = Number(opp?.carrAmount);
-  if (Number.isFinite(amount) && amount > 0) {
-    return `$${Math.round(amount).toLocaleString('en-US')}`;
-  }
-  return opp?.carrAmountFormatted || '—';
-}
-
-// Sum the numeric CARR for a list of opps. Skips rows whose carrAmount
-// is missing or non-numeric instead of poisoning the total with NaN.
-function sumCarr(opps) {
-  return opps.reduce((sum, opp) => {
-    const amount = Number(opp?.carrAmount);
-    return Number.isFinite(amount) ? sum + amount : sum;
-  }, 0);
-}
-
-function formatTotalCarr(amount) {
-  return `$${Math.round(amount).toLocaleString('en-US')}`;
-}
-
-// Compact currency for the at-a-glance summary tiles — matches the
-// home-page `CurrentQuarterMetrics` widget's formatting so the team
-// page's tiles read identically ($1.21M / $151K / $48,000).
-function formatCompactCurrency(amount) {
-  if (!Number.isFinite(amount) || amount <= 0) return '$0';
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(2)}M`;
-  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
-  return `$${Math.round(amount).toLocaleString('en-US')}`;
-}
-
-// Build the report's quarter key for "right now" — e.g. "Q2 CY2026".
-// Mirrors the format the metrics report uses internally so we can
-// filter `opp.quarter` directly without any further normalization.
-function getCurrentQuarterKey() {
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
-  const quarter = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
-  return `Q${quarter} CY${year}`;
-}
-
-// Just the quarter number (1..4) for the current calendar month —
-// used to pick the default tab on the Monthly Breakdown section so
-// the SE lands on whichever quarter they're actively living in.
-function getCurrentQuarterNumber() {
-  const month = new Date().getMonth() + 1;
-  return month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
-}
-
-// Mirror of the backend's `quarterKeyOfDate` so the frontend can
-// re-bucket the unassigned ticket list by createdAt when the page is
-// in current-quarter scope. UTC math matches the backend so a
-// late-night ticket doesn't bucket differently here than on the
-// server.
-function quarterKeyOfDate(dateString) {
+// Map a Linear `completedAt` ISO date to the report's quarter key
+// ("Q2 CY2026") so the drill-down ticket list can be filtered to the
+// active quarter the same way the headline tiles are.
+function quarterKeyOf(dateString) {
   if (!dateString) return null;
   const d = new Date(dateString);
   if (Number.isNaN(d.getTime())) return null;
   const month = d.getUTCMonth() + 1;
-  const year = d.getUTCFullYear();
   const quarter = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
-  return `Q${quarter} CY${year}`;
+  return `Q${quarter} CY${d.getUTCFullYear()}`;
 }
 
-// Short label rendered next to the "Current Quarter" filter pill —
-// makes it obvious *which* quarter is being shown without forcing
-// the user to do calendar math.
-function getCurrentQuarterShortLabel() {
-  const key = getCurrentQuarterKey();
-  // "Q2 CY2026" → "Q2 2026"
-  return key.replace(/\s+CY/, ' ');
+// Format an ISO date as a short "Apr 28" label for the ticket rows.
+function formatShortDate(dateString) {
+  if (!dateString) return '';
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
-const SCOPE_YEAR = 'year';
-const SCOPE_QUARTER = 'quarter';
+// Whole-day difference between a "YYYY-MM-DD" due date and today, treating
+// both as calendar dates (no time-of-day). Negative = overdue. Linear due
+// dates are date-only and parse as UTC midnight, so we compare against
+// today's local calendar date pinned to the same UTC-midnight basis.
+function daysUntil(dateString) {
+  const due = new Date(dateString);
+  if (Number.isNaN(due.getTime())) return null;
+  const now = new Date();
+  const todayMs = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const dueMs = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
+  return Math.round((dueMs - todayMs) / 86400000);
+}
 
-// Primary view toggle values. Kept as constants so the React state
-// initial value, the toggle handler, and the conditional render
-// branches all reference the same string instead of stringly-typed
-// magic literals scattered through the JSX.
-const VIEW_TEAM = 'team';
-const VIEW_YOU = 'you';
+// Build the due-date label + urgency tone for a ticket row. Open tickets
+// get relative wording ("Due today", "Due in 3 days", "Overdue") when the
+// deadline is near; everything else (and all closed tickets) falls back to
+// the absolute "Due Apr 28" form.
+function describeDue(dateString, relative) {
+  const abs = formatShortDate(dateString);
+  if (!abs) return null;
+  if (!relative) return { text: `Due ${abs}`, tone: 'default' };
+  const days = daysUntil(dateString);
+  if (days === null) return { text: `Due ${abs}`, tone: 'default' };
+  if (days < 0) return { text: 'Overdue', tone: 'overdue' };
+  if (days === 0) return { text: 'Due today', tone: 'today' };
+  if (days === 1) return { text: 'Due tomorrow', tone: 'soon' };
+  if (days <= 3) return { text: `Due in ${days} days`, tone: 'soon' };
+  return { text: `Due ${abs}`, tone: 'default' };
+}
 
-// Feature flag: "Tickets created broken down by AE" section. The
-// backend endpoint, classifier fixes, and Linear extraction work are
-// all live in main, but the UI is paused while the data quality
-// (Slack-bot attribution drift, AE field naming variance, nickname
-// matching) is being shaken out on a follow-up branch. Flip this to
-// `true` to re-enable the section without touching anything else —
-// fetch effect, memos, and JSX all read from the same constant so
-// the network call is also skipped while the flag is off.
-const SHOW_TICKETS_BY_AE = false;
+// Map a Linear workflow-state name to a color tone for its status pill.
+// Keyword-matched (rather than exact) so custom/renamed states still land
+// in a sensible bucket; unknown states fall back to a neutral pill.
+function statusTone(status) {
+  const s = (status || '').toLowerCase();
+  if (!s) return 'default';
+  if (/cancel/.test(s)) return 'canceled';
+  if (/(done|complete|shipped|merged|closed)/.test(s)) return 'done';
+  if (/(block|stuck|wait|hold|paused)/.test(s)) return 'blocked';
+  if (/(review|qa|testing)/.test(s)) return 'review';
+  if (/(progress|doing|started|active|build)/.test(s)) return 'progress';
+  if (/(todo|to do|ready|unstarted)/.test(s)) return 'todo';
+  if (/(backlog|triage)/.test(s)) return 'backlog';
+  return 'default';
+}
 
-// Category roster for the You-view monthly chart. One line per
-// entry; each entry drives both the line/dot color (via the
-// `--{key}` modifier in the LESS) and the legend pill. Order is
-// stable across renders so legend ordering matches what the eye
-// scans across the chart.
-const CHART_CATEGORIES = [
-  { key: 'creation', label: 'Creation' },
-  { key: 'estimation', label: 'Estimation' },
-  { key: 'aiDemo', label: 'AI Demo' },
-  { key: 'other', label: 'Other' },
-];
-
-// Chart geometry. ViewBox is fixed in user-space units (CSS scales
-// the SVG to fill its container while preserving aspect ratio), so
-// any tweaks here automatically reflow without touching the JSX.
-const CHART_VIEWBOX_W = 720;
-const CHART_VIEWBOX_H = 280;
-const CHART_PAD = { top: 20, right: 24, bottom: 40, left: 44 };
-
-// Round the data max up to a "nice" y-axis ceiling so tick marks
-// land on whole numbers (5/10/20/…) rather than on awkward
-// fractions like 9 or 13. Ensures we never show "7.25 tickets" on
-// a gridline. Floors at 5 so a quarter with a single ticket still
-// has room above the dot to breathe.
+// Round the data max up to a "nice" y-axis ceiling so tick marks land
+// on whole numbers rather than awkward fractions. Floors at 5 so a
+// pack with a single ticket still has headroom above the bar.
 function niceChartMax(value) {
   const v = Math.max(1, Math.ceil(value));
   if (v <= 5) return 5;
@@ -331,11 +179,8 @@ function niceChartMax(value) {
   return Math.ceil(v / 50) * 50;
 }
 
-// Build the {0, 25%, 50%, 75%, 100%} ladder of y-axis values, but
-// snapped to integers when the ceiling is small enough that
-// fractional gridlines would look weird. For yMax=5 we end up with
-// [0,1,2,3,4,5]; for yMax=10 we get [0,2,4,6,8,10]; for larger
-// values we fall back to 5 evenly-spaced ticks.
+// Integer y-axis ladder snapped so small ceilings don't show fractional
+// gridlines. yMax=5 → [0..5]; yMax=10 → [0,2,4,6,8,10]; larger → 5 ticks.
 function buildYTicks(yMax) {
   if (yMax <= 5) {
     return Array.from({ length: yMax + 1 }, (_, i) => i);
@@ -343,259 +188,579 @@ function buildYTicks(yMax) {
   if (yMax <= 10) {
     return [0, 2, 4, 6, 8, 10].filter((v) => v <= yMax);
   }
-  // 5 evenly-spaced ticks rounded to the nearest integer.
   return [0, 0.25, 0.5, 0.75, 1].map((p) => Math.round(p * yMax));
 }
 
-// Pretty-format an average lead time (days) for the ticket tile hint.
-// Adapts the unit to the magnitude so a "0.04 days" doesn't render as
-// the meaningless "0.0 days" — sub-day averages flip to hours, and
-// large averages drop the decimal so the caption stays compact.
-function formatAvgLeadTime(days) {
-  if (days == null || !Number.isFinite(days)) return null;
-  if (days < 1) {
-    const hours = days * 24;
-    if (hours < 1) return 'avg < 1h to close';
-    return `avg ${Math.round(hours)}h to close`;
+// A single ticket row in the drill-down list: a category chip, the title
+// (deep-linked to Linear when a URL is present), the project, and an
+// optional date (completion date for closed tickets).
+function TicketRow({ ticket, dateLabel, dueRelative }) {
+  const meta = CATEGORY_META[ticket.category] || CATEGORY_META.other;
+  const due = describeDue(ticket.dueDate, dueRelative);
+  return (
+    <li className="team-tickets__row">
+      <span className={`team-tickets__chip team-tickets__chip--${meta.cls}`}>{meta.label}</span>
+      <div className="team-tickets__main">
+        {ticket.url ? (
+          <a className="team-tickets__title" href={ticket.url} target="_blank" rel="noreferrer">
+            <span className="team-tickets__title-text">{ticket.title}</span>
+            <LuExternalLink className="team-tickets__title-icon" aria-hidden="true" />
+          </a>
+        ) : (
+          <span className="team-tickets__title">
+            <span className="team-tickets__title-text">{ticket.title}</span>
+          </span>
+        )}
+        {ticket.project && <span className="team-tickets__project">{ticket.project}</span>}
+      </div>
+      <div className="team-tickets__side">
+        {ticket.status && (
+          <span
+            className={`team-tickets__status team-tickets__status--${statusTone(ticket.status)}`}
+          >
+            {ticket.status}
+          </span>
+        )}
+        {due && (
+          <span className={`team-tickets__due team-tickets__due--${due.tone}`}>
+            <LuCalendar className="team-tickets__due-icon" aria-hidden="true" />
+            {due.text}
+          </span>
+        )}
+        {dateLabel && <span className="team-tickets__date">{dateLabel}</span>}
+      </div>
+    </li>
+  );
+}
+
+// Does a ticket pass the active column filters? Pure so it can be used
+// inside memo selectors without becoming a dependency itself.
+function ticketMatchesFilters(t, f) {
+  if (f.category && (t.category || 'other') !== f.category) return false;
+  if (f.project && t.project !== f.project) return false;
+  if (f.status && t.status !== f.status) return false;
+  if (f.q && !(t.title || '').toLowerCase().includes(f.q.trim().toLowerCase())) return false;
+  return true;
+}
+
+// Hide all-day blocks that aren't out-of-office (focus time, "Home",
+// lunch, etc.) — mirrors the dashboard's own calendar card so the team
+// drill-down reads the same way. OOO blocks are kept so a lead can spot
+// who's out today.
+function isVisibleCalendarEvent(ev) {
+  if (ev?.isAllDay && !ev?.isOoo) return false;
+  return true;
+}
+
+// Today's calendar for the drilled-into SE. Reuses the global
+// `dashboard-calendar` styles so it matches the homepage calendar card.
+// Soft states: loading, not-connected (SE hasn't linked Google), empty.
+function SeCalendar({ payload, error }) {
+  if (error) {
+    return (
+      <p className="team-page__linear-hint">
+        Couldn&apos;t load this SE&apos;s calendar right now.
+      </p>
+    );
   }
-  if (days < 10) return `avg ${days.toFixed(1)} days to close`;
-  return `avg ${Math.round(days)} days to close`;
+  if (!payload) {
+    return <p className="team-page__linear-hint">Loading calendar…</p>;
+  }
+  const firstName = payload.name?.split(/\s+/)[0] || 'This SE';
+  if (!payload.configured) {
+    return (
+      <p className="team-page__linear-hint">
+        {firstName} hasn&apos;t connected their Google Calendar.
+      </p>
+    );
+  }
+  const events = (payload.events || []).filter(isVisibleCalendarEvent);
+  if (events.length === 0) {
+    return <p className="team-page__linear-hint">No events scheduled today.</p>;
+  }
+  return (
+    <div className="dashboard-calendar">
+      {events.map((ev) => (
+        <div key={ev.id} className="dashboard-calendar__item">
+          <span className="dashboard-calendar__dot" style={{ background: ev.color }} aria-hidden />
+          <div className="dashboard-calendar__body">
+            <p className="dashboard-calendar__heading">
+              <span className="dashboard-calendar__time">{ev.time}</span>
+              <span className="dashboard-calendar__title">{ev.title}</span>
+            </p>
+            <p className="dashboard-calendar__meta">{ev.meta}</p>
+          </div>
+          {(ev.attendeeCount > 0 || ev.videoUrl) && (
+            <div className="dashboard-calendar__row-actions">
+              {ev.attendeeCount > 0 && (
+                <span
+                  className="dashboard-calendar__chip"
+                  title={`${ev.attendeeCount} ${ev.attendeeCount === 1 ? 'attendee' : 'attendees'}`}
+                >
+                  {ev.attendeeCount}
+                </span>
+              )}
+              {ev.videoUrl && (
+                <a
+                  className="dashboard-calendar__join"
+                  href={ev.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={ev.videoProvider ? `Join via ${ev.videoProvider}` : 'Join video call'}
+                >
+                  Join
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// The two ticket lists shown beneath the headline tiles in the drill-down:
+// the SE's live open workload and the tickets they completed in the active
+// scope. Owns a column filter bar (title search + category / project /
+// status) that narrows both lists at once, plus its own loading / error /
+// empty states so the parent JSX stays flat.
+function TicketLists({ error, loaded, open, closed, periodLabel }) {
+  // The completed list can get long, so it's a collapsible disclosure the
+  // lead can fold away. Defaults open; collapsing is purely cosmetic.
+  const [closedExpanded, setClosedExpanded] = useState(true);
+  const [filters, setFilters] = useState({ q: '', category: '', project: '', status: '' });
+
+  // Dropdown options, derived from the union of both lists so a value the
+  // lead picks always matches at least one row somewhere on the page.
+  const options = useMemo(() => {
+    const all = [...open, ...closed];
+    const seenCat = new Set();
+    const categories = [];
+    for (const t of all) {
+      const key = t.category || 'other';
+      if (!seenCat.has(key)) {
+        seenCat.add(key);
+        categories.push({ value: key, label: (CATEGORY_META[key] || CATEGORY_META.other).label });
+      }
+    }
+    const uniq = (vals) =>
+      Array.from(new Set(vals.filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    return {
+      categories: categories.sort((a, b) => a.label.localeCompare(b.label)),
+      projects: uniq(all.map((t) => t.project)),
+      statuses: uniq(all.map((t) => t.status)),
+    };
+  }, [open, closed]);
+
+  const filteredOpen = useMemo(
+    () => open.filter((t) => ticketMatchesFilters(t, filters)),
+    [open, filters],
+  );
+  const filteredClosed = useMemo(
+    () => closed.filter((t) => ticketMatchesFilters(t, filters)),
+    [closed, filters],
+  );
+
+  if (error) {
+    return (
+      <p className="team-page__linear-hint">
+        Couldn&apos;t load this SE&apos;s tickets right now. Try refreshing in a minute.
+      </p>
+    );
+  }
+  if (!loaded) {
+    return <p className="team-page__linear-hint">Loading tickets…</p>;
+  }
+
+  const closedHeading = `Completed in ${periodLabel}`;
+
+  const setFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }));
+  const anyActive = Boolean(filters.q || filters.category || filters.project || filters.status);
+
+  return (
+    <div className="team-tickets">
+      <div className="team-tickets__filters">
+        <input
+          type="search"
+          className="team-tickets__search"
+          placeholder="Search title…"
+          aria-label="Search ticket titles"
+          value={filters.q}
+          onChange={(e) => setFilter('q', e.target.value)}
+        />
+        <select
+          className="team-tickets__select"
+          aria-label="Filter by category"
+          value={filters.category}
+          onChange={(e) => setFilter('category', e.target.value)}
+        >
+          <option value="">All categories</option>
+          {options.categories.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <select
+          className="team-tickets__select"
+          aria-label="Filter by project"
+          value={filters.project}
+          onChange={(e) => setFilter('project', e.target.value)}
+        >
+          <option value="">All projects</option>
+          {options.projects.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+        <select
+          className="team-tickets__select"
+          aria-label="Filter by status"
+          value={filters.status}
+          onChange={(e) => setFilter('status', e.target.value)}
+        >
+          <option value="">All statuses</option>
+          {options.statuses.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        {anyActive && (
+          <button
+            type="button"
+            className="team-tickets__clear"
+            onClick={() => setFilters({ q: '', category: '', project: '', status: '' })}
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
+      <section className="team-tickets__group">
+        <h3 className="team-tickets__heading">
+          Open workload <span className="team-tickets__count">{filteredOpen.length}</span>
+        </h3>
+        {open.length === 0 ? (
+          <p className="team-tickets__empty">Nothing open right now.</p>
+        ) : filteredOpen.length === 0 ? (
+          <p className="team-tickets__empty">No open tickets match these filters.</p>
+        ) : (
+          <ul className="team-tickets__list">
+            {filteredOpen.map((t) => (
+              <TicketRow key={t.id} ticket={t} dateLabel={null} dueRelative />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="team-tickets__group">
+        <button
+          type="button"
+          className="team-tickets__toggle"
+          aria-expanded={closedExpanded}
+          onClick={() => setClosedExpanded((v) => !v)}
+        >
+          <LuChevronDown
+            className={`team-tickets__toggle-icon ${closedExpanded ? 'is-open' : ''}`}
+            aria-hidden="true"
+          />
+          <span className="team-tickets__heading-text">{closedHeading}</span>
+          <span className="team-tickets__count">{filteredClosed.length}</span>
+        </button>
+        {closedExpanded &&
+          (closed.length === 0 ? (
+            <p className="team-tickets__empty">No completed tickets in this window.</p>
+          ) : filteredClosed.length === 0 ? (
+            <p className="team-tickets__empty">No completed tickets match these filters.</p>
+          ) : (
+            <ul className="team-tickets__list">
+              {filteredClosed.map((t) => (
+                <TicketRow key={t.id} ticket={t} dateLabel={formatShortDate(t.completedAt)} />
+              ))}
+            </ul>
+          ))}
+      </section>
+    </div>
+  );
 }
 
 /**
- * TeamPage - per-SE landing page ("Team Mario", "Team Yoshi", ...).
+ * TeamPage — the lead's "Pack" overview ("Team Mario", "Team Yoshi", …).
  *
- * Scope is intentionally "own team only" for now: each SE only ever sees
- * their own team's page. The :slug in the URL is cosmetic — if it doesn't
- * match the logged-in SE's team we redirect to the canonical slug instead
- * of 404'ing, so a stale bookmark or hand-typed URL still lands somewhere
- * useful.
- *
- * Visually the page borrows from The Den (the dashboard) without copying
- * the data: same `.page-header` heading treatment, same `.dashboard-panel`
- * panel surface and `.dashboard-widgets` grid layout. The body is one
- * panel per AE on the SE's team, with the AE's name as the panel title
- * and a row per closed-won opp underneath (Opportunity name + CARR).
+ * Renders a grouped bar chart of every active Sales Engineer's Creation /
+ * Scoping / Completed Linear tickets, scoped to the whole year or the
+ * current quarter. Clicking an SE's bar group drills into a high-level
+ * detail panel (their live workload + closed breakdown). Lead/admin only;
+ * the backend endpoint that feeds it is gated to the same roles. The :slug
+ * in the URL is cosmetic — a mismatch redirects to the canonical slug.
  */
 function TeamPage() {
   const { user } = useAuth();
   const { slug } = useParams();
   const team = user?.team;
-  // First-name only for the personalized "Tickets closed by you" copy.
-  // Pulled off the auth user, falls back to empty string so the
-  // subtitle reads naturally ("Linear tickets you've completed…")
-  // when we can't resolve a name.
-  const firstName = useMemo(() => {
-    const raw = (user?.name || '').trim();
-    if (!raw) return '';
-    return raw.split(/\s+/)[0];
-  }, [user?.name]);
 
-  // Salesforce metrics state. Reads from the shared localStorage cache
-  // first so the page paints instantly when the SE has already hit
-  // The Den, then refreshes in the background.
-  const [config, setConfig] = useState(readCachedConfig);
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Leads (and admins) get the pack overview. Regular SEs see a short
+  // note instead — the backend endpoint is gated to the same roles, so
+  // this is a UX convenience rather than the security boundary.
+  const isLead = useMemo(() => {
+    const roles = user?.roles || [];
+    return roles.includes('admin') || roles.includes('sales_engineer_lead');
+  }, [user?.roles]);
 
-  // Year / Current-Quarter scope filter. Default to year so the page
-  // matches what a fresh visitor saw before the filter was added; the
-  // filter narrows down rather than expanding away from a default.
-  const [scope, setScope] = useState(SCOPE_YEAR);
+  // Scope controls: which calendar year to load, and whether to show the
+  // full year (quarter === 0) or a single quarter (1-4).
+  const [selectedYear, setSelectedYear] = useState(getCurrentYear());
+  const [quarter, setQuarter] = useState(0);
 
-  // Primary view toggle: "team" shows the SF roll-up + AE breakdown,
-  // "you" shows the personal Linear tickets section. We default to
-  // "team" because the team page's mental model is "this is my team's
-  // page" — the personal view is one click away when an SE wants to
-  // zoom into their own contribution.
-  const [view, setView] = useState(VIEW_TEAM);
+  // Derived once per render and threaded through the memos / labels below.
+  const quarterKey = buildQuarterKey(selectedYear, quarter);
+  const periodLabel = buildPeriodLabel(selectedYear, quarter);
 
-  // Selected quarter for the You-view "Monthly breakdown" section.
-  // Independent of the year/quarter filter pill — the filter pill
-  // rescopes the topline tiles, while this picks which quarter the
-  // chart below renders. Defaults to whichever quarter contains today.
-  const [selectedQuarter, setSelectedQuarter] = useState(getCurrentQuarterNumber);
+  // Pack payload (per-SE roll-up) and error state.
+  const [packData, setPackData] = useState(null);
+  const [packError, setPackError] = useState(null);
 
-  // Personal Linear roll-up (tickets THIS user has closed). Independent
-  // of the Salesforce metrics fetch — different data source, different
-  // failure modes — but driven by the same `scope` so toggling the
-  // filter pill rescopes both halves of the page in lock-step. Tiles
-  // render "—" while the request is in flight (no separate loading
-  // flag needed) to mirror the SF tile loading behaviour below.
-  const [linearClosed, setLinearClosed] = useState(null);
-  const [linearError, setLinearError] = useState(null);
+  // Per-SE Closed CARR roll-up (Salesforce, attributed via handoff pages).
+  const [packCarr, setPackCarr] = useState(null);
+
+  // When set, the chart is replaced by a high-level detail panel for the
+  // chosen SE (their workload + closed breakdown). Cleared by the "back"
+  // button. All the numbers come from the pack payload already in memory,
+  // so drilling in costs no extra request.
+  const [selectedSeId, setSelectedSeId] = useState(null);
+
+  // Actual Linear tickets (open + closed-this-year) for the drilled-into
+  // SE. Fetched lazily the first time a row is opened; the closed list is
+  // filtered down to the active quarter client-side when the quarter pill
+  // is on, so we only ever hit the endpoint once per SE.
+  const [seTickets, setSeTickets] = useState(null);
+  const [seTicketsError, setSeTicketsError] = useState(null);
+
+  // Today's calendar for the drilled-into SE. Fetched lazily per SE; not
+  // year-scoped (always "today"), so it only depends on the selection.
+  const [seCalendar, setSeCalendar] = useState(null);
+  const [seCalendarError, setSeCalendarError] = useState(null);
 
   useEffect(() => {
-    let cancelled = false;
-    setLinearError(null);
-    fetchDashboardLinearClosed()
-      .then((payload) => {
-        if (cancelled) return;
-        setLinearClosed(payload);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setLinearError(err?.message || 'Failed to load Linear tickets');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Team-wide tickets-created-by-AE rollup. Powers the "Tickets created
-  // broken down by AE" section on the Team view: per-AE counts of
-  // tickets each AE has submitted this year, broken into Creation /
-  // Estimation / AI Demo. Independent fetch from the personal closed
-  // rollup above — different shape, different scope — but soft-fails
-  // the same way (the section just shows a hint instead of failing
-  // the whole page).
-  const [ticketsByAE, setTicketsByAE] = useState(null);
-  const [ticketsByAEError, setTicketsByAEError] = useState(null);
-
-  useEffect(() => {
-    // Gated by the same flag the JSX section below is gated on, so a
-    // disabled feature doesn't waste a Linear round-trip on every
-    // team-page mount. Re-enable the section by flipping
-    // `SHOW_TICKETS_BY_AE` to `true` and the fetch wakes back up.
-    if (!SHOW_TICKETS_BY_AE) return undefined;
-    let cancelled = false;
-    setTicketsByAEError(null);
-    fetchDashboardLinearTicketsByAE()
-      .then((payload) => {
-        if (cancelled) return;
-        setTicketsByAE(payload);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setTicketsByAEError(err?.message || 'Failed to load tickets by AE');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Apply the same year / current-quarter scope to the Linear roll-up
-  // that we apply to the SF roster, so the page tells one coherent
-  // story under whichever filter is active.
-  const closedTicketsScoped = useMemo(() => {
-    if (!linearClosed?.configured) return null;
-    if (scope === SCOPE_QUARTER) {
-      const currentKey = getCurrentQuarterKey();
-      return (
-        linearClosed.byQuarter?.[currentKey] ?? {
-          estimation: 0,
-          creation: 0,
-          aiDemo: 0,
-          other: 0,
-          total: 0,
-        }
-      );
-    }
-    return linearClosed.total;
-  }, [linearClosed, scope]);
-
-  // Quarter bucket the Monthly Breakdown chart is currently rendering.
-  // Decoupled from the filter pill — that pill rescopes the topline
-  // tiles, while this section has its own quarter tab strip below.
-  const selectedQuarterBucket = useMemo(() => {
-    if (!linearClosed?.configured) return null;
-    const year = linearClosed.year;
-    const key = `Q${selectedQuarter} CY${year}`;
-    return linearClosed.byQuarter?.[key] ?? null;
-  }, [linearClosed, selectedQuarter]);
-
-  const currentYear = useMemo(() => resolveDataYear(config), [config]);
-
-  // Hydrate `data` from cache the moment we know which year to read,
-  // so the first paint already shows opps if the user just came from
-  // The Den (which writes the same cache key).
-  useEffect(() => {
-    const cached = readCachedData(currentYear);
-    if (cached) {
-      setData(cached);
-      setLoading(false);
-    }
-  }, [currentYear]);
-
-  // Refresh config in the background. Same pattern as
-  // CurrentQuarterMetrics — silent failures, best-effort cache write.
-  useEffect(() => {
-    let cancelled = false;
-    getSalesforceConfig()
-      .then((c) => {
-        if (cancelled) return;
-        setConfig(c);
-        try {
-          localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify(c));
-        } catch {
-          // ignore cache write issues
-        }
-      })
-      .catch(() => {
-        if (!cancelled && !readCachedConfig()) {
-          setError('Failed to load Salesforce config');
-          setLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Fetch (or refresh) the metrics report for the resolved year. Falls
-  // back to the live report endpoint when the year isn't snapshotted.
-  useEffect(() => {
-    if (!config) return undefined;
-    const isSnapshotYear = (config.snapshotYears || []).includes(currentYear);
-    const reportId = config.reportIdsByYear?.[currentYear]?.metrics;
-    if (!isSnapshotYear && !reportId) {
-      setLoading(false);
+    if (!selectedSeId) {
+      setSeTickets(null);
+      setSeTicketsError(null);
       return undefined;
     }
-
     let cancelled = false;
-    // We always flip loading on while a refetch is in flight; the render
-    // branches show the cached opp list whenever `data` is truthy
-    // regardless of `loading`, so this doesn't cause a visible flicker
-    // on warm caches. Avoids reading `data` inside the effect (which
-    // would either need to be a dep or be silenced).
-    setLoading(true);
-    setError(null);
-
-    const fetchMetrics = () => {
-      if (isSnapshotYear) {
-        return fetchSalesforceSnapshotMetrics(currentYear).catch(() => {
-          if (reportId) return fetchSalesforceReport(reportId);
-          throw new Error('Snapshot unavailable and no report ID for this year');
-        });
-      }
-      return fetchSalesforceReport(reportId);
-    };
-
-    fetchMetrics()
-      .then((response) => {
-        if (cancelled) return;
-        setData(response);
-        setError(null);
-        writeCachedData(currentYear, response);
+    setSeTickets(null);
+    setSeTicketsError(null);
+    fetchPackSeTickets(selectedSeId, selectedYear)
+      .then((payload) => {
+        if (!cancelled) setSeTickets(payload);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setSeTicketsError(err?.message || 'Failed to load tickets');
       });
-
     return () => {
       cancelled = true;
     };
-  }, [config, currentYear]);
+  }, [selectedSeId, selectedYear]);
+
+  // Pull the selected SE's today calendar. Soft state — a failure or an
+  // unconnected SE just renders a hint inside the panel.
+  useEffect(() => {
+    if (!selectedSeId) {
+      setSeCalendar(null);
+      setSeCalendarError(null);
+      return undefined;
+    }
+    let cancelled = false;
+    setSeCalendar(null);
+    setSeCalendarError(null);
+    fetchPackSeCalendar(selectedSeId)
+      .then((payload) => {
+        if (!cancelled) setSeCalendar(payload);
+      })
+      .catch((err) => {
+        if (!cancelled) setSeCalendarError(err?.message || 'Failed to load calendar');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSeId]);
+
+  // Fetch the pack-wide roll-up once we know the viewer is a lead, scoped to
+  // the selected year. Refetches when the year changes; the quarter pill then
+  // slices the returned `byQuarter` buckets client-side. Soft-fails into a hint.
+  useEffect(() => {
+    if (!isLead) return undefined;
+    let cancelled = false;
+    setPackError(null);
+    fetchPackOverview(selectedYear)
+      .then((payload) => {
+        if (!cancelled) setPackData(payload);
+      })
+      .catch((err) => {
+        if (!cancelled) setPackError(err?.message || 'Failed to load pack overview');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLead, selectedYear]);
+
+  // Pull the per-SE Closed CARR roll-up alongside the pack overview. Soft
+  // state only — CARR is a "nice to have" below the chart, so a failure or
+  // an unconfigured Salesforce year just hides the section rather than
+  // blocking the page.
+  useEffect(() => {
+    if (!isLead) return undefined;
+    let cancelled = false;
+    fetchPackCarr(selectedYear)
+      .then((payload) => {
+        if (!cancelled) setPackCarr(payload);
+      })
+      .catch(() => {
+        if (!cancelled) setPackCarr({ configured: false, sets: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLead, selectedYear]);
+
+  // One row per SE, scoped to the active pill and sorted by completed
+  // tickets descending so the chart reads left-to-right from most to
+  // least productive.
+  const packRows = useMemo(() => {
+    // Drop the viewing lead's own row — they're looking at the pack, not
+    // themselves. Match on the app user id the backend stamps onto each set.
+    const sets = (packData?.sets || []).filter((s) => s.userId !== user?.id);
+    const rows = sets.map((set) => {
+      const closed = quarterKey
+        ? set.closed?.byQuarter?.[quarterKey] || {}
+        : set.closed?.total || {};
+      return {
+        seId: set.seId,
+        name: set.name,
+        open: set.open || 0,
+        creation: closed.creation || 0,
+        scoping: closed.estimation || 0,
+        completed: closed.total || 0,
+      };
+    });
+    rows.sort((a, b) => b.completed - a.completed);
+    return rows;
+  }, [packData, quarterKey, user?.id]);
+
+  // Pack-wide totals across the displayed SEs (already lead-excluded and
+  // scoped to the active year/quarter), shown as summary cards above the
+  // chart.
+  const packTotals = useMemo(
+    () =>
+      packRows.reduce(
+        (acc, r) => ({
+          ses: acc.ses + 1,
+          open: acc.open + r.open,
+          creation: acc.creation + r.creation,
+          scoping: acc.scoping + r.scoping,
+          completed: acc.completed + r.completed,
+        }),
+        { ses: 0, open: 0, creation: 0, scoping: 0, completed: 0 },
+      ),
+    [packRows],
+  );
+
+  // Per-SE Closed CARR for the active scope, lead excluded, sorted high to
+  // low. `max` drives the proportional bar widths; `total` is the pack sum.
+  const carrBreakdown = useMemo(() => {
+    const rows = (packCarr?.sets || [])
+      .filter((s) => s.userId !== user?.id)
+      .map((s) => ({
+        seId: s.seId,
+        name: s.name,
+        carr: quarterKey ? s.byQuarter?.[quarterKey] || 0 : s.total || 0,
+      }))
+      .sort((a, b) => b.carr - a.carr);
+    const max = rows.reduce((m, r) => Math.max(m, r.carr), 0);
+    const total = rows.reduce((sum, r) => sum + r.carr, 0);
+    return { rows, max, total };
+  }, [packCarr, quarterKey, user?.id]);
+
+  // Pre-compute the SVG layout (bar rects, y-axis ticks, x labels) for
+  // the grouped bar chart. Bars are grouped by SE; within a group the
+  // three series sit side by side with a small gap.
+  const chartLayout = useMemo(() => {
+    const rows = packRows;
+    const plotW = CHART.w - CHART.padLeft - CHART.padRight;
+    const plotH = CHART.h - CHART.padTop - CHART.padBottom;
+    const baseY = CHART.padTop + plotH;
+    const maxVal = rows.reduce((m, r) => Math.max(m, r.creation, r.scoping, r.completed), 0);
+    const yMax = niceChartMax(maxVal);
+    const yTicks = buildYTicks(yMax);
+    const n = rows.length;
+    const groupW = n > 0 ? plotW / n : plotW;
+    const groupInner = groupW * 0.64;
+    const slotW = groupInner / CHART_SERIES.length;
+    const barW = slotW * 0.84;
+
+    const groups = rows.map((row, i) => {
+      const slotX = CHART.padLeft + i * groupW;
+      const x0 = slotX + (groupW - groupInner) / 2;
+      const bars = CHART_SERIES.map((s, j) => {
+        const val = row[s.key] || 0;
+        const h = yMax > 0 ? (val / yMax) * plotH : 0;
+        return {
+          key: s.key,
+          val,
+          x: x0 + j * slotW + (slotW - barW) / 2,
+          y: baseY - h,
+          w: barW,
+          h,
+        };
+      });
+      return {
+        seId: row.seId,
+        name: row.name,
+        label: row.name.split(/\s+/)[0],
+        cx: slotX + groupW / 2,
+        bars,
+      };
+    });
+
+    return { plotW, plotH, baseY, yMax, yTicks, groups };
+  }, [packRows]);
+
+  // High-level detail for the SE the lead clicked into. Pulls the same
+  // category breakdown the chart uses (plus AI Demo / Other), scoped by
+  // the active pill. Returns null when nothing is selected or the SE
+  // fell out of the payload on a refetch.
+  const selectedDetail = useMemo(() => {
+    if (!selectedSeId) return null;
+    const set = (packData?.sets || []).find((s) => s.seId === selectedSeId);
+    if (!set) return null;
+    const closed = quarterKey ? set.closed?.byQuarter?.[quarterKey] || {} : set.closed?.total || {};
+    return {
+      seId: set.seId,
+      name: set.name,
+      open: set.open || 0,
+      completed: closed.total || 0,
+      creation: closed.creation || 0,
+      scoping: closed.estimation || 0,
+      aiDemo: closed.aiDemo || 0,
+      other: closed.other || 0,
+    };
+  }, [selectedSeId, packData, quarterKey]);
+
+  // The closed tickets to actually list, narrowed to the current quarter
+  // when the quarter pill is active so the list stays in lockstep with
+  // the headline "Completed" tile above it. Open workload is always
+  // "right now", so it ignores the scope.
+  const visibleClosedTickets = useMemo(() => {
+    const closed = seTickets?.closed || [];
+    if (!quarterKey) return closed;
+    return closed.filter((t) => quarterKeyOf(t.completedAt) === quarterKey);
+  }, [seTickets, quarterKey]);
 
   // Split "Team Mario" → { prefix: "Team", rest: "Mario" } so the prefix
-  // can render in white and the actual identity (rest) can pop in coral,
-  // matching the way the dashboard hero renders the team chip. Single-
-  // word names just render the whole thing in coral.
+  // renders in white and the identity (rest) pops in coral, matching the
+  // dashboard hero. Single-word names render the whole thing in coral.
   const teamParts = useMemo(() => {
     const raw = team?.name?.trim();
     if (!raw) return null;
@@ -603,197 +768,6 @@ function TeamPage() {
     if (idx === -1) return { prefix: '', rest: raw };
     return { prefix: raw.slice(0, idx), rest: raw.slice(idx + 1) };
   }, [team?.name]);
-
-  // Bucket every opp into goal-eligible (A/B/E/...) vs C-scored. The
-  // team page renders these as two distinct sections — headline tiles
-  // and per-AE cards consume only the goal-eligible map; the new
-  // "Closed-won C opps" panel below the roster consumes the C map.
-  const { goalEligibleByAE, cScoreByAE } = useMemo(() => groupOppsByAE(data), [data]);
-
-  // Apply the year / current-quarter scope. When viewing the year the
-  // groupings pass through untouched; when viewing the current quarter
-  // we filter each AE's list to opps whose `quarter` matches today's
-  // quarter key (the same shape the metrics report writes, e.g.
-  // "Q2 CY2026"), so the totals + rows + counts all stay in lock-step.
-  const filteredOppsByAE = useMemo(() => {
-    if (scope === SCOPE_YEAR) return goalEligibleByAE;
-    const currentKey = getCurrentQuarterKey();
-    const next = new Map();
-    for (const [aeKey, opps] of goalEligibleByAE.entries()) {
-      next.set(
-        aeKey,
-        opps.filter((opp) => opp.quarter === currentKey),
-      );
-    }
-    return next;
-  }, [goalEligibleByAE, scope]);
-
-  // Same scope filter, applied to the C-scored bucket. Kept as a
-  // sibling memo (rather than parameterizing the one above) so each
-  // section renders from a stable reference and React doesn't
-  // re-render one panel just because the other's data churned.
-  const filteredCOppsByAE = useMemo(() => {
-    if (scope === SCOPE_YEAR) return cScoreByAE;
-    const currentKey = getCurrentQuarterKey();
-    const next = new Map();
-    for (const [aeKey, opps] of cScoreByAE.entries()) {
-      next.set(
-        aeKey,
-        opps.filter((opp) => opp.quarter === currentKey),
-      );
-    }
-    return next;
-  }, [cScoreByAE, scope]);
-
-  // Roll up team-wide stats from the same filtered map that drives the
-  // AE roster, restricted to the team's own AE roster so the at-a-glance
-  // tiles and the per-AE cards always tell a consistent story
-  // (sum of AE totals === team total, etc.).
-  //
-  // Previously this iterated `filteredOppsByAE.values()` directly, which
-  // included every AE bucket in the pack-wide payload — that meant teams
-  // whose AEs hadn't closed anything (e.g. Team Sonic on launch day) saw
-  // pack-wide pipeline numbers in the tiles but $0 per-AE in the cards.
-  const teamTotals = useMemo(() => {
-    const teamAEs = team?.accountExecutives ?? [];
-    let totalCarr = 0;
-    let count = 0;
-    for (const ae of teamAEs) {
-      const opps = filteredOppsByAE.get(normalizeName(ae.name)) ?? [];
-      for (const opp of opps) {
-        const amount = Number(opp?.carrAmount);
-        if (Number.isFinite(amount)) totalCarr += amount;
-        count += 1;
-      }
-    }
-    return {
-      totalCarr,
-      count,
-      avgDealSize: count > 0 ? totalCarr / count : 0,
-    };
-  }, [filteredOppsByAE, team?.accountExecutives]);
-
-  // Same roll-up shape, restricted to C-scored opps for the team's
-  // own AEs. Drives the C-section subtitle ("X opps · $Y") and the
-  // empty-state branch when the team has no C deals in scope.
-  const cTeamTotals = useMemo(() => {
-    const teamAEs = team?.accountExecutives ?? [];
-    let totalCarr = 0;
-    let count = 0;
-    for (const ae of teamAEs) {
-      const opps = filteredCOppsByAE.get(normalizeName(ae.name)) ?? [];
-      for (const opp of opps) {
-        const amount = Number(opp?.carrAmount);
-        if (Number.isFinite(amount)) totalCarr += amount;
-        count += 1;
-      }
-    }
-    return { totalCarr, count };
-  }, [filteredCOppsByAE, team?.accountExecutives]);
-
-  // Unassigned tickets (no AE field filled in), scoped the same way.
-  // The backend collects these into a single team-wide bucket; on
-  // year scope we read the totals, on quarter scope we slice the
-  // `byQuarter` map and filter the ticket list by createdAt so the
-  // disclosure stays consistent with the count above it.
-  const unassignedScoped = useMemo(() => {
-    const bucket = ticketsByAE?.unassigned;
-    if (!bucket) {
-      return {
-        total: 0,
-        estimation: 0,
-        creation: 0,
-        aiDemo: 0,
-        other: 0,
-        tickets: [],
-      };
-    }
-    if (scope === SCOPE_QUARTER) {
-      const currentKey = getCurrentQuarterKey();
-      const slice = bucket.byQuarter?.[currentKey] || {
-        total: 0,
-        estimation: 0,
-        creation: 0,
-        aiDemo: 0,
-        other: 0,
-      };
-      const tickets = (bucket.tickets || []).filter(
-        (t) => quarterKeyOfDate(t.createdAt) === currentKey,
-      );
-      return { ...slice, tickets };
-    }
-    return {
-      total: bucket.total || 0,
-      estimation: bucket.estimation || 0,
-      creation: bucket.creation || 0,
-      aiDemo: bucket.aiDemo || 0,
-      other: bucket.other || 0,
-      tickets: bucket.tickets || [],
-    };
-  }, [ticketsByAE, scope]);
-
-  // Per-AE tickets-created counts for the team's own AE roster, scoped
-  // to whichever window the page is showing (year vs current quarter).
-  // The backend returns `byAE` keyed by normalized name; we walk the
-  // team roster (so the order matches the CARR section above and AEs
-  // with zero submissions still render an empty card) and pull each
-  // AE's bucket out, falling back to a zero-bucket when there's no
-  // entry. Quarter scope reads the AE's `byQuarter[currentKey]` if
-  // present, otherwise zeros — same pattern as `closedTicketsScoped`.
-  const ticketsByAEScoped = useMemo(() => {
-    const teamAEs = team?.accountExecutives ?? [];
-    const map = ticketsByAE?.byAE || {};
-    const currentKey = scope === SCOPE_QUARTER ? getCurrentQuarterKey() : null;
-    return teamAEs.map((ae) => {
-      // Fuzzy lookup so nickname drift between Salesforce and Linear
-      // ("Rob" in a ticket vs "Robert" on the roster) doesn't drop
-      // the AE's count to zero — see `findBucketForAE` for the rule.
-      const bucket = findBucketForAE(map, ae.name);
-      const slice = currentKey
-        ? bucket?.byQuarter?.[currentKey] || {
-            total: 0,
-            estimation: 0,
-            creation: 0,
-            aiDemo: 0,
-            other: 0,
-          }
-        : bucket || {
-            total: 0,
-            estimation: 0,
-            creation: 0,
-            aiDemo: 0,
-            other: 0,
-          };
-      return {
-        ae,
-        total: slice.total || 0,
-        estimation: slice.estimation || 0,
-        creation: slice.creation || 0,
-        aiDemo: slice.aiDemo || 0,
-        other: slice.other || 0,
-      };
-    });
-  }, [ticketsByAE, scope, team?.accountExecutives]);
-
-  // Flat list of C opps for the team's own AEs, sorted by close date
-  // desc (most recent first). Each row carries `aeName` so the table
-  // renders Opp / AE / CARR side-by-side without the consumer having
-  // to walk the per-AE map again. The per-AE bucket already sorts by
-  // date desc, but merging across AEs requires resorting the union.
-  const cOppsForTeam = useMemo(() => {
-    const teamAEs = team?.accountExecutives ?? [];
-    const rows = [];
-    for (const ae of teamAEs) {
-      const opps = filteredCOppsByAE.get(normalizeName(ae.name)) ?? [];
-      for (const opp of opps) rows.push({ opp, aeName: ae.name });
-    }
-    rows.sort((a, b) => {
-      const da = a.opp.effectiveDate ? Date.parse(a.opp.effectiveDate) : 0;
-      const db = b.opp.effectiveDate ? Date.parse(b.opp.effectiveDate) : 0;
-      return db - da;
-    });
-    return rows;
-  }, [filteredCOppsByAE, team?.accountExecutives]);
 
   if (!team) {
     return (
@@ -811,16 +785,15 @@ function TeamPage() {
     return <Navigate to={`/teams/${canonicalSlug}`} replace />;
   }
 
-  const aes = team.accountExecutives ?? [];
   const mascot = TEAM_MASCOTS[canonicalSlug];
+
+  const selectSe = (seId) => setSelectedSeId(seId);
 
   return (
     <div className="dashboard">
       {/*
         Three-column hero: flexible spacer on the left, big centered
-        title in the middle, optional mascot pinned to the right. The
-        two 1fr edge columns balance so the title stays visually
-        centered regardless of whether the team has mascot artwork.
+        title in the middle, optional mascot pinned to the right.
       */}
       <header className="page-header team-page__hero">
         <h1 className="team-page__hero-title">
@@ -830,1051 +803,310 @@ function TeamPage() {
         {mascot && <img className="team-page__mascot" src={mascot.src} alt={mascot.alt} />}
       </header>
 
-      {aes.length === 0 ? (
-        <p className="page-header__sub">
-          No active AEs on this team yet. Ask an admin to add one in the Alpha Pack.
-        </p>
-      ) : (
-        // Body wrapper insets the content horizontally from the
-        // full-bleed hero above so the section reads as a nested
-        // zone. New sections (Pipeline, Activity, etc.) live as
-        // additional siblings inside this wrapper and inherit the
-        // same gutter for free.
-        <div className="team-page__body">
-          {/*
-            Page-level controls bar. Two segmented toggles share a row
-            so all the page-wide knobs live in one predictable spot at
-            the top of the body:
-              • "View" picks the section set below (Team vs You).
-              • "Scope" rescopes whichever sections are showing
-                (year vs current quarter).
-            Both controls follow whichever view is active — a quarter
-            scope on Team mode rescopes the SF roll-up; same scope on
-            You mode rescopes the Linear roll-up.
-          */}
-          <div className="team-page__controls">
-            <div
-              className="team-page__filter team-page__filter--view"
-              role="tablist"
-              aria-label="Switch between team and personal view"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === VIEW_TEAM}
-                className={`team-page__filter-btn ${view === VIEW_TEAM ? 'is-active' : ''}`}
-                onClick={() => setView(VIEW_TEAM)}
-              >
-                Team
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === VIEW_YOU}
-                className={`team-page__filter-btn ${view === VIEW_YOU ? 'is-active' : ''}`}
-                onClick={() => setView(VIEW_YOU)}
-              >
-                You
-              </button>
-            </div>
-            <div
-              className="team-page__filter"
-              role="tablist"
-              aria-label="Scope metrics by year or current quarter"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={scope === SCOPE_YEAR}
-                className={`team-page__filter-btn ${scope === SCOPE_YEAR ? 'is-active' : ''}`}
-                onClick={() => setScope(SCOPE_YEAR)}
-              >
-                For the Year
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={scope === SCOPE_QUARTER}
-                className={`team-page__filter-btn ${scope === SCOPE_QUARTER ? 'is-active' : ''}`}
-                onClick={() => setScope(SCOPE_QUARTER)}
-                title={`Current quarter: ${getCurrentQuarterShortLabel()}`}
-              >
-                Current Quarter
-              </button>
-            </div>
-          </div>
-
-          {/*
-            "Tickets closed by you" — personal Linear roll-up. Only
-            renders in the You view; on Team view the page focuses
-            on the SF roll-up + AE breakdown below. The fragment
-            wraps two sibling sections (tickets tiles + monthly
-            breakdown chart) under the same view gate.
-          */}
-          {view === VIEW_YOU && (
-            <>
-              <section className="team-page__section">
-                <div className="team-page__section-header">
-                  <div className="team-page__section-heading">
-                    <h2 className="team-page__section-title">Tickets closed by you</h2>
-                    <p className="team-page__section-subtitle">
-                      {(() => {
-                        const subject = firstName ? `${firstName} has` : "you've";
-                        const window =
-                          scope === SCOPE_QUARTER
-                            ? `this quarter (${getCurrentQuarterShortLabel()})`
-                            : 'this year';
-                        return `Linear tickets ${subject} completed ${window}.`;
-                      })()}
-                    </p>
-                  </div>
-                </div>
-                {linearClosed?.needsLinearProfile ? (
-                  // SE row exists but we couldn't auto-resolve their Linear
-                  // user ID from email. Surface the same hint the dashboard
-                  // would, but inline so the section still has presence.
-                  <p className="team-page__linear-hint">
-                    We couldn&apos;t match your account to a Linear user yet. Check your Profile so
-                    we can pull in your closed tickets.
-                  </p>
-                ) : linearError || linearClosed?.error === 'linear_unavailable' ? (
-                  // Either the request itself blew up (linearError) or the
-                  // backend returned a soft 200 indicating Linear was
-                  // unreachable. Same UX in both cases — a calm
-                  // "try again later" beats spinning placeholders forever.
-                  <p className="team-page__linear-hint">
-                    Couldn&apos;t load your closed tickets right now. Try refreshing in a minute.
-                  </p>
-                ) : (
-                  <div
-                    className="team-page__totals"
-                    // The You view shows 4 tiles (adds AI Demo). Override
-                    // the default 3-column layout via the parameterized
-                    // `--tile-cols` custom property so we don't need a
-                    // dedicated modifier class for this single use.
-                    style={{ '--tile-cols': 4 }}
-                  >
-                    {/*
-                  Four tiles: Tickets Closed (total) + Estimation +
-                  Creation + AI Demo. Reuses `.metric-summary--detailed`
-                  so the layout is identical to At a glance on the
-                  Team view. Each tile carries a small "avg Xd to
-                  close" caption (pulled from createdAt →
-                  completedAt). The caption is suppressed when a
-                  category has zero closed tickets so we don't render
-                  a misleading "0d".
-                */}
-                    <article className="metric-summary metric-summary--detailed">
-                      <div className="metric-summary__head">
-                        <span className="metric-summary__label">Tickets Closed</span>
-                        <span className="metric-summary__icon" aria-hidden="true">
-                          <LuClipboardCheck />
-                        </span>
-                      </div>
-                      <div className="metric-summary__value">
-                        {closedTicketsScoped
-                          ? closedTicketsScoped.total.toLocaleString('en-US')
-                          : '—'}
-                      </div>
-                      {closedTicketsScoped &&
-                        formatAvgLeadTime(closedTicketsScoped.avgDaysTotal) && (
-                          <div className="metric-summary__foot">
-                            <span className="metric-summary__hint">
-                              {formatAvgLeadTime(closedTicketsScoped.avgDaysTotal)}
-                            </span>
-                          </div>
-                        )}
-                    </article>
-
-                    <article className="metric-summary metric-summary--detailed">
-                      <div className="metric-summary__head">
-                        <span className="metric-summary__label">Estimation</span>
-                        <span className="metric-summary__icon" aria-hidden="true">
-                          <LuFilePen />
-                        </span>
-                      </div>
-                      <div className="metric-summary__value">
-                        {closedTicketsScoped
-                          ? closedTicketsScoped.estimation.toLocaleString('en-US')
-                          : '—'}
-                      </div>
-                      {closedTicketsScoped &&
-                        formatAvgLeadTime(closedTicketsScoped.avgDaysEstimation) && (
-                          <div className="metric-summary__foot">
-                            <span className="metric-summary__hint">
-                              {formatAvgLeadTime(closedTicketsScoped.avgDaysEstimation)}
-                            </span>
-                          </div>
-                        )}
-                    </article>
-
-                    <article className="metric-summary metric-summary--detailed">
-                      <div className="metric-summary__head">
-                        <span className="metric-summary__label">Creation</span>
-                        <span className="metric-summary__icon" aria-hidden="true">
-                          <LuHammer />
-                        </span>
-                      </div>
-                      <div className="metric-summary__value">
-                        {closedTicketsScoped
-                          ? closedTicketsScoped.creation.toLocaleString('en-US')
-                          : '—'}
-                      </div>
-                      {closedTicketsScoped &&
-                        formatAvgLeadTime(closedTicketsScoped.avgDaysCreation) && (
-                          <div className="metric-summary__foot">
-                            <span className="metric-summary__hint">
-                              {formatAvgLeadTime(closedTicketsScoped.avgDaysCreation)}
-                            </span>
-                          </div>
-                        )}
-                    </article>
-
-                    <article className="metric-summary metric-summary--detailed">
-                      <div className="metric-summary__head">
-                        <span className="metric-summary__label">AI Demo</span>
-                        <span className="metric-summary__icon" aria-hidden="true">
-                          <LuSparkles />
-                        </span>
-                      </div>
-                      <div className="metric-summary__value">
-                        {closedTicketsScoped
-                          ? (closedTicketsScoped.aiDemo ?? 0).toLocaleString('en-US')
-                          : '—'}
-                      </div>
-                      {closedTicketsScoped &&
-                        formatAvgLeadTime(closedTicketsScoped.avgDaysAiDemo) && (
-                          <div className="metric-summary__foot">
-                            <span className="metric-summary__hint">
-                              {formatAvgLeadTime(closedTicketsScoped.avgDaysAiDemo)}
-                            </span>
-                          </div>
-                        )}
-                    </article>
-                  </div>
-                )}
-              </section>
-
-              {/*
-            Monthly breakdown — second section in the You view. A
-            quarter-tab strip across the top picks which quarter the
-            chart renders. Bars are monthly counts; the caption under
-            each bar is that month's share of the quarter (the user's
-            requested "closed percentage per ticket").
-          */}
-              {linearClosed?.configured && (
-                <section className="team-page__section">
-                  <div className="team-page__section-header">
-                    <div className="team-page__section-heading">
-                      <h2 className="team-page__section-title">Monthly breakdown</h2>
-                      <p className="team-page__section-subtitle">
-                        Tickets you closed each month of Q{selectedQuarter} {linearClosed.year}.
-                      </p>
-                    </div>
-                    <div
-                      className="team-page__filter team-page__filter--quarters"
-                      role="tablist"
-                      aria-label="Pick a quarter"
-                    >
-                      {[1, 2, 3, 4].map((q) => (
-                        <button
-                          key={q}
-                          type="button"
-                          role="tab"
-                          aria-selected={selectedQuarter === q}
-                          className={`team-page__filter-btn ${
-                            selectedQuarter === q ? 'is-active' : ''
-                          }`}
-                          onClick={() => setSelectedQuarter(q)}
-                        >
-                          Q{q}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {selectedQuarterBucket ? (
-                    selectedQuarterBucket.total === 0 ? (
-                      <p className="team-page__linear-hint">
-                        No tickets closed in Q{selectedQuarter} {linearClosed.year} yet.
-                      </p>
-                    ) : (
-                      // Build the line chart. We compute the y-axis
-                      // ceiling from the largest single-category count
-                      // (not the month total) because the chart plots
-                      // per-category lines — using the month total would
-                      // leave huge headroom above every line. Floor at
-                      // 1 to dodge a divide-by-zero on empty quarters.
-                      (() => {
-                        const months = selectedQuarterBucket.byMonth || [];
-                        const dataMax = Math.max(
-                          1,
-                          ...months.flatMap((m) => CHART_CATEGORIES.map((c) => m[c.key] || 0)),
-                        );
-                        const yMax = niceChartMax(dataMax);
-                        const yTicks = buildYTicks(yMax);
-
-                        const plotW = CHART_VIEWBOX_W - CHART_PAD.left - CHART_PAD.right;
-                        const plotH = CHART_VIEWBOX_H - CHART_PAD.top - CHART_PAD.bottom;
-                        // X anchors data points to the plot edges (first
-                        // month at left, last at right) — standard line-
-                        // chart layout for sparse series like 3 months.
-                        const xOf = (i) =>
-                          months.length === 1
-                            ? CHART_PAD.left + plotW / 2
-                            : CHART_PAD.left + (i / (months.length - 1)) * plotW;
-                        const yOf = (v) => CHART_PAD.top + plotH - (v / yMax) * plotH;
-
-                        return (
-                          <>
-                            <div
-                              className="team-page__chart"
-                              role="img"
-                              aria-label={`Monthly closed tickets for Q${selectedQuarter} ${linearClosed.year}, with one line per ticket type`}
-                            >
-                              <svg
-                                className="team-page__chart-svg"
-                                viewBox={`0 0 ${CHART_VIEWBOX_W} ${CHART_VIEWBOX_H}`}
-                                preserveAspectRatio="xMidYMid meet"
-                                role="presentation"
-                              >
-                                {/* Y-axis gridlines + count labels.
-                                Drawn first so they sit behind the
-                                lines instead of slicing across them. */}
-                                {yTicks.map((tick) => (
-                                  <g key={`y-${tick}`}>
-                                    <line
-                                      className="team-page__chart-grid"
-                                      x1={CHART_PAD.left}
-                                      y1={yOf(tick)}
-                                      x2={CHART_VIEWBOX_W - CHART_PAD.right}
-                                      y2={yOf(tick)}
-                                    />
-                                    <text
-                                      className="team-page__chart-axis"
-                                      x={CHART_PAD.left - 8}
-                                      y={yOf(tick)}
-                                      textAnchor="end"
-                                      dominantBaseline="middle"
-                                    >
-                                      {tick}
-                                    </text>
-                                  </g>
-                                ))}
-
-                                {/* X-axis month labels, centered below
-                                each data point. */}
-                                {months.map((m, i) => (
-                                  <text
-                                    key={`x-${m.month}`}
-                                    className="team-page__chart-axis team-page__chart-axis--x"
-                                    x={xOf(i)}
-                                    y={CHART_VIEWBOX_H - CHART_PAD.bottom + 22}
-                                    textAnchor="middle"
-                                  >
-                                    {m.label}
-                                  </text>
-                                ))}
-
-                                {/* One polyline per category, with a dot
-                                at each month's data point. The dot
-                                carries a <title> so hovering the
-                                point shows "Creation - May: 4". */}
-                                {CHART_CATEGORIES.map((cat) => {
-                                  const points = months
-                                    .map((m, i) => `${xOf(i)},${yOf(m[cat.key] || 0)}`)
-                                    .join(' ');
-                                  const catTotal = selectedQuarterBucket?.[cat.key] || 0;
-                                  return (
-                                    <g
-                                      key={cat.key}
-                                      className={`team-page__chart-series team-page__chart-series--${cat.key}${
-                                        catTotal === 0 ? ' team-page__chart-series--muted' : ''
-                                      }`}
-                                    >
-                                      <polyline
-                                        className="team-page__chart-line"
-                                        points={points}
-                                        fill="none"
-                                      />
-                                      {months.map((m, i) => (
-                                        <circle
-                                          key={m.month}
-                                          className="team-page__chart-dot"
-                                          cx={xOf(i)}
-                                          cy={yOf(m[cat.key] || 0)}
-                                          r="4"
-                                        >
-                                          <title>{`${cat.label} · ${m.label}: ${m[cat.key] || 0}`}</title>
-                                        </circle>
-                                      ))}
-                                    </g>
-                                  );
-                                })}
-                              </svg>
-                            </div>
-                            {/*
-                          Legend lives just below the chart so the
-                          color → category mapping is always visible
-                          without making the bars themselves carry
-                          inline labels. Categories with zero across
-                          the whole quarter are dimmed so the legend
-                          quietly self-prunes for sparse quarters.
-                        */}
-                            <ul className="team-page__chart-legend" aria-hidden="true">
-                              {CHART_CATEGORIES.map((cat) => {
-                                const catTotal = selectedQuarterBucket?.[cat.key] || 0;
-                                return (
-                                  <li
-                                    key={cat.key}
-                                    className={`team-page__chart-legend-item ${
-                                      catTotal === 0 ? 'team-page__chart-legend-item--muted' : ''
-                                    }`}
-                                  >
-                                    <span
-                                      className={`team-page__chart-legend-dot team-page__chart-legend-dot--${cat.key}`}
-                                    />
-                                    <span>{cat.label}</span>
-                                    <span className="team-page__chart-legend-count">
-                                      {catTotal.toLocaleString('en-US')}
-                                    </span>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                            {/*
-                          "Other" tickets disclosure. The Other bucket
-                          is a catch-all for closed tickets that don't
-                          match the Estimation / Creation / AI Demo
-                          patterns; this collapsible list exists so
-                          the SE can scan the actual titles, decide if
-                          a ticket should have been classified, and
-                          open it in Linear to fix the title or label.
-                          Native <details> handles the open/close
-                          state without any React plumbing.
-                        */}
-                            {selectedQuarterBucket.otherTickets &&
-                              selectedQuarterBucket.otherTickets.length > 0 && (
-                                <details className="team-page__chart-other">
-                                  <summary className="team-page__chart-other-summary">
-                                    Show {selectedQuarterBucket.otherTickets.length}{' '}
-                                    {selectedQuarterBucket.otherTickets.length === 1
-                                      ? "'Other' ticket"
-                                      : "'Other' tickets"}
-                                  </summary>
-                                  <ul className="team-page__chart-other-list">
-                                    {selectedQuarterBucket.otherTickets.map((t) => {
-                                      const completed = t.completedAt
-                                        ? new Date(t.completedAt)
-                                        : null;
-                                      const completedLabel =
-                                        completed && !Number.isNaN(completed.getTime())
-                                          ? completed.toLocaleDateString('en-US', {
-                                              month: 'short',
-                                              day: 'numeric',
-                                            })
-                                          : null;
-                                      return (
-                                        <li key={t.id} className="team-page__chart-other-item">
-                                          {t.identifier && (
-                                            <span className="team-page__chart-other-id">
-                                              {t.identifier}
-                                            </span>
-                                          )}
-                                          {t.url ? (
-                                            <a
-                                              className="team-page__chart-other-title"
-                                              href={t.url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              title={t.title}
-                                            >
-                                              {t.title}
-                                            </a>
-                                          ) : (
-                                            <span
-                                              className="team-page__chart-other-title"
-                                              title={t.title}
-                                            >
-                                              {t.title}
-                                            </span>
-                                          )}
-                                          {completedLabel && (
-                                            <span className="team-page__chart-other-date">
-                                              {completedLabel}
-                                            </span>
-                                          )}
-                                        </li>
-                                      );
-                                    })}
-                                  </ul>
-                                </details>
-                              )}
-                          </>
-                        );
-                      })()
-                    )
-                  ) : (
-                    <p className="team-page__linear-hint">
-                      No data for Q{selectedQuarter} {linearClosed.year} yet.
-                    </p>
-                  )}
-                </section>
-              )}
-            </>
-          )}
-
-          {/*
-            Team view sections. "At a glance" team-wide rollup tiles
-            followed by per-AE breakdown. The page-level controls bar
-            owns the filter pill, so these sections only carry their
-            own title/subtitle.
-          */}
-          {view === VIEW_TEAM && (
-            <>
-              <section className="team-page__section">
-                <div className="team-page__section-header">
-                  <div className="team-page__section-heading">
-                    <h2 className="team-page__section-title">At a glance</h2>
-                    <p className="team-page__section-subtitle">
-                      {team.name} closed-won performance{' '}
-                      {scope === SCOPE_QUARTER
-                        ? `this quarter (${getCurrentQuarterShortLabel()})`
-                        : 'this year'}
-                      .
-                    </p>
-                  </div>
-                </div>
-                <div className="team-page__totals">
-                  {/*
-                Three tiles share the dashboard's `.metric-summary--detailed`
-                styling so the team page's at-a-glance row reads as
-                the same design language as The Den's metric tiles.
-                Values render "—" while the metrics fetch is in
-                flight so the layout doesn't shift on load.
-              */}
-                  <article className="metric-summary metric-summary--detailed">
-                    <div className="metric-summary__head">
-                      <span className="metric-summary__label">Total CARR</span>
-                      <span className="metric-summary__icon" aria-hidden="true">
-                        <LuTrendingUp />
-                      </span>
-                    </div>
-                    <div className="metric-summary__value">
-                      {data ? formatCompactCurrency(teamTotals.totalCarr) : '—'}
-                    </div>
-                  </article>
-
-                  <article className="metric-summary metric-summary--detailed">
-                    <div className="metric-summary__head">
-                      <span className="metric-summary__label">Closed Opps</span>
-                      <span className="metric-summary__icon" aria-hidden="true">
-                        <LuTrophy />
-                      </span>
-                    </div>
-                    <div className="metric-summary__value">
-                      {data ? teamTotals.count.toLocaleString('en-US') : '—'}
-                    </div>
-                  </article>
-
-                  <article className="metric-summary metric-summary--detailed">
-                    <div className="metric-summary__head">
-                      <span className="metric-summary__label">Avg Deal Size</span>
-                      <span className="metric-summary__icon" aria-hidden="true">
-                        <LuChartBar />
-                      </span>
-                    </div>
-                    <div className="metric-summary__value">
-                      {data ? formatCompactCurrency(teamTotals.avgDealSize) : '—'}
-                    </div>
-                  </article>
-                </div>
-              </section>
-
-              {/* CARR broken down by AE — same scope as the section above. */}
-              <section className="team-page__section">
-                <div className="team-page__section-header">
-                  <div className="team-page__section-heading">
-                    <h2 className="team-page__section-title">CARR broken down by AE</h2>
-                    <p className="team-page__section-subtitle">
-                      Closed-won opportunities for {team.name}{' '}
-                      {scope === SCOPE_QUARTER
-                        ? `this quarter (${getCurrentQuarterShortLabel()})`
-                        : 'this year'}
-                      .
-                    </p>
-                  </div>
-                </div>
-                <div
-                  className="dashboard-widgets team-page__roster"
-                  /*
-            Drive the grid's column count from the AE count so every AE
-            panel ends up on the same row. CSS falls back to the wrapped
-            2-column / 1-column layouts below 1024px so the cards don't
-            get squeezed unreadably narrow on smaller screens.
-          */
-                  style={{ '--ae-count': aes.length }}
+      <div className="team-page__body">
+        {!isLead ? (
+          <p className="page-header__sub">The pack overview is available to leads.</p>
+        ) : (
+          <>
+            <div className="team-page__controls">
+              {selectedDetail && (
+                <button
+                  type="button"
+                  className="team-pack__back"
+                  onClick={() => setSelectedSeId(null)}
                 >
-                  {aes.map((ae) => {
-                    const opps = filteredOppsByAE.get(normalizeName(ae.name)) ?? [];
-                    const totalCarr = sumCarr(opps);
-                    return (
-                      <section
-                        key={ae.id}
-                        className="dashboard-panel"
-                        aria-labelledby={`team-ae-carr-${ae.id}`}
-                      >
-                        <div className="dashboard-panel__head dashboard-panel__head--stacked">
-                          <div className="dashboard-panel__head-text">
-                            <h2 className="dashboard-panel__title" id={`team-ae-carr-${ae.id}`}>
-                              {ae.name}
-                            </h2>
-                            <p className="dashboard-panel__subtitle">
-                              {opps.length === 0
-                                ? 'No closed opps yet'
-                                : `${opps.length} closed ${opps.length === 1 ? 'opp' : 'opps'}`}
-                            </p>
-                          </div>
-                          {/*
-                    Total CARR readout. Only rendered once the metrics
-                    payload has loaded so we don't flash a "$0" total
-                    while the fetch is still in flight. Anchors the
-                    coral column of per-row CARR amounts below.
-                  */}
-                          {data && (
-                            <div className="team-ae-total" aria-label={`Total CARR for ${ae.name}`}>
-                              <span className="team-ae-total__label">Total CARR</span>
-                              <span className="team-ae-total__value">
-                                {formatTotalCarr(totalCarr)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/*
-                  Three render branches, in priority order:
-                    1. We have opps → show the row list.
-                    2. We have data but this AE has none → quiet hint.
-                    3. We're still waiting on data / hit an error → status row.
-                  Splitting them out (instead of always showing the list)
-                  keeps the panel from flashing an empty state on first
-                  paint while the metrics fetch is in flight.
-                */}
-                        {opps.length > 0 ? (
-                          <ul className="team-ae-opp-list">
-                            {opps.map((opp) => (
-                              <li
-                                key={
-                                  opp.opportunityId || `${opp.opportunityName}-${opp.effectiveDate}`
-                                }
-                                className="team-ae-opp-row"
-                              >
-                                <span className="team-ae-opp-name" title={opp.opportunityName}>
-                                  {opp.opportunityName || 'Untitled opportunity'}
-                                </span>
-                                <span className="team-ae-opp-carr">{formatCarr(opp)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : data ? (
-                          <p className="team-ae-status">
-                            {scope === SCOPE_QUARTER
-                              ? `No closed opps for ${ae.name} this quarter yet.`
-                              : `No closed opps for ${ae.name} yet this year.`}
-                          </p>
-                        ) : loading ? (
-                          <p className="team-ae-status">Loading closed opps…</p>
-                        ) : error ? (
-                          <p className="team-ae-status">Couldn&apos;t load metrics for this AE.</p>
-                        ) : (
-                          <p className="team-ae-status">No closed opps yet.</p>
-                        )}
-                      </section>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/*
-            Tickets created broken down by AE — per-AE rollup of Linear
-            tickets each AE has submitted, broken into Creation /
-            Estimation / AI Demo. Sits between the CARR breakdown above
-            and the C opps panel below so the page reads top-to-bottom
-            as: revenue earned (CARR) → workload generated (tickets) →
-            visibility-only revenue (C opps). Same scope filter as the
-            other Team-view sections (year vs current quarter).
-
-            Currently hidden behind the `SHOW_TICKETS_BY_AE` flag while
-            the data quality (AE field-name drift, Slack-bot mention
-            attribution, nickname matching) is being shaken out on a
-            follow-up branch. Backend endpoint, classifier, and
-            extraction work all stay live — flip the flag back to
-            `true` to re-render the section.
-          */}
-              {SHOW_TICKETS_BY_AE && (
-                <section className="team-page__section">
-                  <div className="team-page__section-header">
-                    <div className="team-page__section-heading">
-                      <h2 className="team-page__section-title">
-                        Tickets created broken down by AE
-                      </h2>
-                      <p className="team-page__section-subtitle">
-                        Linear tickets each AE on {team.name} has submitted{' '}
-                        {scope === SCOPE_QUARTER
-                          ? `this quarter (${getCurrentQuarterShortLabel()})`
-                          : 'this year'}
-                        .
-                      </p>
-                    </div>
-                  </div>
-                  {ticketsByAEError || ticketsByAE?.error === 'linear_unavailable' ? (
-                    <p className="team-page__linear-hint">
-                      Couldn&apos;t load tickets-by-AE right now. Try refreshing in a minute.
-                    </p>
-                  ) : (
-                    <div
-                      className="dashboard-widgets team-page__roster"
-                      /*
-                  Same column layout as the CARR roster above so the
-                  two AE rosters read as one continuous billboard. AE
-                  count drives the column count via the shared
-                  `--ae-count` custom property; we add 1 when there
-                  are unassigned tickets so the extra "Unassigned"
-                  card at the end of the row gets its own column
-                  rather than pushing one of the AE cards onto a
-                  new line.
-                */
-                      style={{
-                        '--ae-count': aes.length + (unassignedScoped.total > 0 ? 1 : 0),
-                      }}
-                    >
-                      {ticketsByAEScoped.map(({ ae, total, estimation, creation, aiDemo }) => (
-                        <section
-                          key={ae.id}
-                          className="dashboard-panel team-ae-tickets"
-                          aria-labelledby={`team-ae-tickets-${ae.id}`}
-                        >
-                          <div className="dashboard-panel__head dashboard-panel__head--stacked">
-                            <div className="dashboard-panel__head-text">
-                              <h2
-                                className="dashboard-panel__title"
-                                id={`team-ae-tickets-${ae.id}`}
-                              >
-                                {ae.name}
-                              </h2>
-                              <p className="dashboard-panel__subtitle">
-                                {ticketsByAE
-                                  ? total === 0
-                                    ? 'No tickets submitted yet'
-                                    : `${total} ${total === 1 ? 'ticket' : 'tickets'} submitted`
-                                  : 'Loading…'}
-                              </p>
-                            </div>
-                            {/*
-                          Total readout mirrors the CARR section's
-                          `.team-ae-total` treatment so the two
-                          rosters share a head-right anchor element.
-                          Hidden until the fetch resolves so the
-                          number doesn't flicker from "0" → real.
-                        */}
-                            {ticketsByAE && (
-                              <div
-                                className="team-ae-total"
-                                aria-label={`Total tickets submitted by ${ae.name}`}
-                              >
-                                <span className="team-ae-total__label">Total</span>
-                                <span className="team-ae-total__value">
-                                  {total.toLocaleString('en-US')}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {ticketsByAE ? (
-                            // Three category chips (Creation / Estimation /
-                            // AI Demo) reuse the chart legend's colored
-                            // dots so the same color → category mapping
-                            // stays consistent with the You view chart.
-                            // "Other" is intentionally omitted from the
-                            // breakdown — it's the catch-all for tickets
-                            // we couldn't classify, and AEs don't pick
-                            // their ticket's "Type of Ask" so showing it
-                            // would be more confusing than useful.
-                            <ul
-                              className="team-ae-tickets-breakdown"
-                              aria-label={`Ticket breakdown for ${ae.name}`}
-                            >
-                              <li className="team-ae-tickets-breakdown__item">
-                                <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--creation" />
-                                <span className="team-ae-tickets-breakdown__label">Creation</span>
-                                <span className="team-ae-tickets-breakdown__value">
-                                  {creation.toLocaleString('en-US')}
-                                </span>
-                              </li>
-                              <li className="team-ae-tickets-breakdown__item">
-                                <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--estimation" />
-                                <span className="team-ae-tickets-breakdown__label">Estimation</span>
-                                <span className="team-ae-tickets-breakdown__value">
-                                  {estimation.toLocaleString('en-US')}
-                                </span>
-                              </li>
-                              <li className="team-ae-tickets-breakdown__item">
-                                <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--aiDemo" />
-                                <span className="team-ae-tickets-breakdown__label">AI Demo</span>
-                                <span className="team-ae-tickets-breakdown__value">
-                                  {aiDemo.toLocaleString('en-US')}
-                                </span>
-                              </li>
-                            </ul>
-                          ) : (
-                            <p className="team-ae-status">Loading ticket breakdown…</p>
-                          )}
-                        </section>
-                      ))}
-
-                      {/*
-                  Unassigned card. Tickets where the AE / Contract Owner
-                  field couldn't be extracted from the description show
-                  up here so the SE can see exactly which tickets need
-                  to be fixed at the source. Only renders when there's
-                  at least one unattributed ticket in scope — the card
-                  would otherwise be a constant "0" reminder that
-                  nothing's broken. Visually flagged with the
-                  `--unassigned` modifier (warm warning border + label
-                  treatment) so it reads as "go fix this" rather than a
-                  fourth peer AE.
-                */}
-                      {ticketsByAE && unassignedScoped.total > 0 && (
-                        <section
-                          className="dashboard-panel team-ae-tickets team-ae-tickets--unassigned"
-                          aria-labelledby="team-ae-tickets-unassigned"
-                        >
-                          <div className="dashboard-panel__head dashboard-panel__head--stacked">
-                            <div className="dashboard-panel__head-text">
-                              <h2
-                                className="dashboard-panel__title"
-                                id="team-ae-tickets-unassigned"
-                              >
-                                Unassigned
-                              </h2>
-                              <p className="dashboard-panel__subtitle">
-                                {unassignedScoped.total === 1
-                                  ? '1 ticket missing AE'
-                                  : `${unassignedScoped.total} tickets missing AE`}
-                              </p>
-                            </div>
-                            <div className="team-ae-total" aria-label="Total tickets missing AE">
-                              <span className="team-ae-total__label">Total</span>
-                              <span className="team-ae-total__value team-ae-total__value--unassigned">
-                                {unassignedScoped.total.toLocaleString('en-US')}
-                              </span>
-                            </div>
-                          </div>
-
-                          <ul
-                            className="team-ae-tickets-breakdown"
-                            aria-label="Unassigned ticket breakdown"
-                          >
-                            <li className="team-ae-tickets-breakdown__item">
-                              <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--creation" />
-                              <span className="team-ae-tickets-breakdown__label">Creation</span>
-                              <span className="team-ae-tickets-breakdown__value">
-                                {unassignedScoped.creation.toLocaleString('en-US')}
-                              </span>
-                            </li>
-                            <li className="team-ae-tickets-breakdown__item">
-                              <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--estimation" />
-                              <span className="team-ae-tickets-breakdown__label">Estimation</span>
-                              <span className="team-ae-tickets-breakdown__value">
-                                {unassignedScoped.estimation.toLocaleString('en-US')}
-                              </span>
-                            </li>
-                            <li className="team-ae-tickets-breakdown__item">
-                              <span className="team-ae-tickets-breakdown__dot team-ae-tickets-breakdown__dot--aiDemo" />
-                              <span className="team-ae-tickets-breakdown__label">AI Demo</span>
-                              <span className="team-ae-tickets-breakdown__value">
-                                {unassignedScoped.aiDemo.toLocaleString('en-US')}
-                              </span>
-                            </li>
-                          </ul>
-
-                          {/*
-                      Native <details> drives the "show me which tickets"
-                      disclosure — same pattern as the You-view chart's
-                      "Show N 'Other' tickets" disclosure so the two
-                      surfaces feel consistent. Each row links to the
-                      Linear ticket so the SE can one-click into it,
-                      add the AE field, and the count drops on the
-                      next refresh.
-                    */}
-                          {unassignedScoped.tickets.length > 0 && (
-                            <details className="team-ae-tickets-disclosure">
-                              <summary className="team-ae-tickets-disclosure__summary">
-                                Show {unassignedScoped.tickets.length}{' '}
-                                {unassignedScoped.tickets.length === 1
-                                  ? 'ticket to fix'
-                                  : 'tickets to fix'}
-                              </summary>
-                              <ul className="team-ae-tickets-disclosure__list">
-                                {unassignedScoped.tickets.map((t) => (
-                                  <li key={t.id} className="team-ae-tickets-disclosure__item">
-                                    {t.identifier && (
-                                      <span className="team-ae-tickets-disclosure__id">
-                                        {t.identifier}
-                                      </span>
-                                    )}
-                                    {t.url ? (
-                                      <a
-                                        className="team-ae-tickets-disclosure__title"
-                                        href={t.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        title={t.title}
-                                      >
-                                        {t.title}
-                                      </a>
-                                    ) : (
-                                      <span
-                                        className="team-ae-tickets-disclosure__title"
-                                        title={t.title}
-                                      >
-                                        {t.title}
-                                      </span>
-                                    )}
-                                  </li>
-                                ))}
-                              </ul>
-                            </details>
-                          )}
-                        </section>
-                      )}
-                    </div>
-                  )}
-                </section>
+                  <LuArrowLeft aria-hidden="true" />
+                  Back to the pack
+                </button>
               )}
+              <div className="team-page__scope">
+                <select
+                  className="team-page__year"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  aria-label="Year"
+                >
+                  {AVAILABLE_YEARS.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                <div
+                  className="team-page__filter"
+                  role="tablist"
+                  aria-label="Scope metrics by full year or quarter"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={quarter === 0}
+                    className={`team-page__filter-btn ${quarter === 0 ? 'is-active' : ''}`}
+                    onClick={() => setQuarter(0)}
+                  >
+                    Full Year
+                  </button>
+                  {[1, 2, 3, 4].map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      role="tab"
+                      aria-selected={quarter === q}
+                      className={`team-page__filter-btn ${quarter === q ? 'is-active' : ''}`}
+                      onClick={() => setQuarter(q)}
+                    >
+                      Q{q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
 
-              {/*
-            Closed-won C opps. Account-Score-C deals don't count toward
-            the CARR goal (which is why they're absent from the tiles
-            and per-AE cards above), but they're still real revenue —
-            this panel surfaces every C opp on the team in a flat
-            Opp / AE / CARR layout so a single skim shows what was
-            closed and who closed it without the reader having to
-            unfold per-AE groups.
-
-            Year-gated to 2026+. Earlier years' reports don't have an
-            Account Score column at all (so `accountScore` is empty,
-            `isCScore` is always false, and `cTeamTotals.count` is
-            always 0). Hiding the section entirely on those years
-            keeps 2025 reading exactly as it did before this feature
-            shipped instead of always rendering an empty hint.
-          */}
-              {currentYear >= 2026 && (
-                <section className="team-page__section">
-                  <div className="team-page__section-header">
-                    <div className="team-page__section-heading">
-                      <h2 className="team-page__section-title">Closed-won C opps</h2>
+            <section className="team-page__section">
+              <div className="team-page__section-header">
+                <div className="team-page__section-heading">
+                  {selectedDetail ? (
+                    <>
+                      <h2 className="team-page__section-title">{selectedDetail.name}</h2>
                       <p className="team-page__section-subtitle">
-                        Account Score C deals don&apos;t count toward the CARR goal, but are tracked
-                        here for visibility{' '}
-                        {scope === SCOPE_QUARTER
-                          ? `this quarter (${getCurrentQuarterShortLabel()})`
-                          : 'this year'}
-                        .
+                        Open workload and tickets completed in {periodLabel}.
                       </p>
-                    </div>
-                  </div>
-                  {/*
-                Single panel that holds the flat row list. We render
-                the panel even when there are zero rows so the empty
-                / loading / error branches share the same surface as
-                the populated state — keeps the layout from jumping
-                around as data arrives.
-              */}
-                  <section className="dashboard-panel" aria-labelledby="team-c-opps-title">
-                    <div className="dashboard-panel__head">
-                      <div className="dashboard-panel__head-text">
-                        <h3 className="dashboard-panel__title" id="team-c-opps-title">
-                          C-scored opportunities
-                        </h3>
-                        <p className="dashboard-panel__subtitle">
-                          {data
-                            ? cTeamTotals.count === 0
-                              ? 'No C-scored deals in scope'
-                              : `${cTeamTotals.count} ${
-                                  cTeamTotals.count === 1 ? 'opp' : 'opps'
-                                } across the team`
-                            : 'Loading…'}
-                        </p>
-                      </div>
-                      {data && cTeamTotals.count > 0 && (
-                        <div
-                          className="team-ae-total"
-                          aria-label="Total C-scored CARR for the team"
-                        >
-                          <span className="team-ae-total__label">Total CARR</span>
-                          <span className="team-ae-total__value">
-                            {formatTotalCarr(cTeamTotals.totalCarr)}
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="team-page__section-title">The Pack</h2>
+                      <p className="team-page__section-subtitle">
+                        Creation, scoping, and completed tickets per SE in {periodLabel}. Click an
+                        SE for their workload and full breakdown.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {packError ? (
+                <p className="team-page__linear-hint">
+                  Couldn&apos;t load the pack overview right now. Try refreshing in a minute.
+                </p>
+              ) : !packData ? (
+                <p className="team-page__linear-hint">Loading the pack…</p>
+              ) : selectedDetail ? (
+                <>
+                  <div className="team-page__totals" style={{ '--tile-cols': 5 }}>
+                    {[
+                      {
+                        label: 'Workload',
+                        value: selectedDetail.open,
+                        hint: 'open right now',
+                        Icon: LuInbox,
+                      },
+                      { label: 'Completed', value: selectedDetail.completed, Icon: LuCircleCheck },
+                      { label: 'Creation', value: selectedDetail.creation, Icon: LuFilePlus },
+                      { label: 'Scoping', value: selectedDetail.scoping, Icon: LuRuler },
+                      { label: 'AI Demo', value: selectedDetail.aiDemo, Icon: LuSparkles },
+                    ].map((tile) => (
+                      <article key={tile.label} className="team-pack-detail__tile">
+                        <div className="team-pack-detail__head">
+                          <span className="team-pack-detail__label">{tile.label}</span>
+                          <span className="team-pack-detail__icon" aria-hidden="true">
+                            <tile.Icon />
                           </span>
                         </div>
-                      )}
-                    </div>
+                        <span className="team-pack-detail__value">
+                          {tile.value.toLocaleString('en-US')}
+                        </span>
+                        {tile.hint && <span className="team-pack-detail__hint">{tile.hint}</span>}
+                      </article>
+                    ))}
+                  </div>
 
-                    {/*
-                  Render branches mirror the AE roster's pattern above:
-                  populated list → empty hint → loading → error. The
-                  populated branch is a flat list — one row per opp,
-                  most recent close on top — with the AE responsible
-                  for the deal sitting in the middle column so the
-                  reader can attribute each row at a glance.
-                */}
-                    {data && cOppsForTeam.length > 0 ? (
-                      <ul className="team-c-opps-list">
-                        {/*
-                      Header row uses the same grid layout as the data
-                      rows below so the columns line up exactly. Marked
-                      aria-hidden because the per-cell aria-labels and
-                      the panel's overall section labelling already
-                      carry the semantics for assistive tech.
-                    */}
-                        <li className="team-c-opps-row team-c-opps-row--head" aria-hidden="true">
-                          <span className="team-c-opps-row__opp">Opportunity</span>
-                          <span className="team-c-opps-row__ae">AE</span>
-                          <span className="team-c-opps-row__carr">CARR</span>
-                        </li>
-                        {cOppsForTeam.map(({ opp, aeName }) => (
-                          <li
-                            key={opp.opportunityId || `${opp.opportunityName}-${opp.effectiveDate}`}
-                            className="team-c-opps-row"
+                  <section className="team-cal">
+                    <h3 className="team-cal__heading">Today&apos;s calendar</h3>
+                    <SeCalendar payload={seCalendar} error={seCalendarError} />
+                  </section>
+
+                  <TicketLists
+                    error={seTicketsError}
+                    loaded={Boolean(seTickets)}
+                    open={seTickets?.open || []}
+                    closed={visibleClosedTickets}
+                    periodLabel={periodLabel}
+                  />
+                </>
+              ) : packRows.length === 0 ? (
+                <p className="team-page__linear-hint">No Sales Engineers in the pack yet.</p>
+              ) : (
+                <>
+                  <div className="team-page__totals team-pack-totals" style={{ '--tile-cols': 4 }}>
+                    {[
+                      {
+                        label: 'Workload',
+                        value: packTotals.open,
+                        hint: 'open across the pack',
+                        Icon: LuInbox,
+                      },
+                      { label: 'Creation', value: packTotals.creation, Icon: LuFilePlus },
+                      { label: 'Scoping', value: packTotals.scoping, Icon: LuRuler },
+                      { label: 'Completed', value: packTotals.completed, Icon: LuCircleCheck },
+                    ].map((tile) => (
+                      <article key={tile.label} className="team-pack-detail__tile">
+                        <div className="team-pack-detail__head">
+                          <span className="team-pack-detail__label">{tile.label}</span>
+                          <span className="team-pack-detail__icon" aria-hidden="true">
+                            <tile.Icon />
+                          </span>
+                        </div>
+                        <span className="team-pack-detail__value">
+                          {tile.value.toLocaleString('en-US')}
+                        </span>
+                        {tile.hint && <span className="team-pack-detail__hint">{tile.hint}</span>}
+                      </article>
+                    ))}
+                  </div>
+
+                  <section
+                    className="dashboard-panel team-pack-chart"
+                    aria-label="Pack overview by SE"
+                  >
+                    <svg
+                      className="team-pack-chart__svg"
+                      viewBox={`0 0 ${CHART.w} ${CHART.h}`}
+                      role="img"
+                      aria-label="Creation, scoping, and completed tickets per Sales Engineer"
+                    >
+                      {chartLayout.yTicks.map((t) => {
+                        const y = chartLayout.baseY - (t / chartLayout.yMax) * chartLayout.plotH;
+                        return (
+                          <g key={t}>
+                            <line
+                              className="team-pack-chart__grid"
+                              x1={CHART.padLeft}
+                              y1={y}
+                              x2={CHART.w - CHART.padRight}
+                              y2={y}
+                            />
+                            <text
+                              className="team-pack-chart__ytick"
+                              x={CHART.padLeft - 8}
+                              y={y}
+                              textAnchor="end"
+                              dominantBaseline="middle"
+                            >
+                              {t}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {chartLayout.groups.map((g) => (
+                        <g
+                          key={g.seId}
+                          className="team-pack-chart__group"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`View ${g.name}'s details`}
+                          onClick={() => selectSe(g.seId)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              selectSe(g.seId);
+                            }
+                          }}
+                        >
+                          {/* Transparent hit area spanning the full plot height so
+                            the whole column is clickable, not just the bars. */}
+                          <rect
+                            className="team-pack-chart__hit"
+                            x={g.cx - chartLayout.plotW / chartLayout.groups.length / 2}
+                            y={CHART.padTop}
+                            width={chartLayout.plotW / chartLayout.groups.length}
+                            height={chartLayout.plotH}
+                          />
+                          {g.bars.map((b) => (
+                            <g key={b.key} className="team-pack-chart__bar-cell">
+                              <rect
+                                className={`team-pack-chart__bar team-pack-chart__bar--${b.key}`}
+                                x={b.x}
+                                y={b.y}
+                                width={b.w}
+                                height={b.h}
+                                rx="2"
+                              />
+                              <text
+                                className="team-pack-chart__bar-value"
+                                x={b.x + b.w / 2}
+                                y={b.y - 6}
+                                textAnchor="middle"
+                              >
+                                {b.val}
+                              </text>
+                            </g>
+                          ))}
+                          <text
+                            className="team-pack-chart__xlabel"
+                            x={g.cx}
+                            y={CHART.h - CHART.padBottom + 20}
+                            textAnchor="middle"
                           >
-                            <span className="team-c-opps-row__opp" title={opp.opportunityName}>
-                              {opp.opportunityName || 'Untitled opportunity'}
+                            {g.label}
+                          </text>
+                        </g>
+                      ))}
+                    </svg>
+
+                    <div className="team-pack-chart__legend">
+                      {CHART_SERIES.map((s) => (
+                        <span
+                          key={s.key}
+                          className={`team-pack-chart__legend-item team-pack-chart__legend-item--${s.key}`}
+                        >
+                          <span className="team-pack-chart__legend-swatch" aria-hidden="true" />
+                          {s.label}
+                        </span>
+                      ))}
+                    </div>
+                  </section>
+
+                  {packCarr && packCarr.configured && carrBreakdown.total > 0 && (
+                    <section className="dashboard-panel team-carr" aria-label="Closed CARR by SE">
+                      <div className="team-carr__header">
+                        <h3 className="team-carr__title">Closed CARR by SE</h3>
+                        <span className="team-carr__total">
+                          {formatCompactUSD(carrBreakdown.total)}
+                        </span>
+                      </div>
+                      <ul className="team-carr__list">
+                        {carrBreakdown.rows.map((row) => (
+                          <li key={row.seId} className="team-carr__row">
+                            <span className="team-carr__name" title={row.name}>
+                              {row.name}
                             </span>
-                            <span className="team-c-opps-row__ae" title={aeName}>
-                              {aeName}
+                            <span className="team-carr__track">
+                              <span
+                                className="team-carr__bar"
+                                style={{
+                                  width: `${
+                                    carrBreakdown.max > 0 ? (row.carr / carrBreakdown.max) * 100 : 0
+                                  }%`,
+                                }}
+                              />
                             </span>
-                            <span className="team-c-opps-row__carr">{formatCarr(opp)}</span>
+                            <span className="team-carr__amount">{formatCompactUSD(row.carr)}</span>
                           </li>
                         ))}
                       </ul>
-                    ) : data ? (
-                      <p className="team-ae-status">
-                        No C-scored closed-won opps for this team{' '}
-                        {scope === SCOPE_QUARTER ? 'this quarter yet.' : 'yet this year.'}
+                      <p className="team-carr__note">
+                        Closed in {periodLabel}, attributed by each closed-won deal&apos;s AE and
+                        the team they belong to.
                       </p>
-                    ) : loading ? (
-                      <p className="team-ae-status">Loading C-scored opps…</p>
-                    ) : error ? (
-                      <p className="team-ae-status">Couldn&apos;t load metrics for C opps.</p>
-                    ) : (
-                      <p className="team-ae-status">No C-scored opps yet.</p>
-                    )}
-                  </section>
-                </section>
+                    </section>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
-      )}
+            </section>
+          </>
+        )}
+      </div>
     </div>
   );
 }

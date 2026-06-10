@@ -354,6 +354,47 @@ export async function fetchDashboardLinearTicketsByAE(year) {
   return apiRequest(`/dashboard/linear/tickets-by-ae${query}`);
 }
 
+/**
+ * Team page (lead Pack view): per-SE closed-ticket roll-up for every
+ * active Sales Engineer, plus each SE's assigned AE roster names so the
+ * frontend can pair them with the Salesforce metrics to derive closed
+ * CARR. Admin / SE-lead only on the backend; throws on 403 for other
+ * callers so the UI can hide the Pack toggle. Defaults to the current
+ * calendar year on the backend when `year` is omitted.
+ * @param {number} [year]
+ */
+export async function fetchPackOverview(year) {
+  const query = Number.isInteger(year) ? `?year=${year}` : '';
+  return apiRequest(`/dashboard/pack-overview${query}`);
+}
+
+/**
+ * Per-SE Closed CARR roll-up for the pack (attributed via handoff pages).
+ * Powers the team-page "Closed CARR by SE" breakdown. Lead/admin only.
+ */
+export async function fetchPackCarr(year) {
+  const query = Number.isInteger(year) ? `?year=${year}` : '';
+  return apiRequest(`/dashboard/pack-carr${query}`);
+}
+
+/**
+ * Actual Linear tickets for one SE in the pack (open workload + closed
+ * this year). Powers the team-page drill-down. Lead/admin only.
+ */
+export async function fetchPackSeTickets(seId, year) {
+  const query = Number.isInteger(year) ? `?year=${year}` : '';
+  return apiRequest(`/dashboard/pack-overview/${encodeURIComponent(seId)}/tickets${query}`);
+}
+
+/**
+ * Today's Google Calendar for one SE in the pack. Powers the team-page
+ * drill-down calendar. `configured: false` means the SE hasn't connected
+ * their Google account. Lead/admin only.
+ */
+export async function fetchPackSeCalendar(seId) {
+  return apiRequest(`/dashboard/pack-overview/${encodeURIComponent(seId)}/calendar`);
+}
+
 /** Google Calendar OAuth: returns { authorizationUrl }. */
 export async function startGoogleCalendarOAuth() {
   return apiRequest('/integrations/google/start', {
