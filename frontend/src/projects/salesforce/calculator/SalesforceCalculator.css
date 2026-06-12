@@ -394,6 +394,7 @@
   display: flex;
   justify-content: flex-start;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin: 0 0 1.25rem 0;
 }
@@ -445,6 +446,201 @@
 }
 
 /* =========================
+ * Opportunity lookup search
+ * ========================= */
+
+.salesforce-calculator .calculator-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 16rem;
+  max-width: 26rem;
+  margin-left: auto;
+}
+
+.salesforce-calculator .calculator-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+}
+
+.salesforce-calculator .calculator-search-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.salesforce-calculator .calculator-search-input {
+  width: 100%;
+  padding: 0.55rem 2.25rem 0.55rem 2.35rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--white);
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.salesforce-calculator .calculator-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.salesforce-calculator .calculator-search-input:focus {
+  outline: none;
+  border-color: var(--coral);
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.25);
+}
+
+.salesforce-calculator .calculator-search-clear {
+  position: absolute;
+  right: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: none;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.salesforce-calculator .calculator-search-clear:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+}
+
+.salesforce-calculator .calculator-search-dropdown {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  max-height: 18rem;
+  overflow-y: auto;
+  background: var(--midnight-navy);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.65rem;
+  box-shadow: 0 16px 32px -12px rgba(0, 0, 0, 0.75);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.salesforce-calculator .calculator-search-status {
+  padding: 0.85rem 1rem;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+}
+
+.salesforce-calculator .calculator-search-status--error {
+  color: var(--coral);
+  font-style: normal;
+}
+
+.salesforce-calculator .calculator-search-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: var(--white);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.15s ease;
+}
+
+.salesforce-calculator .calculator-search-result:last-child {
+  border-bottom: none;
+}
+
+.salesforce-calculator .calculator-search-result:hover:not(:disabled) {
+  background: rgba(255, 107, 74, 0.1);
+}
+
+.salesforce-calculator .calculator-search-result:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.salesforce-calculator .calculator-search-result-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.salesforce-calculator .calculator-search-result-added {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(45, 212, 191, 0.15);
+  color: #2dd4bf;
+}
+
+.salesforce-calculator .calculator-search-result-meta {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* =========================
+ * Manually added table rows
+ * ========================= */
+
+.salesforce-calculator .calculator-opp-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 100%;
+}
+
+.salesforce-calculator .calculator-manual-remove {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border: none;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.salesforce-calculator .calculator-manual-remove:hover {
+  background: rgba(255, 107, 74, 0.16);
+  color: var(--coral);
+}
+
+.salesforce-calculator .calculator-manual-remove svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+/* =========================
  * Separators + tables
  * ========================= */
 
@@ -464,6 +660,50 @@
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.03) inset,
     0 12px 24px -18px rgba(0, 0, 0, 0.6);
+}
+
+/* Coral-accented variant for the manually added opps table so the split
+   between lookup additions and the report is unmistakable. */
+.salesforce-calculator .table-container--added {
+  border-color: rgba(255, 107, 74, 0.35);
+  background-image:
+    radial-gradient(
+      120% 100% at 0% 0%,
+      rgba(255, 107, 74, 0.1) 0%,
+      rgba(255, 107, 74, 0.02) 40%,
+      transparent 70%
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+}
+
+.salesforce-calculator .table-container--added .table-title {
+  color: var(--coral);
+}
+
+/* Title sits outside the scroll region so rows never slide past it. */
+.salesforce-calculator .table-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  text-align: left;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--white);
+  margin: 0 0 0.85rem 0;
+  letter-spacing: -0.01em;
+}
+
+.salesforce-calculator .table-title-hint {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.02em;
+}
+
+/* The scroll region starts exactly at the thead, so the sticky header
+   pins flush to the top with no padding/caption gap for rows to show
+   through while scrolling. */
+.salesforce-calculator .table-scroll {
   max-height: 24rem;
   overflow-y: auto;
   overflow-x: auto;
@@ -471,20 +711,20 @@
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
-.salesforce-calculator .table-container::-webkit-scrollbar {
+.salesforce-calculator .table-scroll::-webkit-scrollbar {
   width: 8px;
 }
 
-.salesforce-calculator .table-container::-webkit-scrollbar-track {
+.salesforce-calculator .table-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.salesforce-calculator .table-container::-webkit-scrollbar-thumb {
+.salesforce-calculator .table-scroll::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 4px;
 }
 
-.salesforce-calculator .table-container::-webkit-scrollbar-thumb:hover {
+.salesforce-calculator .table-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 
@@ -495,17 +735,6 @@
   background: transparent;
   table-layout: fixed;
   box-sizing: border-box;
-  caption-side: top;
-}
-
-.salesforce-calculator caption {
-  text-align: left;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--white);
-  margin: 0 0 0.85rem 0;
-  padding: 0;
-  letter-spacing: -0.01em;
 }
 
 .salesforce-calculator thead {
