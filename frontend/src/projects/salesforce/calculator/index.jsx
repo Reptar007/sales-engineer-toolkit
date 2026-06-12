@@ -1,11 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { LuTrendingUp, LuCirclePlus, LuTarget, LuActivity, LuTrophy } from 'react-icons/lu';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  LuTrendingUp,
+  LuCirclePlus,
+  LuTarget,
+  LuActivity,
+  LuTrophy,
+  LuSearch,
+  LuX,
+} from 'react-icons/lu';
 import {
   fetchSalesforceReport,
   getSalesforceConfig,
   fetchSalesforceSnapshotMetrics,
   fetchSalesforceSnapshotCalculator,
+  searchOpportunities,
 } from '../../../services/api';
+import { lookupPrimaryRevenue, formatCurrency } from '../lookup/opportunityHelpers';
 import './SalesforceCalculator.css';
 
 function getCurrentQuarter() {
@@ -19,6 +29,10 @@ function getCurrentQuarter() {
   else quarter = 4;
   return `Q${quarter} CY${year}`;
 }
+
+// Salesforce IDs come in 15-char (reports) and 18-char (REST API) forms;
+// the first 15 chars are identical, so compare on those.
+const normalizeSfId = (id) => (id || '').slice(0, 15);
 
 const COMPENSATION_ROLE_META = {
   'sales engineer 1': { accentClass: 'compensation-card--se1' },
@@ -36,6 +50,14 @@ const SalesforceCalculator = () => {
   const [selectedOpps, setSelectedOpps] = useState([]);
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
+  const [manualOpps, setManualOpps] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchDebounce = useRef(null);
+  const searchContainerRef = useRef(null);
 
   const currentQuarter = getCurrentQuarter();
   const currentYear = new Date().getFullYear();
@@ -112,6 +134,89 @@ const SalesforceCalculator = () => {
     };
   }, [config, currentYear]);
 
+  useEffect(() => {
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    const trimmed = searchTerm.trim();
+    if (trimmed.length < 2) {
+      setSearchResults([]);
+      setSearchError(null);
+      setSearching(false);
+      return;
+    }
+    searchDebounce.current = setTimeout(async () => {
+      setSearching(true);
+      setSearchError(null);
+      try {
+        const res = await searchOpportunities(trimmed);
+        setSearchResults(res.success ? res.data || [] : []);
+        setSearchOpen(true);
+      } catch (err) {
+        setSearchError(err.message || 'Search failed');
+        setSearchResults([]);
+        setSearchOpen(true);
+      } finally {
+        setSearching(false);
+      }
+    }, 350);
+    return () => clearTimeout(searchDebounce.current);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const addManualOpp = (sfOpp) => {
+    const normalizedId = normalizeSfId(sfOpp.id);
+    const reportMatch = (data?.data || []).find(
+      (opp) => normalizeSfId(opp.opportunityId) === normalizedId,
+    );
+
+    if (reportMatch) {
+      // Already in the report table — just select that row.
+      setSelectedOpps((prev) =>
+        prev.includes(reportMatch.opportunityId) ? prev : [...prev, reportMatch.opportunityId],
+      );
+    } else {
+      const revenue = lookupPrimaryRevenue(sfOpp);
+      const manualOpp = {
+        opportunityId: sfOpp.id,
+        opportunityName: sfOpp.name || '(unnamed)',
+        stage: sfOpp.stage || '',
+        quarter: '',
+        type: sfOpp.type || '',
+        aeName: sfOpp.ownerName || '',
+        probability: typeof sfOpp.probability === 'number' ? sfOpp.probability : null,
+        probabilityFormatted: sfOpp.probability != null ? `${sfOpp.probability}%` : '—',
+        carrAmount: Number(revenue) || 0,
+        amount: null,
+        isManual: true,
+      };
+      setManualOpps((prev) =>
+        prev.some((opp) => normalizeSfId(opp.opportunityId) === normalizedId)
+          ? prev
+          : [...prev, manualOpp],
+      );
+      setSelectedOpps((prev) =>
+        prev.includes(manualOpp.opportunityId) ? prev : [...prev, manualOpp.opportunityId],
+      );
+    }
+
+    setSearchTerm('');
+    setSearchResults([]);
+    setSearchOpen(false);
+  };
+
+  const removeManualOpp = (opportunityId) => {
+    setManualOpps((prev) => prev.filter((opp) => opp.opportunityId !== opportunityId));
+    setSelectedOpps((prev) => prev.filter((id) => id !== opportunityId));
+  };
+
   const toggleSelection = (opportunityId) => {
     setSelectedOpps((prev) => {
       if (prev.includes(opportunityId)) {
@@ -139,10 +244,24 @@ const SalesforceCalculator = () => {
   const currentQuarterCARR = selectedQuarterData?.totalCARR || 0;
   const currentQuarterCARRFormatted = `$${currentQuarterCARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const allOpportunities = data?.data || [];
-  const totalOpportunities = data?.totalOpportunities || 0;
+  const reportOpportunities = data?.data || [];
+  const reportOppIds = new Set(reportOpportunities.map((opp) => normalizeSfId(opp.opportunityId)));
+  const visibleManualOpps = manualOpps.filter(
+    (opp) => !reportOppIds.has(normalizeSfId(opp.opportunityId)),
+  );
+  const allOpportunities = [...visibleManualOpps, ...reportOpportunities];
+  const existingOppIds = new Set(allOpportunities.map((opp) => normalizeSfId(opp.opportunityId)));
 
-  const sortedOpportunities = [...allOpportunities].sort((a, b) => {
+  // The Added table mirrors everything counted in the projection: lookup
+  // additions plus any report rows the user has checked.
+  const addedOpps = [
+    ...visibleManualOpps,
+    ...reportOpportunities.filter((opp) => selectedOpps.includes(opp.opportunityId)),
+  ];
+
+  // Sorting only applies to the high-probability table; added opps live in
+  // their own table in the order they were added.
+  const sortedOpportunities = [...reportOpportunities].sort((a, b) => {
     if (!sortColumn) return 0;
     let aValue, bValue;
     switch (sortColumn) {
@@ -172,7 +291,7 @@ const SalesforceCalculator = () => {
 
   const opportunities = sortedOpportunities;
 
-  const addedTotalCARR = opportunities
+  const addedTotalCARR = allOpportunities
     .filter((opp) => selectedOpps.includes(opp.opportunityId))
     .reduce((sum, opp) => sum + (opp.carrAmount || 0), 0);
   const addedTotalCARRFormatted = `$${addedTotalCARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -192,7 +311,59 @@ const SalesforceCalculator = () => {
   };
 
   const clearSelection = () => setSelectedOpps([]);
-  const selectAll = () => setSelectedOpps(opportunities.map((opp) => opp.opportunityId));
+  const selectAll = () => setSelectedOpps(allOpportunities.map((opp) => opp.opportunityId));
+
+  const renderOppRow = (opportunity, { removable = false } = {}) => {
+    const isSelected = selectedOpps.includes(opportunity.opportunityId);
+    const showRemove = opportunity.isManual || removable;
+    const handleRemove = (e) => {
+      e.stopPropagation();
+      if (opportunity.isManual) {
+        removeManualOpp(opportunity.opportunityId);
+      } else {
+        setSelectedOpps((prev) => prev.filter((id) => id !== opportunity.opportunityId));
+      }
+    };
+    return (
+      <tr
+        key={opportunity.opportunityId}
+        className={isSelected ? 'selected' : ''}
+        onClick={() => toggleSelection(opportunity.opportunityId)}
+      >
+        <td>
+          <input
+            type="checkbox"
+            className="calculator-checkbox"
+            checked={isSelected}
+            onChange={() => toggleSelection(opportunity.opportunityId)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </td>
+        <td>
+          <span className="calculator-opp-name">
+            {opportunity.opportunityName}
+            {showRemove && (
+              <button
+                type="button"
+                className="calculator-manual-remove"
+                aria-label={`Remove ${opportunity.opportunityName}`}
+                onClick={handleRemove}
+              >
+                <LuX />
+              </button>
+            )}
+          </span>
+        </td>
+        <td>{opportunity.stage}</td>
+        <td>{opportunity.aeName}</td>
+        <td>{opportunity.probabilityFormatted || `${opportunity.probability}%`}</td>
+        <td>
+          {opportunity.amount ||
+            `$${(opportunity.carrAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+        </td>
+      </tr>
+    );
+  };
 
   const getProgressClass = (percentage) => {
     if (percentage < 30) return 'progress-bar-low';
@@ -357,7 +528,9 @@ const SalesforceCalculator = () => {
         <button
           className="btn-calculator btn-calculator--primary"
           onClick={selectAll}
-          disabled={opportunities.length === 0 || selectedOpps.length === opportunities.length}
+          disabled={
+            allOpportunities.length === 0 || selectedOpps.length === allOpportunities.length
+          }
         >
           Select All
         </button>
@@ -368,80 +541,159 @@ const SalesforceCalculator = () => {
         >
           Clear Selection ({selectedOpps.length})
         </button>
+
+        <div className="calculator-search" ref={searchContainerRef}>
+          <span className="calculator-search-icon" aria-hidden="true">
+            <LuSearch />
+          </span>
+          <input
+            type="text"
+            className="calculator-search-input"
+            placeholder="Look up an opportunity to add…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onFocus={() => {
+              if (searchTerm.trim().length >= 2) setSearchOpen(true);
+            }}
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              className="calculator-search-clear"
+              aria-label="Clear search"
+              onClick={() => {
+                setSearchTerm('');
+                setSearchResults([]);
+                setSearchOpen(false);
+              }}
+            >
+              <LuX />
+            </button>
+          )}
+          {(searching || searchOpen) && searchTerm.trim().length >= 2 && (
+            <div className="calculator-search-dropdown">
+              {searching && <div className="calculator-search-status">Searching Salesforce…</div>}
+              {!searching && searchError && (
+                <div className="calculator-search-status calculator-search-status--error">
+                  {searchError}
+                </div>
+              )}
+              {!searching && !searchError && searchResults.length === 0 && (
+                <div className="calculator-search-status">No matching opportunities found</div>
+              )}
+              {!searching &&
+                !searchError &&
+                searchResults.map((result) => {
+                  const alreadyAdded = existingOppIds.has(normalizeSfId(result.id));
+                  const revenue = lookupPrimaryRevenue(result);
+                  return (
+                    <button
+                      type="button"
+                      key={result.id}
+                      className="calculator-search-result"
+                      onClick={() => addManualOpp(result)}
+                    >
+                      <span className="calculator-search-result-name">
+                        {result.name || '(unnamed)'}
+                        {alreadyAdded && (
+                          <span className="calculator-search-result-added">
+                            In table — click to select
+                          </span>
+                        )}
+                      </span>
+                      <span className="calculator-search-result-meta">
+                        {result.accountName || 'Unknown account'} · {result.stage || 'No stage'} ·{' '}
+                        {formatCurrency(revenue)}
+                      </span>
+                    </button>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="table-container table-container--added">
+        <div className="table-title">
+          Added Opportunities ({addedOpps.length})
+          <span className="table-title-hint">Selected from the report or added via lookup</span>
+        </div>
+        <div className="table-scroll">
+          <table aria-label={`Added Opportunities (${addedOpps.length})`}>
+            <thead>
+              <tr>
+                <th>Select</th>
+                <th>Opportunity Name</th>
+                <th>Stage</th>
+                <th>AE Name</th>
+                <th>Probability</th>
+                <th>CARR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {addedOpps.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="empty-row">
+                    No opportunities added yet — select from the table below or use the lookup above
+                  </td>
+                </tr>
+              ) : (
+                addedOpps.map((opp) => renderOppRow(opp, { removable: true }))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="table-container">
-        <table>
-          <caption>High Probability Opportunities ({totalOpportunities})</caption>
-          <thead>
-            <tr>
-              <th>Select</th>
-              <th className="sortable" onClick={() => handleSort('opportunityName')}>
-                Opportunity Name
-                {sortColumn === 'opportunityName' && (
-                  <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
-                )}
-              </th>
-              <th>Stage</th>
-              <th className="sortable" onClick={() => handleSort('aeName')}>
-                AE Name
-                {sortColumn === 'aeName' && (
-                  <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
-                )}
-              </th>
-              <th className="sortable" onClick={() => handleSort('probability')}>
-                Probability
-                {sortColumn === 'probability' && (
-                  <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
-                )}
-              </th>
-              <th className="sortable" onClick={() => handleSort('carrAmount')}>
-                CARR
-                {sortColumn === 'carrAmount' && (
-                  <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
-                )}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {opportunities.length === 0 ? (
+        <div className="table-title">
+          High Probability Opportunities ({reportOpportunities.length})
+        </div>
+        <div className="table-scroll">
+          <table aria-label={`High Probability Opportunities (${reportOpportunities.length})`}>
+            <thead>
               <tr>
-                <td colSpan="6" className="empty-row">
-                  No opportunities found
-                </td>
+                <th>Select</th>
+                <th className="sortable" onClick={() => handleSort('opportunityName')}>
+                  Opportunity Name
+                  {sortColumn === 'opportunityName' && (
+                    <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                  )}
+                </th>
+                <th>Stage</th>
+                <th className="sortable" onClick={() => handleSort('aeName')}>
+                  AE Name
+                  {sortColumn === 'aeName' && (
+                    <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                  )}
+                </th>
+                <th className="sortable" onClick={() => handleSort('probability')}>
+                  Probability
+                  {sortColumn === 'probability' && (
+                    <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                  )}
+                </th>
+                <th className="sortable" onClick={() => handleSort('carrAmount')}>
+                  CARR
+                  {sortColumn === 'carrAmount' && (
+                    <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                  )}
+                </th>
               </tr>
-            ) : (
-              opportunities.map((opportunity) => {
-                const isSelected = selectedOpps.includes(opportunity.opportunityId);
-                return (
-                  <tr
-                    key={opportunity.opportunityId}
-                    className={isSelected ? 'selected' : ''}
-                    onClick={() => toggleSelection(opportunity.opportunityId)}
-                  >
-                    <td>
-                      <input
-                        type="checkbox"
-                        className="calculator-checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelection(opportunity.opportunityId)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </td>
-                    <td>{opportunity.opportunityName}</td>
-                    <td>{opportunity.stage}</td>
-                    <td>{opportunity.aeName}</td>
-                    <td>{opportunity.probabilityFormatted || `${opportunity.probability}%`}</td>
-                    <td>
-                      {opportunity.amount ||
-                        `$${(opportunity.carrAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {opportunities.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="empty-row">
+                    No opportunities found
+                  </td>
+                </tr>
+              ) : (
+                opportunities.map((opp) => renderOppRow(opp))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
