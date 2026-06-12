@@ -67,13 +67,13 @@ router.get('/linear/tickets-by-ae', authenticateToken, async (req, res) => {
 
 // Lead Pack overview: per-SE closed-ticket roll-up for every active Sales
 // Engineer, plus each SE's assigned AE roster. Powers the team page's
-// lead-only "Pack" view. Gated to admins / SE leads (same rule as
-// /opps/sales-engineers) since regular SEs shouldn't see the whole pack's
-// numbers. Year defaults to the current calendar year with the same bounds
-// as /linear/closed so a malformed query can't widen the GraphQL window.
+// lead-only "Pack" view. Gated to SE leads only — everyone else (including
+// admins) only sees their own team page, not the whole pack's numbers. Year
+// defaults to the current calendar year with the same bounds as
+// /linear/closed so a malformed query can't widen the GraphQL window.
 router.get('/pack-overview', authenticateToken, async (req, res) => {
   const roles = req.user?.roles || [];
-  if (!roles.includes('admin') && !roles.includes('sales_engineer_lead')) {
+  if (!roles.includes('sales_engineer_lead')) {
     return res.status(403).json({ error: 'Insufficient permissions' });
   }
   const now = new Date();
@@ -92,11 +92,11 @@ router.get('/pack-overview', authenticateToken, async (req, res) => {
 });
 
 // Lead Pack CARR: per-SE Closed CARR roll-up, attributed via handoff pages
-// (SF opportunityId -> Opp -> SE). Same lead/admin gate as /pack-overview.
+// (SF opportunityId -> Opp -> SE). Same SE-lead-only gate as /pack-overview.
 // Year defaults to the current calendar year with the same bounds.
 router.get('/pack-carr', authenticateToken, async (req, res) => {
   const roles = req.user?.roles || [];
-  if (!roles.includes('admin') && !roles.includes('sales_engineer_lead')) {
+  if (!roles.includes('sales_engineer_lead')) {
     return res.status(403).json({ error: 'Insufficient permissions' });
   }
   const now = new Date();
@@ -116,10 +116,10 @@ router.get('/pack-carr', authenticateToken, async (req, res) => {
 
 // Pack drill-down: actual Linear tickets (open workload + closed-this-year)
 // for a single Sales Engineer. Powers the team page's per-SE detail view.
-// Same lead/admin gate as /pack-overview since it exposes another SE's work.
+// Same SE-lead-only gate as /pack-overview since it exposes another SE's work.
 router.get('/pack-overview/:seId/tickets', authenticateToken, async (req, res) => {
   const roles = req.user?.roles || [];
-  if (!roles.includes('admin') && !roles.includes('sales_engineer_lead')) {
+  if (!roles.includes('sales_engineer_lead')) {
     return res.status(403).json({ error: 'Insufficient permissions' });
   }
   const now = new Date();
@@ -141,11 +141,11 @@ router.get('/pack-overview/:seId/tickets', authenticateToken, async (req, res) =
 });
 
 // Pack drill-down: today's calendar for a single Sales Engineer. Same
-// lead/admin gate as the other pack-overview routes since it exposes another
+// SE-lead-only gate as the other pack-overview routes since it exposes another
 // SE's schedule. Only reads the SE's own connected Google calendar.
 router.get('/pack-overview/:seId/calendar', authenticateToken, async (req, res) => {
   const roles = req.user?.roles || [];
-  if (!roles.includes('admin') && !roles.includes('sales_engineer_lead')) {
+  if (!roles.includes('sales_engineer_lead')) {
     return res.status(403).json({ error: 'Insufficient permissions' });
   }
   try {
