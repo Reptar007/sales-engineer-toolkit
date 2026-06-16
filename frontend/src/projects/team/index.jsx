@@ -18,6 +18,7 @@ import {
   fetchPackSeCalendar,
   fetchPackSeTickets,
 } from '../../services/api';
+import OwnTeamView from './OwnTeamView';
 import { toTeamSlug } from './slug';
 import './team.less';
 
@@ -487,13 +488,17 @@ function TicketLists({ error, loaded, open, closed, periodLabel }) {
 }
 
 /**
- * TeamPage — the lead's "Pack" overview ("Team Mario", "Team Yoshi", …).
+ * TeamPage — "Team Mario", "Team Yoshi", … with two role-based views.
  *
- * Renders a grouped bar chart of every active Sales Engineer's Creation /
- * Scoping / Completed Linear tickets, scoped to the whole year or the
- * current quarter. Clicking an SE's bar group drills into a high-level
- * detail panel (their live workload + closed breakdown). Lead/admin only;
- * the backend endpoint that feeds it is gated to the same roles. The :slug
+ * SE leads get the "Pack" overview: a grouped bar chart of every active
+ * Sales Engineer's Creation / Scoping / Completed Linear tickets, scoped to
+ * the whole year or the current quarter. Clicking an SE's bar group drills
+ * into a high-level detail panel (their live workload + closed breakdown).
+ * The pack endpoints that feed it are gated to leads on the backend.
+ *
+ * Everyone else (regular SEs, admins) gets the own-team view (see
+ * `OwnTeamView`): the team's Salesforce CARR roll-up + per-AE breakdown and
+ * the viewer's personal Linear tickets, scoped to their own team. The :slug
  * in the URL is cosmetic — a mismatch redirects to the canonical slug.
  */
 function TeamPage() {
@@ -501,12 +506,13 @@ function TeamPage() {
   const { slug } = useParams();
   const team = user?.team;
 
-  // Leads (and admins) get the pack overview. Regular SEs see a short
-  // note instead — the backend endpoint is gated to the same roles, so
-  // this is a UX convenience rather than the security boundary.
+  // Only SE leads get the pack overview (everyone's numbers). Everyone else
+  // (regular SEs, admins) gets the own-team view (`OwnTeamView`) scoped to
+  // their own team. The pack endpoints are gated to leads on the backend, so
+  // this is the real security boundary, not just a UX convenience.
   const isLead = useMemo(() => {
     const roles = user?.roles || [];
-    return roles.includes('admin') || roles.includes('sales_engineer_lead');
+    return roles.includes('sales_engineer_lead');
   }, [user?.roles]);
 
   // Scope controls: which calendar year to load, and whether to show the
@@ -803,310 +809,308 @@ function TeamPage() {
         {mascot && <img className="team-page__mascot" src={mascot.src} alt={mascot.alt} />}
       </header>
 
-      <div className="team-page__body">
-        {!isLead ? (
-          <p className="page-header__sub">The pack overview is available to leads.</p>
-        ) : (
-          <>
-            <div className="team-page__controls">
-              {selectedDetail && (
+      {isLead ? (
+        <div className="team-page__body">
+          <div className="team-page__controls">
+            {selectedDetail && (
+              <button
+                type="button"
+                className="team-pack__back"
+                onClick={() => setSelectedSeId(null)}
+              >
+                <LuArrowLeft aria-hidden="true" />
+                Back to the pack
+              </button>
+            )}
+            <div className="team-page__scope">
+              <select
+                className="team-page__year"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                aria-label="Year"
+              >
+                {AVAILABLE_YEARS.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+              <div
+                className="team-page__filter"
+                role="tablist"
+                aria-label="Scope metrics by full year or quarter"
+              >
                 <button
                   type="button"
-                  className="team-pack__back"
-                  onClick={() => setSelectedSeId(null)}
+                  role="tab"
+                  aria-selected={quarter === 0}
+                  className={`team-page__filter-btn ${quarter === 0 ? 'is-active' : ''}`}
+                  onClick={() => setQuarter(0)}
                 >
-                  <LuArrowLeft aria-hidden="true" />
-                  Back to the pack
+                  Full Year
                 </button>
-              )}
-              <div className="team-page__scope">
-                <select
-                  className="team-page__year"
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  aria-label="Year"
-                >
-                  {AVAILABLE_YEARS.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-                <div
-                  className="team-page__filter"
-                  role="tablist"
-                  aria-label="Scope metrics by full year or quarter"
-                >
+                {[1, 2, 3, 4].map((q) => (
                   <button
+                    key={q}
                     type="button"
                     role="tab"
-                    aria-selected={quarter === 0}
-                    className={`team-page__filter-btn ${quarter === 0 ? 'is-active' : ''}`}
-                    onClick={() => setQuarter(0)}
+                    aria-selected={quarter === q}
+                    className={`team-page__filter-btn ${quarter === q ? 'is-active' : ''}`}
+                    onClick={() => setQuarter(q)}
                   >
-                    Full Year
+                    Q{q}
                   </button>
-                  {[1, 2, 3, 4].map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      role="tab"
-                      aria-selected={quarter === q}
-                      className={`team-page__filter-btn ${quarter === q ? 'is-active' : ''}`}
-                      onClick={() => setQuarter(q)}
-                    >
-                      Q{q}
-                    </button>
-                  ))}
-                </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <section className="team-page__section">
+            <div className="team-page__section-header">
+              <div className="team-page__section-heading">
+                {selectedDetail ? (
+                  <>
+                    <h2 className="team-page__section-title">{selectedDetail.name}</h2>
+                    <p className="team-page__section-subtitle">
+                      Open workload and tickets completed in {periodLabel}.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="team-page__section-title">The Pack</h2>
+                    <p className="team-page__section-subtitle">
+                      Creation, scoping, and completed tickets per SE in {periodLabel}. Click an SE
+                      for their workload and full breakdown.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
 
-            <section className="team-page__section">
-              <div className="team-page__section-header">
-                <div className="team-page__section-heading">
-                  {selectedDetail ? (
-                    <>
-                      <h2 className="team-page__section-title">{selectedDetail.name}</h2>
-                      <p className="team-page__section-subtitle">
-                        Open workload and tickets completed in {periodLabel}.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <h2 className="team-page__section-title">The Pack</h2>
-                      <p className="team-page__section-subtitle">
-                        Creation, scoping, and completed tickets per SE in {periodLabel}. Click an
-                        SE for their workload and full breakdown.
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {packError ? (
-                <p className="team-page__linear-hint">
-                  Couldn&apos;t load the pack overview right now. Try refreshing in a minute.
-                </p>
-              ) : !packData ? (
-                <p className="team-page__linear-hint">Loading the pack…</p>
-              ) : selectedDetail ? (
-                <>
-                  <div className="team-page__totals" style={{ '--tile-cols': 5 }}>
-                    {[
-                      {
-                        label: 'Workload',
-                        value: selectedDetail.open,
-                        hint: 'open right now',
-                        Icon: LuInbox,
-                      },
-                      { label: 'Completed', value: selectedDetail.completed, Icon: LuCircleCheck },
-                      { label: 'Creation', value: selectedDetail.creation, Icon: LuFilePlus },
-                      { label: 'Scoping', value: selectedDetail.scoping, Icon: LuRuler },
-                      { label: 'AI Demo', value: selectedDetail.aiDemo, Icon: LuSparkles },
-                    ].map((tile) => (
-                      <article key={tile.label} className="team-pack-detail__tile">
-                        <div className="team-pack-detail__head">
-                          <span className="team-pack-detail__label">{tile.label}</span>
-                          <span className="team-pack-detail__icon" aria-hidden="true">
-                            <tile.Icon />
-                          </span>
-                        </div>
-                        <span className="team-pack-detail__value">
-                          {tile.value.toLocaleString('en-US')}
-                        </span>
-                        {tile.hint && <span className="team-pack-detail__hint">{tile.hint}</span>}
-                      </article>
-                    ))}
-                  </div>
-
-                  <section className="team-cal">
-                    <h3 className="team-cal__heading">Today&apos;s calendar</h3>
-                    <SeCalendar payload={seCalendar} error={seCalendarError} />
-                  </section>
-
-                  <TicketLists
-                    error={seTicketsError}
-                    loaded={Boolean(seTickets)}
-                    open={seTickets?.open || []}
-                    closed={visibleClosedTickets}
-                    periodLabel={periodLabel}
-                  />
-                </>
-              ) : packRows.length === 0 ? (
-                <p className="team-page__linear-hint">No Sales Engineers in the pack yet.</p>
-              ) : (
-                <>
-                  <div className="team-page__totals team-pack-totals" style={{ '--tile-cols': 4 }}>
-                    {[
-                      {
-                        label: 'Workload',
-                        value: packTotals.open,
-                        hint: 'open across the pack',
-                        Icon: LuInbox,
-                      },
-                      { label: 'Creation', value: packTotals.creation, Icon: LuFilePlus },
-                      { label: 'Scoping', value: packTotals.scoping, Icon: LuRuler },
-                      { label: 'Completed', value: packTotals.completed, Icon: LuCircleCheck },
-                    ].map((tile) => (
-                      <article key={tile.label} className="team-pack-detail__tile">
-                        <div className="team-pack-detail__head">
-                          <span className="team-pack-detail__label">{tile.label}</span>
-                          <span className="team-pack-detail__icon" aria-hidden="true">
-                            <tile.Icon />
-                          </span>
-                        </div>
-                        <span className="team-pack-detail__value">
-                          {tile.value.toLocaleString('en-US')}
-                        </span>
-                        {tile.hint && <span className="team-pack-detail__hint">{tile.hint}</span>}
-                      </article>
-                    ))}
-                  </div>
-
-                  <section
-                    className="dashboard-panel team-pack-chart"
-                    aria-label="Pack overview by SE"
-                  >
-                    <svg
-                      className="team-pack-chart__svg"
-                      viewBox={`0 0 ${CHART.w} ${CHART.h}`}
-                      role="img"
-                      aria-label="Creation, scoping, and completed tickets per Sales Engineer"
-                    >
-                      {chartLayout.yTicks.map((t) => {
-                        const y = chartLayout.baseY - (t / chartLayout.yMax) * chartLayout.plotH;
-                        return (
-                          <g key={t}>
-                            <line
-                              className="team-pack-chart__grid"
-                              x1={CHART.padLeft}
-                              y1={y}
-                              x2={CHART.w - CHART.padRight}
-                              y2={y}
-                            />
-                            <text
-                              className="team-pack-chart__ytick"
-                              x={CHART.padLeft - 8}
-                              y={y}
-                              textAnchor="end"
-                              dominantBaseline="middle"
-                            >
-                              {t}
-                            </text>
-                          </g>
-                        );
-                      })}
-
-                      {chartLayout.groups.map((g) => (
-                        <g
-                          key={g.seId}
-                          className="team-pack-chart__group"
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`View ${g.name}'s details`}
-                          onClick={() => selectSe(g.seId)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              selectSe(g.seId);
-                            }
-                          }}
-                        >
-                          {/* Transparent hit area spanning the full plot height so
-                            the whole column is clickable, not just the bars. */}
-                          <rect
-                            className="team-pack-chart__hit"
-                            x={g.cx - chartLayout.plotW / chartLayout.groups.length / 2}
-                            y={CHART.padTop}
-                            width={chartLayout.plotW / chartLayout.groups.length}
-                            height={chartLayout.plotH}
-                          />
-                          {g.bars.map((b) => (
-                            <g key={b.key} className="team-pack-chart__bar-cell">
-                              <rect
-                                className={`team-pack-chart__bar team-pack-chart__bar--${b.key}`}
-                                x={b.x}
-                                y={b.y}
-                                width={b.w}
-                                height={b.h}
-                                rx="2"
-                              />
-                              <text
-                                className="team-pack-chart__bar-value"
-                                x={b.x + b.w / 2}
-                                y={b.y - 6}
-                                textAnchor="middle"
-                              >
-                                {b.val}
-                              </text>
-                            </g>
-                          ))}
-                          <text
-                            className="team-pack-chart__xlabel"
-                            x={g.cx}
-                            y={CHART.h - CHART.padBottom + 20}
-                            textAnchor="middle"
-                          >
-                            {g.label}
-                          </text>
-                        </g>
-                      ))}
-                    </svg>
-
-                    <div className="team-pack-chart__legend">
-                      {CHART_SERIES.map((s) => (
-                        <span
-                          key={s.key}
-                          className={`team-pack-chart__legend-item team-pack-chart__legend-item--${s.key}`}
-                        >
-                          <span className="team-pack-chart__legend-swatch" aria-hidden="true" />
-                          {s.label}
-                        </span>
-                      ))}
-                    </div>
-                  </section>
-
-                  {packCarr && packCarr.configured && carrBreakdown.total > 0 && (
-                    <section className="dashboard-panel team-carr" aria-label="Closed CARR by SE">
-                      <div className="team-carr__header">
-                        <h3 className="team-carr__title">Closed CARR by SE</h3>
-                        <span className="team-carr__total">
-                          {formatCompactUSD(carrBreakdown.total)}
+            {packError ? (
+              <p className="team-page__linear-hint">
+                Couldn&apos;t load the pack overview right now. Try refreshing in a minute.
+              </p>
+            ) : !packData ? (
+              <p className="team-page__linear-hint">Loading the pack…</p>
+            ) : selectedDetail ? (
+              <>
+                <div className="team-page__totals" style={{ '--tile-cols': 5 }}>
+                  {[
+                    {
+                      label: 'Workload',
+                      value: selectedDetail.open,
+                      hint: 'open right now',
+                      Icon: LuInbox,
+                    },
+                    { label: 'Completed', value: selectedDetail.completed, Icon: LuCircleCheck },
+                    { label: 'Creation', value: selectedDetail.creation, Icon: LuFilePlus },
+                    { label: 'Scoping', value: selectedDetail.scoping, Icon: LuRuler },
+                    { label: 'AI Demo', value: selectedDetail.aiDemo, Icon: LuSparkles },
+                  ].map((tile) => (
+                    <article key={tile.label} className="team-pack-detail__tile">
+                      <div className="team-pack-detail__head">
+                        <span className="team-pack-detail__label">{tile.label}</span>
+                        <span className="team-pack-detail__icon" aria-hidden="true">
+                          <tile.Icon />
                         </span>
                       </div>
-                      <ul className="team-carr__list">
-                        {carrBreakdown.rows.map((row) => (
-                          <li key={row.seId} className="team-carr__row">
-                            <span className="team-carr__name" title={row.name}>
-                              {row.name}
-                            </span>
-                            <span className="team-carr__track">
-                              <span
-                                className="team-carr__bar"
-                                style={{
-                                  width: `${
-                                    carrBreakdown.max > 0 ? (row.carr / carrBreakdown.max) * 100 : 0
-                                  }%`,
-                                }}
-                              />
-                            </span>
-                            <span className="team-carr__amount">{formatCompactUSD(row.carr)}</span>
-                          </li>
+                      <span className="team-pack-detail__value">
+                        {tile.value.toLocaleString('en-US')}
+                      </span>
+                      {tile.hint && <span className="team-pack-detail__hint">{tile.hint}</span>}
+                    </article>
+                  ))}
+                </div>
+
+                <section className="team-cal">
+                  <h3 className="team-cal__heading">Today&apos;s calendar</h3>
+                  <SeCalendar payload={seCalendar} error={seCalendarError} />
+                </section>
+
+                <TicketLists
+                  error={seTicketsError}
+                  loaded={Boolean(seTickets)}
+                  open={seTickets?.open || []}
+                  closed={visibleClosedTickets}
+                  periodLabel={periodLabel}
+                />
+              </>
+            ) : packRows.length === 0 ? (
+              <p className="team-page__linear-hint">No Sales Engineers in the pack yet.</p>
+            ) : (
+              <>
+                <div className="team-page__totals team-pack-totals" style={{ '--tile-cols': 4 }}>
+                  {[
+                    {
+                      label: 'Workload',
+                      value: packTotals.open,
+                      hint: 'open across the pack',
+                      Icon: LuInbox,
+                    },
+                    { label: 'Creation', value: packTotals.creation, Icon: LuFilePlus },
+                    { label: 'Scoping', value: packTotals.scoping, Icon: LuRuler },
+                    { label: 'Completed', value: packTotals.completed, Icon: LuCircleCheck },
+                  ].map((tile) => (
+                    <article key={tile.label} className="team-pack-detail__tile">
+                      <div className="team-pack-detail__head">
+                        <span className="team-pack-detail__label">{tile.label}</span>
+                        <span className="team-pack-detail__icon" aria-hidden="true">
+                          <tile.Icon />
+                        </span>
+                      </div>
+                      <span className="team-pack-detail__value">
+                        {tile.value.toLocaleString('en-US')}
+                      </span>
+                      {tile.hint && <span className="team-pack-detail__hint">{tile.hint}</span>}
+                    </article>
+                  ))}
+                </div>
+
+                <section
+                  className="dashboard-panel team-pack-chart"
+                  aria-label="Pack overview by SE"
+                >
+                  <svg
+                    className="team-pack-chart__svg"
+                    viewBox={`0 0 ${CHART.w} ${CHART.h}`}
+                    role="img"
+                    aria-label="Creation, scoping, and completed tickets per Sales Engineer"
+                  >
+                    {chartLayout.yTicks.map((t) => {
+                      const y = chartLayout.baseY - (t / chartLayout.yMax) * chartLayout.plotH;
+                      return (
+                        <g key={t}>
+                          <line
+                            className="team-pack-chart__grid"
+                            x1={CHART.padLeft}
+                            y1={y}
+                            x2={CHART.w - CHART.padRight}
+                            y2={y}
+                          />
+                          <text
+                            className="team-pack-chart__ytick"
+                            x={CHART.padLeft - 8}
+                            y={y}
+                            textAnchor="end"
+                            dominantBaseline="middle"
+                          >
+                            {t}
+                          </text>
+                        </g>
+                      );
+                    })}
+
+                    {chartLayout.groups.map((g) => (
+                      <g
+                        key={g.seId}
+                        className="team-pack-chart__group"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`View ${g.name}'s details`}
+                        onClick={() => selectSe(g.seId)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            selectSe(g.seId);
+                          }
+                        }}
+                      >
+                        {/* Transparent hit area spanning the full plot height so
+                            the whole column is clickable, not just the bars. */}
+                        <rect
+                          className="team-pack-chart__hit"
+                          x={g.cx - chartLayout.plotW / chartLayout.groups.length / 2}
+                          y={CHART.padTop}
+                          width={chartLayout.plotW / chartLayout.groups.length}
+                          height={chartLayout.plotH}
+                        />
+                        {g.bars.map((b) => (
+                          <g key={b.key} className="team-pack-chart__bar-cell">
+                            <rect
+                              className={`team-pack-chart__bar team-pack-chart__bar--${b.key}`}
+                              x={b.x}
+                              y={b.y}
+                              width={b.w}
+                              height={b.h}
+                              rx="2"
+                            />
+                            <text
+                              className="team-pack-chart__bar-value"
+                              x={b.x + b.w / 2}
+                              y={b.y - 6}
+                              textAnchor="middle"
+                            >
+                              {b.val}
+                            </text>
+                          </g>
                         ))}
-                      </ul>
-                      <p className="team-carr__note">
-                        Closed in {periodLabel}, attributed by each closed-won deal&apos;s AE and
-                        the team they belong to.
-                      </p>
-                    </section>
-                  )}
-                </>
-              )}
-            </section>
-          </>
-        )}
-      </div>
+                        <text
+                          className="team-pack-chart__xlabel"
+                          x={g.cx}
+                          y={CHART.h - CHART.padBottom + 20}
+                          textAnchor="middle"
+                        >
+                          {g.label}
+                        </text>
+                      </g>
+                    ))}
+                  </svg>
+
+                  <div className="team-pack-chart__legend">
+                    {CHART_SERIES.map((s) => (
+                      <span
+                        key={s.key}
+                        className={`team-pack-chart__legend-item team-pack-chart__legend-item--${s.key}`}
+                      >
+                        <span className="team-pack-chart__legend-swatch" aria-hidden="true" />
+                        {s.label}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+
+                {packCarr && packCarr.configured && carrBreakdown.total > 0 && (
+                  <section className="dashboard-panel team-carr" aria-label="Closed CARR by SE">
+                    <div className="team-carr__header">
+                      <h3 className="team-carr__title">Closed CARR by SE</h3>
+                      <span className="team-carr__total">
+                        {formatCompactUSD(carrBreakdown.total)}
+                      </span>
+                    </div>
+                    <ul className="team-carr__list">
+                      {carrBreakdown.rows.map((row) => (
+                        <li key={row.seId} className="team-carr__row">
+                          <span className="team-carr__name" title={row.name}>
+                            {row.name}
+                          </span>
+                          <span className="team-carr__track">
+                            <span
+                              className="team-carr__bar"
+                              style={{
+                                width: `${
+                                  carrBreakdown.max > 0 ? (row.carr / carrBreakdown.max) * 100 : 0
+                                }%`,
+                              }}
+                            />
+                          </span>
+                          <span className="team-carr__amount">{formatCompactUSD(row.carr)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="team-carr__note">
+                      Closed in {periodLabel}, attributed by each closed-won deal&apos;s AE and the
+                      team they belong to.
+                    </p>
+                  </section>
+                )}
+              </>
+            )}
+          </section>
+        </div>
+      ) : (
+        <OwnTeamView team={team} user={user} />
+      )}
     </div>
   );
 }
