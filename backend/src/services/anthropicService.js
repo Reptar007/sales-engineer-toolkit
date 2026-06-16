@@ -8,7 +8,10 @@ dotenv.config({ path: resolve(__dirname, '../../.env') });
 dotenv.config({ path: resolve(__dirname, '../../../.env') });
 dotenv.config();
 
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+// claude-sonnet-4-20250514 was retired by Anthropic on 2026-06-15; the
+// recommended replacement is claude-sonnet-4-6. Overridable via env so the
+// model can be bumped without a code change.
+const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 
 // Lazily initialized so the key is read at call time, not at module load time
 let _anthropic = null;

@@ -1706,13 +1706,16 @@ export async function mergeManualLinearLinks(baseBuckets, identifiers) {
 // Dedicated picker query -- mirrors TEAM_ISSUES_QUERY but adds the extra
 // fields mapOppTicket() expects (assignee + createdAt) so the picker can
 // show "assigned to X, created Y" hints without a second fetch.
+//
+// Note: we only exclude canceled tickets here -- completed/done tickets
+// must remain selectable so handoff sheets can be linked to finished work.
 const PICKER_ISSUES_QUERY = `
   query MyPickerIssues($teamId: ID!, $assigneeId: ID!, $after: String) {
     issues(
       filter: {
         team: { id: { eq: $teamId } }
         assignee: { id: { eq: $assigneeId } }
-        state: { type: { nin: ["completed", "canceled"] } }
+        state: { type: { nin: ["canceled"] } }
       }
       first: 100
       after: $after
@@ -1737,13 +1740,16 @@ const PICKER_ISSUES_QUERY = `
 `;
 
 /**
- * Return the logged-in SE's currently-open Linear tickets in the same shape
- * `findLinearTicketsForOpp` uses, so the manual-link picker can render
- * them with familiar fields (identifier, title, state, project, etc.).
+ * Return the logged-in SE's Linear tickets (including completed/done ones)
+ * in the same shape `findLinearTicketsForOpp` uses, so the manual-link
+ * picker can render them with familiar fields (identifier, title, state,
+ * project, etc.).
  *
- * Intentionally broader than the dashboard's "Active Hunts" view -- we
- * don't filter out internal projects or non-opportunity tickets, because
- * the SE explicitly knows which ticket they're trying to link.
+ * Intentionally broad: we keep completed tickets selectable (handoff sheets
+ * are frequently created from already-done work) and only drop canceled
+ * ones, which are never worth linking. We also don't filter out internal
+ * projects or non-opportunity tickets, because the SE explicitly knows
+ * which ticket they're trying to link.
  */
 export async function listMyOpenLinearTickets(userId) {
   const empty = { configured: false, tickets: [] };
