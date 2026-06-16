@@ -492,9 +492,9 @@ export async function deleteOpp(id) {
 }
 
 /**
- * List the caller's currently-open Linear tickets for the manual-link
- * picker on the Opp detail page. Returns `{ configured, tickets }` --
- * the picker hides itself when Linear isn't wired up.
+ * List the caller's Linear tickets (including completed/done ones) for the
+ * manual-link picker on the Opp detail page. Returns `{ configured, tickets }`
+ * -- the picker hides itself when Linear isn't wired up.
  */
 export async function listMyLinearTickets() {
   return apiRequest('/opps/linear/my-tickets');

@@ -4,8 +4,9 @@ import { listMyLinearTickets, linkLinearTicket } from '../../../services/api';
 /**
  * Modal picker for manually linking a Linear ticket to an Opp.
  *
- * Shows the caller's currently-open Linear tickets so the SE can click
- * the one they want to link rather than copy-pasting an identifier. The
+ * Shows the caller's Linear tickets (including completed/done ones) so the
+ * SE can click the one they want to link rather than copy-pasting an
+ * identifier. The
  * already-linked rawIds (auto-discovered + previously manual) are passed
  * in via `excludeRawIds` so we hide tickets that would otherwise be
  * idempotent no-ops.
@@ -99,7 +100,7 @@ function LinkLinearTicketModal({ oppId, excludeRawIds = [], onClose, onLinked })
       <div className="opp-modal opp-link-modal" role="dialog" aria-modal="true">
         <h3 className="opp-modal__title">Link a Linear ticket</h3>
         <p className="opp-modal__sub">
-          Pick from your open Linear tickets, or paste a different ticket&apos;s identifier (e.g.{' '}
+          Pick from your Linear tickets, or paste a different ticket&apos;s identifier (e.g.{' '}
           <code>AXO-959</code>) if the AE assigned it to someone else.
         </p>
 
@@ -135,7 +136,7 @@ function LinkLinearTicketModal({ oppId, excludeRawIds = [], onClose, onLinked })
             {filtered.length === 0 ? (
               <p className="opp-section__placeholder">
                 {state.tickets.length === 0
-                  ? 'No open tickets assigned to you right now.'
+                  ? 'No tickets assigned to you right now.'
                   : 'No tickets match your search.'}
               </p>
             ) : (
