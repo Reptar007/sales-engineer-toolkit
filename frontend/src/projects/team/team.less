@@ -1945,3 +1945,50 @@ a.team-tickets__title:focus-visible {
   height: 12px;
   border-radius: 3px;
 }
+
+// Per-SE revenue-stream split on "Closed CARR by SE". Each SE's bar stays
+// proportional to the pack maximum, with the stream mix shown as segments
+// inside it. Colours come from the shared `stream--*` classes in
+// styles/streams.less.
+.team-carr__bar {
+  display: flex;
+  overflow: hidden;
+}
+
+.team-carr__segment {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--stream-color, var(--stream-unspecified));
+}
+
+.team-carr__legend {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  font-size: 0.75rem;
+  color: var(--muted-gray);
+}
+
+.team-carr__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.team-carr__legend-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--stream-color, inherit);
+}
+
+.team-carr__legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--stream-color, var(--stream-unspecified));
+}

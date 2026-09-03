@@ -320,6 +320,44 @@ export async function updateQuarterlyGoals(year, goals) {
   });
 }
 
+/**
+ * Downloads a quarter's Closed-Won CARR breakdown PDF and triggers a browser
+ * save (admin-only). Streams a binary response, so it can't go through
+ * `apiRequest` (which assumes JSON).
+ * @param {number} year - Year (e.g. 2026).
+ * @param {number} quarter - Quarter 1-4.
+ * @returns {Promise<string>} The saved filename.
+ */
+export async function downloadQuarterCarrPdf(year, quarter) {
+  const token = localStorage.getItem('authToken');
+  const url = `${API_BASE_URL}/salesforce/carr-breakdown/${year}/${quarter}/pdf`;
+
+  const response = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const blob = await response.blob();
+  const filename =
+    response.headers.get('Content-Disposition')?.match(/filename="?([^"]+)"?/)?.[1] ||
+    `Q${quarter}-${year}-CARR-breakdown.pdf`;
+
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+
+  return filename;
+}
+
 /** Dashboard: today’s calendar events (Google Calendar when configured). */
 export async function fetchDashboardCalendar() {
   return apiRequest('/dashboard/calendar');

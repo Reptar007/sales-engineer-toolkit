@@ -28,28 +28,55 @@ function getFallbackYears(currentYear) {
   return [currentYear + 1, currentYear, currentYear - 1];
 }
 
-// Exclude C-scored opps from CARR / goal math. We key off **Account
-// Score** (the ICP-uplifted score), not Sales Score, so an opp that
-// AAR / geo / engineer-count signals promoted from Sales=C to
-// Account=E still counts toward the goal — matching the same rule
-// the team page applies in `frontend/src/projects/team/index.jsx`.
+// Goal eligibility is decided by the backend and arrives on each row as
+// `goalEligible`, alongside a canonical `type` ("New Business" / "Expansion").
+// This page used to re-implement the C-score rule AND keep a hand-copied
+// duplicate of the goal-inclusion exception list, which meant it could and did
+// disagree with the dashboard about the same quarter. It no longer decides
+// anything -- it renders what the server already ruled on.
 //
-// 2025 reports don't emit an Account Score column at all, so
-// `accountScore` is empty for every legacy opp and this returns false
-// for all of them. Net effect: 2025 totals are byte-identical to what
-// they were before this filter; only 2026+ tiles change.
-function isCScore(opp) {
-  const raw = (opp?.accountScore || '').trim().toUpperCase();
-  return raw === 'C' || raw.startsWith('C ') || raw.startsWith('C-');
+// Snapshot years captured before the flag existed have no `goalEligible`, so
+// treat a missing flag as eligible and 2025 totals stay byte-identical.
+function isGoalEligible(opp) {
+  return opp?.goalEligible !== false;
 }
 
 function sumGoalEligibleCARR(opps) {
   if (!Array.isArray(opps)) return 0;
   return opps.reduce((sum, opp) => {
-    if (isCScore(opp)) return sum;
+    if (!isGoalEligible(opp)) return sum;
     const amount = Number(opp?.carrAmount);
     return Number.isFinite(amount) ? sum + amount : sum;
   }, 0);
+}
+
+// The two revenue streams, in the order they stack in every bar on this page.
+// Colours come from the existing theme tokens rather than new hex values so
+// the split reads as part of the same system as the progress accents.
+const STREAM_ORDER = ['New Business', 'Expansion'];
+const STREAM_CLASS = {
+  'New Business': 'stream--new-business',
+  Expansion: 'stream--expansion',
+  Unspecified: 'stream--unspecified',
+};
+
+// Compact currency for the stream chips, matching the Pack view's treatment.
+function formatCompactUSD(amount) {
+  const n = Number(amount) || 0;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${Math.round(n)}`;
+}
+
+// Order a quarter's carrByType map for display: known streams first, in
+// STREAM_ORDER, then anything unexpected so it can't hide.
+function orderedStreams(carrByType) {
+  const entries = Object.entries(carrByType || {}).filter(([, amount]) => amount > 0);
+  return entries.sort(([a], [b]) => {
+    const ia = STREAM_ORDER.indexOf(a);
+    const ib = STREAM_ORDER.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
 }
 
 function getQuarterDateRange(label) {
@@ -80,6 +107,9 @@ const SalesforceMetrics = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // 'all' | 'New Business' | 'Expansion' -- which stream the Closed Won table
+  // is showing. Resets whenever the quarter changes.
+  const [streamFilter, setStreamFilter] = useState('all');
 
   const dateRange = getQuarterDateRange(quarter.label);
 
@@ -199,7 +229,18 @@ const SalesforceMetrics = () => {
   // 2025 reports lack the Account Score column so `isCScore` returns
   // false for every legacy opp — no rows are removed for historical
   // years.
-  const opportunities = (selectedQuarterData?.opportunities || []).filter((opp) => !isCScore(opp));
+  const eligibleOpportunities = (selectedQuarterData?.opportunities || []).filter(isGoalEligible);
+
+  // Stream filter is a view over the eligible rows only -- an "Expansion" tab
+  // that showed Expansion deals which don't count toward the goal would be
+  // actively misleading.
+  const carrByType = selectedQuarterData?.carrByType || {};
+  const streams = orderedStreams(carrByType);
+  const hasStreamSplit = streams.length > 1;
+  const activeStream = hasStreamSplit && streamFilter !== 'all' ? streamFilter : null;
+  const opportunities = activeStream
+    ? eligibleOpportunities.filter((opp) => (opp.type || 'Unspecified') === activeStream)
+    : eligibleOpportunities;
 
   // CARR sums exclude C-scored opps via `sumGoalEligibleCARR`. The
   // backend still emits the raw `totalCARR` (sum of every closed-won
@@ -207,7 +248,10 @@ const SalesforceMetrics = () => {
   // goal/comp math stays in sync with the team page. For 2025 (no
   // Account Score column) this collapses to the same number as
   // `selectedQuarterData.totalCARR`, so legacy tiles don't move.
-  const currentQuarterCARR = sumGoalEligibleCARR(opportunities);
+  // Always the full goal-eligible total for the quarter, independent of which
+  // stream tab is selected -- the tiles report the quarter, the table reports
+  // the current view.
+  const currentQuarterCARR = sumGoalEligibleCARR(eligibleOpportunities);
   const currentYearCARR = Object.entries(data?.quarterlyData || {})
     .filter(([key]) => key !== 'Total')
     .reduce((sum, [, q]) => sum + sumGoalEligibleCARR(q?.opportunities), 0);
@@ -241,6 +285,12 @@ const SalesforceMetrics = () => {
     }
   };
 
+  // Reset the stream tab whenever the quarter changes -- an "Expansion" tab
+  // left selected on a pre-cutover quarter would show an empty table.
+  useEffect(() => {
+    setStreamFilter('all');
+  }, [quarter.label, selectedYear]);
+
   const handleQuarterChange = (event) => {
     const selectedQuarter = event.target.value;
     const quarterObj = quarterOptions.find((q) => q.label === selectedQuarter);
@@ -266,12 +316,22 @@ const SalesforceMetrics = () => {
   const calculateCompensation = (role, currentCARRVal, quarterlyGoalVal) => {
     const yearlyCompensation = compensation[role];
     const quarterlyCompensation = yearlyCompensation / 4;
-    if (currentCARRVal / quarterlyGoalVal < 0.8) {
-      return { compensation: 0, quarterlyCompensation };
-    } else {
-      const comp = quarterlyCompensation * (currentCARRVal / quarterlyGoalVal);
-      return { compensation: comp, quarterlyCompensation };
+    // No goal entered for the quarter means attainment is undefined, not
+    // infinite. Without this guard the division yields Infinity and the payout
+    // renders as "∞" -- reachable today for any quarter nobody has filled in
+    // through Alpha Pack, since the fallback config goals for 2026 are all 0.
+    if (!(quarterlyGoalVal > 0)) {
+      return { compensation: 0, quarterlyCompensation, attainmentKnown: false };
     }
+    const attainment = currentCARRVal / quarterlyGoalVal;
+    if (attainment < 0.8) {
+      return { compensation: 0, quarterlyCompensation, attainmentKnown: true };
+    }
+    return {
+      compensation: quarterlyCompensation * attainment,
+      quarterlyCompensation,
+      attainmentKnown: true,
+    };
   };
 
   const progressPercentage = calculateGoalProgress(currentQuarterCARR, quarterlyGoal);
@@ -367,7 +427,43 @@ const SalesforceMetrics = () => {
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">$ {formatNumber(currentQuarterCARR)}</h3>
-            <p className="quarterly-goal-text">Current quarter CARR</p>
+            {hasStreamSplit ? (
+              <div className="stream-split">
+                <div
+                  className="stream-split__bar"
+                  role="img"
+                  aria-label={streams
+                    .map(([name, amount]) => `${name} $${formatNumber(amount)}`)
+                    .join(', ')}
+                >
+                  {streams.map(([name, amount]) => (
+                    <span
+                      key={name}
+                      className={`stream-split__segment ${STREAM_CLASS[name] || ''}`}
+                      style={{ width: `${(amount / currentQuarterCARR) * 100}%` }}
+                    />
+                  ))}
+                </div>
+                <ul className="stream-split__legend">
+                  {streams.map(([name, amount]) => (
+                    <li key={name} className="stream-split__legend-item">
+                      <span
+                        className={`stream-dot ${STREAM_CLASS[name] || ''}`}
+                        aria-hidden="true"
+                      />
+                      <span className="stream-split__legend-name">{name}</span>
+                      <span className="stream-split__legend-value">$ {formatNumber(amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="quarterly-goal-text">
+                {selectedQuarterData?.composition?.label
+                  ? `${selectedQuarterData.composition.label} only`
+                  : 'Current quarter CARR'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -446,9 +542,47 @@ const SalesforceMetrics = () => {
 
       <div className="table-separator"></div>
 
+      {hasStreamSplit && (
+        <div className="stream-tabs" role="group" aria-label="Filter opportunities by type">
+          <button
+            type="button"
+            className={`stream-tab ${streamFilter === 'all' ? 'is-active' : ''}`}
+            aria-pressed={streamFilter === 'all'}
+            onClick={() => setStreamFilter('all')}
+          >
+            All
+            <span className="stream-tab__count">{eligibleOpportunities.length}</span>
+            <span className="stream-tab__carr">{formatCompactUSD(currentQuarterCARR)}</span>
+          </button>
+          {streams.map(([name, amount]) => (
+            <button
+              key={name}
+              type="button"
+              className={`stream-tab ${STREAM_CLASS[name] || ''} ${
+                streamFilter === name ? 'is-active' : ''
+              }`}
+              aria-pressed={streamFilter === name}
+              onClick={() => setStreamFilter(name)}
+            >
+              <span className={`stream-dot ${STREAM_CLASS[name] || ''}`} aria-hidden="true" />
+              {name}
+              <span className="stream-tab__count">
+                {selectedQuarterData?.countByType?.[name] ?? 0}
+              </span>
+              <span className="stream-tab__carr">{formatCompactUSD(amount)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="table-container">
         <table>
-          <caption>Closed Won Opportunities</caption>
+          <caption>
+            Closed Won Opportunities
+            {selectedQuarterData?.composition?.label
+              ? ` — counting ${selectedQuarterData.composition.label}`
+              : ''}
+          </caption>
           <thead>
             {/*
               Sales Score and Account Score are distinct columns in the
@@ -463,6 +597,7 @@ const SalesforceMetrics = () => {
             <tr>
               <th> AE Name </th>
               <th> Opportunity Name </th>
+              <th> Type </th>
               <th> CARR </th>
               <th> Close Date </th>
               <th> Sales Score </th>
@@ -472,14 +607,14 @@ const SalesforceMetrics = () => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '2rem' }}>
                   Loading opportunities...
                 </td>
               </tr>
             ) : error ? (
               <tr>
                 <td
-                  colSpan="6"
+                  colSpan="7"
                   style={{ textAlign: 'center', padding: '2rem', color: 'var(--coral)' }}
                 >
                   Error loading data: {error}
@@ -490,6 +625,15 @@ const SalesforceMetrics = () => {
                 <tr key={opportunity.opportunityId || `opp-${index}`}>
                   <td>{opportunity.aeName}</td>
                   <td>{opportunity.opportunityName}</td>
+                  <td>
+                    {opportunity.type ? (
+                      <span className={`stream-pill ${STREAM_CLASS[opportunity.type] || ''}`}>
+                        {opportunity.type}
+                      </span>
+                    ) : (
+                      <span className="stream-pill stream-pill--empty">—</span>
+                    )}
+                  </td>
                   <td>{opportunity.carrAmountFormatted || formatNumber(opportunity.carrAmount)}</td>
                   <td>{opportunity.effectiveDate}</td>
                   <td>{opportunity.salesScore}</td>
@@ -498,7 +642,7 @@ const SalesforceMetrics = () => {
               ))
             ) : (
               <tr>
-                <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '2rem' }}>
                   No opportunities found for this quarter
                 </td>
               </tr>
@@ -551,16 +695,18 @@ const SalesforceMetrics = () => {
                   })}
                 </td>
                 <td>
-                  {calculateCompensation(
-                    role,
-                    currentQuarterCARR,
-                    quarterlyGoal,
-                  ).compensation.toLocaleString('en-US', {
-                    style: 'currency',
-                    currency: 'USD',
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {(() => {
+                    const result = calculateCompensation(role, currentQuarterCARR, quarterlyGoal);
+                    if (!result.attainmentKnown) {
+                      return <span title="No quarterly goal set for this quarter">—</span>;
+                    }
+                    return result.compensation.toLocaleString('en-US', {
+                      style: 'currency',
+                      currency: 'USD',
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    });
+                  })()}
                 </td>
               </tr>
             ))}

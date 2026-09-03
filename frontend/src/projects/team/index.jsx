@@ -80,6 +80,28 @@ function formatCompactUSD(amount) {
 // Grouped bar chart geometry. The viewBox is fixed in user-space units
 // and CSS scales the SVG to fill its container, so tweaks here reflow
 // automatically without touching the JSX.
+// The two revenue streams that share a quarterly goal from Q3 CY2026, in the
+// order they stack in every bar. Colours are applied via these class names in
+// team.less so the mapping lives in one place.
+const STREAM_ORDER = ['New Business', 'Expansion'];
+const STREAM_CLASS = {
+  'New Business': 'stream--new-business',
+  Expansion: 'stream--expansion',
+  Unspecified: 'stream--unspecified',
+};
+
+// Order a byType map for display: known streams first in STREAM_ORDER, then
+// anything unexpected so a stray picklist value can't hide.
+function orderedStreams(byType) {
+  return Object.entries(byType || {})
+    .filter(([, amount]) => amount > 0)
+    .sort(([a], [b]) => {
+      const ia = STREAM_ORDER.indexOf(a);
+      const ib = STREAM_ORDER.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+}
+
 const CHART = { w: 760, h: 340, padTop: 16, padRight: 12, padBottom: 56, padLeft: 40 };
 
 // The three series rendered per SE group, in draw order (left→right).
@@ -678,15 +700,24 @@ function TeamPage() {
   const carrBreakdown = useMemo(() => {
     const rows = (packCarr?.sets || [])
       .filter((s) => s.userId !== user?.id)
-      .map((s) => ({
-        seId: s.seId,
-        name: s.name,
-        carr: quarterKey ? s.byQuarter?.[quarterKey] || 0 : s.total || 0,
-      }))
+      .map((s) => {
+        // Per-quarter when a quarter is selected, otherwise the year. The
+        // backend splits both by opportunity type so a lead can see whether an
+        // SE's number came from New Business or Expansion rather than one
+        // lumped bar -- which matters from Q3 CY2026, when the two share a goal.
+        const byType = (quarterKey ? s.byQuarterType?.[quarterKey] : s.byType) || {};
+        return {
+          seId: s.seId,
+          name: s.name,
+          carr: quarterKey ? s.byQuarter?.[quarterKey] || 0 : s.total || 0,
+          streams: orderedStreams(byType),
+        };
+      })
       .sort((a, b) => b.carr - a.carr);
     const max = rows.reduce((m, r) => Math.max(m, r.carr), 0);
     const total = rows.reduce((sum, r) => sum + r.carr, 0);
-    return { rows, max, total };
+    const hasSplit = rows.some((r) => r.streams.length > 1);
+    return { rows, max, total, hasSplit };
   }, [packCarr, quarterKey, user?.id]);
 
   // Pre-compute the SVG layout (bar rects, y-axis ticks, x labels) for
@@ -1092,12 +1123,53 @@ function TeamPage() {
                                   carrBreakdown.max > 0 ? (row.carr / carrBreakdown.max) * 100 : 0
                                 }%`,
                               }}
-                            />
+                            >
+                              {/*
+                                Segments sit inside the proportional bar, so
+                                each SE's bar still reads against the pack max
+                                while showing its own stream mix.
+                              */}
+                              {row.streams.length > 1 &&
+                                row.carr > 0 &&
+                                row.streams.map(([name, amount]) => (
+                                  <span
+                                    key={name}
+                                    className={`team-carr__segment ${STREAM_CLASS[name] || ''}`}
+                                    style={{ width: `${(amount / row.carr) * 100}%` }}
+                                    title={`${name}: ${formatCompactUSD(amount)}`}
+                                  />
+                                ))}
+                            </span>
                           </span>
                           <span className="team-carr__amount">{formatCompactUSD(row.carr)}</span>
                         </li>
                       ))}
                     </ul>
+                    {carrBreakdown.hasSplit && (
+                      <ul className="team-carr__legend">
+                        {STREAM_ORDER.map((name) => {
+                          // Pack-wide total for the stream, summed across the
+                          // same rows the bars above are drawn from.
+                          const streamTotal = carrBreakdown.rows.reduce(
+                            (sum, row) => sum + (row.streams.find(([s]) => s === name)?.[1] || 0),
+                            0,
+                          );
+                          if (streamTotal <= 0) return null;
+                          return (
+                            <li
+                              key={name}
+                              className={`team-carr__legend-item ${STREAM_CLASS[name] || ''}`}
+                            >
+                              <span className="team-carr__legend-dot" aria-hidden="true" />
+                              {name}
+                              <b className="team-carr__legend-value">
+                                {formatCompactUSD(streamTotal)}
+                              </b>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                     <p className="team-carr__note">
                       Closed in {periodLabel}, attributed by each closed-won deal&apos;s AE and the
                       team they belong to.

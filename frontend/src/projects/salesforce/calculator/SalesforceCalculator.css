@@ -891,43 +891,57 @@
 
 /* =========================
  * Column widths — opportunities table
+ *
+ * The table is `table-layout: fixed`, so EVERY column needs a rule and the
+ * percentages must total 100. A column with no rule collapses to nothing and
+ * silently disappears -- which is exactly what happened to CARR when the Type
+ * column was added and the widths still described a 6-column table.
+ *
+ * Order: Select | Opportunity Name | Stage | Type | AE Name | Probability | CARR
+ * Both tables in this view share the row renderer, so both share these widths.
  * ========================= */
 
 .salesforce-calculator .table-container th:nth-child(1),
 .salesforce-calculator .table-container td:nth-child(1) {
-  width: 8%;
+  width: 7%;
 }
 .salesforce-calculator .table-container th:nth-child(2),
 .salesforce-calculator .table-container td:nth-child(2) {
-  width: 28%;
+  width: 26%;
   text-align: left;
 }
 .salesforce-calculator .table-container th:nth-child(3),
 .salesforce-calculator .table-container td:nth-child(3) {
-  width: 14%;
+  width: 13%;
 }
 .salesforce-calculator .table-container th:nth-child(4),
 .salesforce-calculator .table-container td:nth-child(4) {
-  width: 20%;
+  width: 12%;
   text-align: left;
 }
 .salesforce-calculator .table-container th:nth-child(5),
 .salesforce-calculator .table-container td:nth-child(5) {
-  width: 12%;
+  width: 17%;
+  text-align: left;
 }
 .salesforce-calculator .table-container th:nth-child(6),
 .salesforce-calculator .table-container td:nth-child(6) {
-  width: 18%;
+  width: 10%;
+}
+.salesforce-calculator .table-container th:nth-child(7),
+.salesforce-calculator .table-container td:nth-child(7) {
+  width: 15%;
   text-align: right;
 }
 
-/* Match left-alignment on the headers for the columns that align left. */
+/* Match alignment on the headers for the columns that don't centre. */
 .salesforce-calculator .table-container th:nth-child(2),
-.salesforce-calculator .table-container th:nth-child(4) {
+.salesforce-calculator .table-container th:nth-child(4),
+.salesforce-calculator .table-container th:nth-child(5) {
   text-align: left;
 }
 
-.salesforce-calculator .table-container th:nth-child(6) {
+.salesforce-calculator .table-container th:nth-child(7) {
   text-align: right;
 }
 

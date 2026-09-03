@@ -77,17 +77,27 @@ function normalizeName(name) {
   return typeof name === 'string' ? name.trim().toLowerCase() : '';
 }
 
-// Decide whether an opp counts as a "C-scored" deal that should be
-// excluded from CARR goal math. We key off **Account Score** rather
-// than Sales Score because ICP signals (AAR, geo, engineer count,
-// etc.) can promote an opp from Sales=C to Account=E — those E deals
-// should still count toward the goal. Empty `accountScore` (legacy
-// 2025 reports + pre-2026 snapshots) returns false, which keeps
-// historical years' totals identical to what they were before this
-// feature shipped.
-function isCScore(opp) {
-  const raw = (opp?.accountScore || '').trim().toUpperCase();
-  return raw === 'C' || raw.startsWith('C ') || raw.startsWith('C-');
+// Goal eligibility is decided server-side and arrives on each row as
+// `goalEligible` — it folds together the Account Score rule (keyed off the
+// ICP-uplifted **Account Score**, not Sales Score, so an opp promoted from
+// Sales=C to Account=E still counts), explicit leadership exceptions, and
+// whether the opportunity's type counts toward the goal in its quarter.
+//
+// This page previously carried its own `isCScore` with no exception handling
+// at all, so a C-scored deal granted an explicit goal-inclusion exception was
+// counted by the dashboard and the PDF but dropped into the C bucket here.
+//
+// Snapshot years captured before the flag existed have no `goalEligible`, so a
+// missing flag means eligible and historical totals stay identical.
+function isGoalEligible(opp) {
+  return opp?.goalEligible !== false;
+}
+
+// Rows excluded by policy land in the C-score panel. The panel's heading still
+// says "C-scored" because that is what excludes essentially all of them; an
+// opportunity excluded purely for its type carries a `type` we can show.
+function isExcludedFromGoal(opp) {
+  return !isGoalEligible(opp);
 }
 
 /**
@@ -115,7 +125,7 @@ function groupOppsByAE(data) {
   for (const opp of opps) {
     const key = normalizeName(opp.aeName);
     if (!key) continue;
-    const target = isCScore(opp) ? cScoreByAE : goalEligibleByAE;
+    const target = isExcludedFromGoal(opp) ? cScoreByAE : goalEligibleByAE;
     if (!target.has(key)) target.set(key, []);
     target.get(key).push(opp);
   }

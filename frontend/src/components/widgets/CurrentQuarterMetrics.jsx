@@ -201,6 +201,36 @@ function CurrentQuarterMetrics() {
 
   const previousQuarterData = previousQuarterKey ? quarterlyData[previousQuarterKey] || {} : {};
   const previousQuarterCARR = previousQuarterData?.totalCARR || 0;
+
+  // From Q3 CY2026 the goal counts New Business + Expansion; earlier quarters
+  // count New Business only. The backend stamps each quarter with the
+  // composition in force, so comparing the two ids tells us whether a
+  // quarter-over-quarter delta means anything. Across the cutover it doesn't —
+  // Q3 vs Q2 would render a large jump that is purely definitional — so the
+  // delta is suppressed rather than shown and misread as performance.
+  const currentComposition = currentQuarterData?.composition;
+  const previousComposition = previousQuarterData?.composition;
+  const comparableQuarters =
+    !currentComposition || !previousComposition
+      ? true // legacy payloads carry no composition; behave as before
+      : currentComposition.id === previousComposition.id;
+
+  // Per-stream split behind the headline CARR. Only rendered when the quarter
+  // actually counts more than one stream.
+  const STREAM_ORDER = ['New Business', 'Expansion'];
+  const STREAM_CLASS = {
+    'New Business': 'stream--new-business',
+    Expansion: 'stream--expansion',
+    Unspecified: 'stream--unspecified',
+  };
+  const streams = Object.entries(currentQuarterData?.carrByType || {})
+    .filter(([, amount]) => amount > 0)
+    .sort(([a], [b]) => {
+      const ia = STREAM_ORDER.indexOf(a);
+      const ib = STREAM_ORDER.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+  const hasStreamSplit = streams.length > 1 && currentQuarterCARR > 0;
   const previousQuarterGoal = previousQuarterKey
     ? quarterlyGoals.find((q) => q.label === previousQuarterKey)?.goal || 0
     : 0;
@@ -256,11 +286,13 @@ function CurrentQuarterMetrics() {
   };
 
   const goalDeltaInfo = formatDelta(goalDelta, !!previousQuarterGoal);
-  const carrDeltaInfo = formatDelta(carrDelta, !!previousQuarterCARR);
+  // CARR-derived deltas are only meaningful when both quarters count the same
+  // set of opportunity types (see comparableQuarters above).
+  const carrDeltaInfo = formatDelta(carrDelta, !!previousQuarterCARR && comparableQuarters);
   // Pack Wins delta is a plain integer count (no `$`), formatted as e.g. "+3".
   const winsDeltaInfo = formatDelta(winsDelta, !!previousPackWins, (n) => `${Math.round(n)}`);
   // Avg deal size is currency.
-  const avgDealDeltaInfo = formatDelta(avgDealDelta, !!previousAvgDealSize);
+  const avgDealDeltaInfo = formatDelta(avgDealDelta, !!previousAvgDealSize && comparableQuarters);
   // SE-scoped equivalents of the above two. Wins delta is a plain count,
   // CARR delta is currency, both keyed off the *user's* prior quarter.
   const userWinsDeltaInfo = formatDelta(
@@ -268,7 +300,7 @@ function CurrentQuarterMetrics() {
     !!previousUserWins,
     (n) => `${Math.round(n)}`,
   );
-  const userCARRDeltaInfo = formatDelta(userCARRDelta, !!previousUserCARR);
+  const userCARRDeltaInfo = formatDelta(userCARRDelta, !!previousUserCARR && comparableQuarters);
 
   const previousQuarterShortLabel = previousQuarterKey
     ? previousQuarterKey.replace(/\s+CY/, ' ')
@@ -337,6 +369,37 @@ function CurrentQuarterMetrics() {
             </span>
           </div>
           <div className="metric-summary__value">${formatNumber(currentQuarterCARR)}</div>
+          {hasStreamSplit && (
+            <div className="metric-summary__streams">
+              <div
+                className="metric-summary__stream-bar"
+                role="img"
+                aria-label={streams
+                  .map(([name, amount]) => `${name} $${formatNumber(amount)}`)
+                  .join(', ')}
+              >
+                {streams.map(([name, amount]) => (
+                  <span
+                    key={name}
+                    className={`metric-summary__stream-segment ${STREAM_CLASS[name] || ''}`}
+                    style={{ width: `${(amount / currentQuarterCARR) * 100}%` }}
+                  />
+                ))}
+              </div>
+              <div className="metric-summary__stream-legend">
+                {streams.map(([name, amount]) => (
+                  <span key={name} className="metric-summary__stream-item">
+                    <span
+                      className={`metric-summary__stream-dot ${STREAM_CLASS[name] || ''}`}
+                      aria-hidden="true"
+                    />
+                    {name === 'New Business' ? 'NB' : name}
+                    <b>${formatNumber(amount)}</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="metric-summary__foot">
             {carrDeltaInfo ? (
               <span
@@ -345,7 +408,16 @@ function CurrentQuarterMetrics() {
                 {carrDeltaInfo.text}
               </span>
             ) : (
-              <span className="metric-summary__delta metric-summary__delta--muted">—</span>
+              <span
+                className="metric-summary__delta metric-summary__delta--muted"
+                title={
+                  !comparableQuarters && previousQuarterCARR
+                    ? `Not compared: ${previousQuarterShortLabel} counted ${previousComposition?.label}, this quarter counts ${currentComposition?.label}`
+                    : undefined
+                }
+              >
+                —
+              </span>
             )}
             <span className="metric-summary__hint">{quarterlyProgress.toFixed(1)}% of goal</span>
           </div>
