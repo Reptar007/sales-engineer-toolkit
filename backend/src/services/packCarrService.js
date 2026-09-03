@@ -7,11 +7,14 @@
  * each Team has exactly one Sales Engineer. So `opp.AE -> AE.team -> SE`.
  * We match the AE by Salesforce id first (exact) and fall back to a
  * normalized name match (covers AEs seeded without a real SF id). We pull
- * the year's metrics (snapshot or live), drop C-accounts to match the
- * dashboard's headline CARR, and sum each deal onto the owning SE.
+ * the year's metrics (snapshot or live), which arrive with goal policy
+ * already applied, and sum each goal-eligible deal onto the owning SE --
+ * split by opportunity type so the Pack view can show which stream each SE's
+ * number came from.
  */
 import { getPrisma } from '../lib/prisma.js';
 import { getMetricsQuarterlyDataForYear } from '../projects/salesforce/metricsForYear.js';
+import { typeBucket } from '../projects/salesforce/goalEligibility.js';
 
 function normalizeName(name) {
   return typeof name === 'string' ? name.trim().toLowerCase() : '';
@@ -22,7 +25,10 @@ function normalizeName(name) {
  * @returns {Promise<{
  *   configured: boolean,
  *   year: number,
- *   sets: Array<{ seId, userId, name, byQuarter: Record<string, number>, total: number }>,
+ *   sets: Array<{ seId, userId, name, byQuarter: Record<string, number>,
+ *                 byType: Record<string, number>,
+ *                 byQuarterType: Record<string, Record<string, number>>,
+ *                 total: number }>,
  * }>}
  */
 export async function getPackCarr(year) {
@@ -43,6 +49,10 @@ export async function getPackCarr(year) {
       userId: se.userId,
       name: fullName || se.user?.email || 'Unknown SE',
       byQuarter: {},
+      // New Business / Expansion split, overall and per quarter, so a lead can
+      // see which stream an SE's CARR came from rather than one lumped figure.
+      byType: {},
+      byQuarterType: {},
       total: 0,
     });
     if (se.teamId) teamToSe.set(se.teamId, se.id);
@@ -77,15 +87,23 @@ export async function getPackCarr(year) {
   for (const [quarterName, q] of Object.entries(quarterly)) {
     if (quarterName === 'Total') continue;
     for (const opp of q.opportunities || []) {
-      // Exclude C-accounts so this matches the dashboard's headline CARR.
-      if (opp.accountScore === 'C') continue;
+      // `goalEligible` is decided upstream in goalEligibility.js -- C-score
+      // exclusions, leadership exceptions, and whether the opportunity's type
+      // counts toward the goal in this particular quarter. Re-deriving any of
+      // that here is what let this roll-up drift from the dashboard before.
+      if (!opp.goalEligible) continue;
       // AE Salesforce id first (exact), then fall back to AE name.
       const seId =
         (opp.aeId && aeSfIdToSe.get(opp.aeId)) || aeNameToSe.get(normalizeName(opp.aeName));
       if (!seId) continue;
       const rec = bySe.get(seId);
       const amount = opp.carrAmount || 0;
+      const bucket = typeBucket(opp);
       rec.byQuarter[quarterName] = (rec.byQuarter[quarterName] || 0) + amount;
+      rec.byType[bucket] = (rec.byType[bucket] || 0) + amount;
+      rec.byQuarterType[quarterName] = rec.byQuarterType[quarterName] || {};
+      rec.byQuarterType[quarterName][bucket] =
+        (rec.byQuarterType[quarterName][bucket] || 0) + amount;
       rec.total += amount;
     }
   }

@@ -20,6 +20,7 @@
  */
 
 import { getPrisma } from '../../lib/prisma.js';
+import { summarizeQuarter } from './goalEligibility.js';
 
 function normalize(name) {
   return typeof name === 'string' ? name.trim().toLowerCase() : '';
@@ -73,21 +74,36 @@ export function withQuarterlyDataForUser(payload, assignedAENames) {
   const filteredQuarterly = {};
   let yearlyTotalCARR = 0;
   let yearlyOppCount = 0;
+  const yearlyCarrByType = {};
 
   for (const [quarterName, quarterEntry] of Object.entries(payload.quarterlyData)) {
     if (quarterName === 'Total') continue;
     const opps = Array.isArray(quarterEntry.opportunities) ? quarterEntry.opportunities : [];
     const filteredOpps = opps.filter((opp) => allowed.has(normalize(opp.aeName)));
-    const totalCARR = filteredOpps.reduce((sum, opp) => sum + (opp.carrAmount || 0), 0);
+
+    // The pack-wide payload arrives already tagged with `goalEligible`, so the
+    // SE-scoped totals reuse that decision rather than re-deriving it -- this
+    // is what keeps a per-SE tile from disagreeing with the pack tile beside
+    // it. `summarizeQuarter` also produces the New Business / Expansion split.
+    const summary = summarizeQuarter(filteredOpps, quarterName);
+
     filteredQuarterly[quarterName] = {
       quarter: quarterName,
-      totalCARR,
-      totalCARRFormatted: formatUSD(totalCARR),
-      opportunityCount: filteredOpps.length,
+      totalCARR: summary.totalCARR,
+      totalCARRFormatted: formatUSD(summary.totalCARR),
+      opportunityCount: summary.eligibleCount,
+      eligibleCount: summary.eligibleCount,
+      excludedCount: summary.excludedCount,
+      carrByType: summary.carrByType,
+      countByType: summary.countByType,
+      composition: summary.composition,
       opportunities: filteredOpps,
     };
-    yearlyTotalCARR += totalCARR;
-    yearlyOppCount += filteredOpps.length;
+    yearlyTotalCARR += summary.totalCARR;
+    yearlyOppCount += summary.eligibleCount;
+    for (const [bucket, amount] of Object.entries(summary.carrByType)) {
+      yearlyCarrByType[bucket] = (yearlyCarrByType[bucket] || 0) + amount;
+    }
   }
 
   filteredQuarterly['Total'] = {
@@ -95,6 +111,7 @@ export function withQuarterlyDataForUser(payload, assignedAENames) {
     totalCARR: yearlyTotalCARR,
     totalCARRFormatted: formatUSD(yearlyTotalCARR),
     opportunityCount: yearlyOppCount,
+    carrByType: yearlyCarrByType,
     // Mirrors the pack-wide payload, which leaves Total.opportunities
     // empty since the per-quarter buckets already carry the line items.
     opportunities: [],
