@@ -1,0 +1,182 @@
+/*
+ * Revenue-stream visual language: New Business vs Expansion.
+ *
+ * From Q3 CY2026 the quarterly goal counts both streams as one number, so
+ * every CARR surface shows the split behind its headline figure. That's five
+ * surfaces (Trophies, the Den widget, the Pack view, the Bounty Calculator,
+ * and the CARR PDF), which is exactly why the tokens and classes live here
+ * once rather than being redefined per stylesheet.
+ *
+ * The two colours are the accents this app already uses for progress states --
+ * teal (the "on track" accent) and amber (the mid-range accent) -- so the
+ * split reads as part of the existing system rather than a new palette.
+ *
+ * Imported globally from App.less. Class names are `stream-`/`--stream`
+ * prefixed, so they're safe unscoped.
+ */
+
+:root {
+  --stream-new-business: #2dd4bf;
+  --stream-expansion: #f59e0b;
+  --stream-unspecified: rgba(148, 163, 184, 0.85);
+  --stream-track: rgba(148, 163, 184, 0.25);
+}
+
+// Role modifiers. Every stream element reads `--stream-color`, so a surface
+// only has to stamp one of these class names on the element or its ancestor.
+.stream--new-business {
+  --stream-color: var(--stream-new-business);
+}
+.stream--expansion {
+  --stream-color: var(--stream-expansion);
+}
+.stream--unspecified {
+  --stream-color: var(--stream-unspecified);
+}
+
+// ---- segmented bar ----
+.stream-split {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.stream-split__bar {
+  display: flex;
+  width: 100%;
+  height: 8px;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: var(--stream-track);
+}
+
+.stream-split__segment {
+  display: block;
+  height: 100%;
+  background: var(--stream-color, var(--stream-unspecified));
+  // A small Expansion deal should read as a sliver, never as nothing.
+  min-width: 3px;
+}
+
+.stream-split__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+
+.stream-split__legend-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.stream-split__legend-name {
+  opacity: 0.8;
+}
+
+.stream-split__legend-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.stream-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  align-self: center;
+  background: var(--stream-color, var(--stream-unspecified));
+}
+
+// ---- filter tabs ----
+.stream-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.85rem;
+}
+
+.stream-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+
+  &:hover {
+    border-color: var(--stream-color, var(--coral));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--stream-color, var(--coral));
+    outline-offset: 2px;
+  }
+
+  &.is-active {
+    border-color: var(--stream-color, var(--coral));
+    background: color-mix(in srgb, var(--stream-color, var(--coral)) 16%, transparent);
+    font-weight: 600;
+  }
+}
+
+.stream-tab__count {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+  opacity: 0.7;
+}
+
+// CARR sits after the count, tinted with the stream colour so the money is
+// the part that reads first when scanning the chips.
+.stream-tab__carr {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--stream-color, inherit);
+  padding-left: 0.35rem;
+  border-left: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+// ---- type pill ----
+.stream-pill {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--stream-color, var(--stream-unspecified));
+  background: color-mix(in srgb, var(--stream-color, var(--stream-unspecified)) 15%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--stream-color, var(--stream-unspecified)) 40%, transparent);
+}
+
+// Rows captured before the Type column existed carry no type. A quiet dash,
+// rather than implying they were classified as something.
+.stream-pill--empty {
+  color: inherit;
+  opacity: 0.45;
+  background: transparent;
+  border-color: transparent;
+  font-weight: 400;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stream-tab {
+    transition: none;
+  }
+}

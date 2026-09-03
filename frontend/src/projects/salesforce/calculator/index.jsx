@@ -40,6 +40,46 @@ const COMPENSATION_ROLE_META = {
   'sales engineer Lead': { accentClass: 'compensation-card--lead' },
 };
 
+// The two revenue streams that share a quarterly goal from Q3 CY2026. The
+// High Probability report now returns both, so the calculator has to show
+// which stream a projection is leaning on rather than one lumped figure.
+// Same class names and ordering as Trophies and the Den.
+const STREAM_ORDER = ['New Business', 'Expansion'];
+const STREAM_CLASS = {
+  'New Business': 'stream--new-business',
+  Expansion: 'stream--expansion',
+  Unspecified: 'stream--unspecified',
+};
+
+function orderedStreams(byType) {
+  return Object.entries(byType || {})
+    .filter(([, amount]) => amount > 0)
+    .sort(([a], [b]) => {
+      const ia = STREAM_ORDER.indexOf(a);
+      const ib = STREAM_ORDER.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+}
+
+// Compact currency for chips and legends, matching the Pack view's treatment
+// so the same number reads the same way across surfaces.
+function formatCompactUSD(amount) {
+  const n = Number(amount) || 0;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${Math.round(n)}`;
+}
+
+// Sum a set of opps into a { type -> CARR } map.
+function sumByType(opps) {
+  const byType = {};
+  for (const opp of opps) {
+    const bucket = opp.type || 'Unspecified';
+    byType[bucket] = (byType[bucket] || 0) + (opp.carrAmount || 0);
+  }
+  return byType;
+}
+
 const SalesforceCalculator = () => {
   const [config, setConfig] = useState(null);
   const [configError, setConfigError] = useState(null);
@@ -49,6 +89,9 @@ const SalesforceCalculator = () => {
   const [error, setError] = useState(null);
   const [selectedOpps, setSelectedOpps] = useState([]);
   const [sortColumn, setSortColumn] = useState(null);
+  // 'all' | 'New Business' | 'Expansion' -- which stream the High Probability
+  // table is showing. Purely a view filter; selections are preserved across it.
+  const [streamFilter, setStreamFilter] = useState('all');
   const [sortDirection, setSortDirection] = useState('asc');
   const [manualOpps, setManualOpps] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -273,6 +316,10 @@ const SalesforceCalculator = () => {
         aValue = (a.aeName || '').toLowerCase();
         bValue = (b.aeName || '').toLowerCase();
         break;
+      case 'type':
+        aValue = (a.type || '').toLowerCase();
+        bValue = (b.type || '').toLowerCase();
+        break;
       case 'probability':
         aValue = typeof a.probability === 'number' ? a.probability : parseInt(a.probability) || 0;
         bValue = typeof b.probability === 'number' ? b.probability : parseInt(b.probability) || 0;
@@ -289,11 +336,22 @@ const SalesforceCalculator = () => {
     return 0;
   });
 
-  const opportunities = sortedOpportunities;
+  // Pipeline streams present in the report, and the filter applied to the
+  // table. Filtering is a view only -- a selected Expansion opp stays in the
+  // projection while you're looking at the New Business tab.
+  const pipelineStreams = orderedStreams(sumByType(reportOpportunities));
+  const hasPipelineSplit = pipelineStreams.length > 1;
+  const activeStream = hasPipelineSplit && streamFilter !== 'all' ? streamFilter : null;
+  const opportunities = activeStream
+    ? sortedOpportunities.filter((opp) => (opp.type || 'Unspecified') === activeStream)
+    : sortedOpportunities;
 
-  const addedTotalCARR = allOpportunities
-    .filter((opp) => selectedOpps.includes(opp.opportunityId))
-    .reduce((sum, opp) => sum + (opp.carrAmount || 0), 0);
+  const selectedForProjection = allOpportunities.filter((opp) =>
+    selectedOpps.includes(opp.opportunityId),
+  );
+  const addedStreams = orderedStreams(sumByType(selectedForProjection));
+
+  const addedTotalCARR = selectedForProjection.reduce((sum, opp) => sum + (opp.carrAmount || 0), 0);
   const addedTotalCARRFormatted = `$${addedTotalCARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const projectedTotalCARR = currentQuarterCARR + addedTotalCARR;
@@ -355,6 +413,15 @@ const SalesforceCalculator = () => {
           </span>
         </td>
         <td>{opportunity.stage}</td>
+        <td>
+          {opportunity.type ? (
+            <span className={`stream-pill ${STREAM_CLASS[opportunity.type] || ''}`}>
+              {opportunity.type}
+            </span>
+          ) : (
+            <span className="stream-pill stream-pill--empty">—</span>
+          )}
+        </td>
         <td>{opportunity.aeName}</td>
         <td>{opportunity.probabilityFormatted || `${opportunity.probability}%`}</td>
         <td>
@@ -445,7 +512,45 @@ const SalesforceCalculator = () => {
           </div>
           <div className="metric-card-body">
             <h3 className="metric-card-body-text">{addedTotalCARRFormatted}</h3>
-            <p className="quarterly-goal-text">{selectedOpps.length} selected</p>
+            {addedStreams.length > 1 && addedTotalCARR > 0 ? (
+              <div className="stream-split">
+                <div
+                  className="stream-split__bar"
+                  role="img"
+                  aria-label={addedStreams
+                    .map(
+                      ([name, amount]) => `${name} $${Math.round(amount).toLocaleString('en-US')}`,
+                    )
+                    .join(', ')}
+                >
+                  {addedStreams.map(([name, amount]) => (
+                    <span
+                      key={name}
+                      className={`stream-split__segment ${STREAM_CLASS[name] || ''}`}
+                      style={{ width: `${(amount / addedTotalCARR) * 100}%` }}
+                    />
+                  ))}
+                </div>
+                <ul className="stream-split__legend">
+                  {addedStreams.map(([name, amount]) => (
+                    <li key={name} className="stream-split__legend-item">
+                      <span
+                        className={`stream-dot ${STREAM_CLASS[name] || ''}`}
+                        aria-hidden="true"
+                      />
+                      <span className="stream-split__legend-name">
+                        {name === 'New Business' ? 'NB' : name}
+                      </span>
+                      <span className="stream-split__legend-value">
+                        ${Math.round(amount).toLocaleString('en-US')}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="quarterly-goal-text">{selectedOpps.length} selected</p>
+            )}
           </div>
         </div>
 
@@ -625,6 +730,7 @@ const SalesforceCalculator = () => {
                 <th>Select</th>
                 <th>Opportunity Name</th>
                 <th>Stage</th>
+                <th>Type</th>
                 <th>AE Name</th>
                 <th>Probability</th>
                 <th>CARR</th>
@@ -633,7 +739,7 @@ const SalesforceCalculator = () => {
             <tbody>
               {addedOpps.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="empty-row">
+                  <td colSpan="7" className="empty-row">
                     No opportunities added yet — select from the table below or use the lookup above
                   </td>
                 </tr>
@@ -649,6 +755,42 @@ const SalesforceCalculator = () => {
         <div className="table-title">
           High Probability Opportunities ({reportOpportunities.length})
         </div>
+        {hasPipelineSplit && (
+          <div className="stream-tabs" role="group" aria-label="Filter pipeline by type">
+            <button
+              type="button"
+              className={`stream-tab ${streamFilter === 'all' ? 'is-active' : ''}`}
+              aria-pressed={streamFilter === 'all'}
+              onClick={() => setStreamFilter('all')}
+            >
+              All
+              <span className="stream-tab__count">{reportOpportunities.length}</span>
+              <span className="stream-tab__carr">
+                {formatCompactUSD(
+                  reportOpportunities.reduce((sum, opp) => sum + (opp.carrAmount || 0), 0),
+                )}
+              </span>
+            </button>
+            {pipelineStreams.map(([name, amount]) => (
+              <button
+                key={name}
+                type="button"
+                className={`stream-tab ${STREAM_CLASS[name] || ''} ${
+                  streamFilter === name ? 'is-active' : ''
+                }`}
+                aria-pressed={streamFilter === name}
+                onClick={() => setStreamFilter(name)}
+              >
+                <span className={`stream-dot ${STREAM_CLASS[name] || ''}`} aria-hidden="true" />
+                {name}
+                <span className="stream-tab__count">
+                  {reportOpportunities.filter((opp) => (opp.type || 'Unspecified') === name).length}
+                </span>
+                <span className="stream-tab__carr">{formatCompactUSD(amount)}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="table-scroll">
           <table aria-label={`High Probability Opportunities (${reportOpportunities.length})`}>
             <thead>
@@ -661,6 +803,12 @@ const SalesforceCalculator = () => {
                   )}
                 </th>
                 <th>Stage</th>
+                <th className="sortable" onClick={() => handleSort('type')}>
+                  Type
+                  {sortColumn === 'type' && (
+                    <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                  )}
+                </th>
                 <th className="sortable" onClick={() => handleSort('aeName')}>
                   AE Name
                   {sortColumn === 'aeName' && (
@@ -684,7 +832,7 @@ const SalesforceCalculator = () => {
             <tbody>
               {opportunities.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="empty-row">
+                  <td colSpan="7" className="empty-row">
                     No opportunities found
                   </td>
                 </tr>

@@ -56,11 +56,14 @@ jobs:
           node-version: 24.16.0
           cache: npm
       - run: npm ci
-      # TODO: enable real tests once a test runner is wired up in frontend/backend.
-      # The frontend has no `test` script yet, so use a tolerant no-op here so the
-      # required `test` check can report success instead of hanging unreported.
-      - name: Run tests (placeholder)
-        run: echo "No tests configured yet."
+      # Backend unit tests run on Node's built-in test runner (no extra dep).
+      # They cover the goal-eligibility rules -- which opportunity types count
+      # toward the quarterly goal in which quarter -- so a change that would
+      # silently move an already-reported quarter fails here instead of in
+      # production.
+      - run: npm ci
+        working-directory: backend
+      - run: npm test
 
   # Prisma schema drift guard. Not a required check, but catches dev (SQLite)
   # vs prod (PostgreSQL) schema divergence that would pass locally and break

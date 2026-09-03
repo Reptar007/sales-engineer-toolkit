@@ -5,12 +5,26 @@ import {
   addYearToSnapshotRegistry,
   SNAPSHOTS_DIR,
 } from './functions.js';
-import { detectHasAccountScore, getMetricsColumnIndices } from './reportShape.js';
+import { resolveMetricsColumns, parseMetricsRow } from './reportShape.js';
 import { getSalesforceConfig } from '../../config/salesforce.js';
 
+function usd(amount) {
+  return `$${Number(amount || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 /**
- * Create snapshot JSON files for a given year by fetching both reports from Salesforce
- * and writing them to backend/data/snapshots/. Also updates the snapshot registry.
+ * Create snapshot JSON files for a given year by fetching both reports from
+ * Salesforce and writing them to backend/data/snapshots/. Also updates the
+ * snapshot registry.
+ *
+ * Snapshots store RAW closed-won rows -- no C-score filtering, no opportunity
+ * type filtering. Goal policy is applied when a snapshot is read (see
+ * metricsPayload.js), so a later policy change never requires re-snapshotting
+ * a finalised year. The `totalCARR` written here is therefore the unfiltered
+ * sum and is not what any surface displays.
  *
  * @param {number} year - Year to snapshot (e.g. 2025, 2026).
  * @returns {Promise<{ success: true, message: string }>}
@@ -34,73 +48,54 @@ export async function createSnapshotForYear(year) {
     conn.analytics.report(calculatorReportId).execute({ details: true }),
   ]);
 
-  // Format metrics (same shape as GET /report/:reportId for metrics).
-  // Detect the report's column layout once per fetch — see reportShape.js
-  // for the 2025-vs-2026 layout difference. Snapshots written before
-  // 2026 used the old shape and don't carry an `accountScore` field;
-  // that's intentional — the team page treats an empty accountScore as
-  // "not C", so historical years stay in the goal-eligible bucket.
-  const hasAccountScore = detectHasAccountScore(metricsResult.factMap);
-  const cols = getMetricsColumnIndices(hasAccountScore);
+  // Column indices resolve from the report's own metadata where available and
+  // fall back to the positional map. Snapshots written before Opportunity Type
+  // was added to the report simply carry `type: ''` on every row, which reads
+  // back as goal-eligible so historical years don't move.
+  const cols = resolveMetricsColumns(metricsResult);
   const quarterlyData = {};
   const allOpportunities = [];
-  Object.keys(metricsResult.factMap).forEach((quarterKey) => {
+
+  for (const quarterKey of Object.keys(metricsResult.factMap || {})) {
     const quarterData = metricsResult.factMap[quarterKey];
     const quarterName = getQuarterName(quarterKey, metricsResult.groupingsDown);
-    if (quarterName === 'Total') return;
+    if (quarterName === 'Total') continue;
 
-    const opportunities = [];
-    if (quarterData.rows && Array.isArray(quarterData.rows)) {
-      quarterData.rows.forEach((row) => {
-        const dataCells = row.dataCells;
-        const aeId = dataCells[cols.aeName]?.value || '';
-        const opportunity = {
-          aeName: dataCells[cols.aeName]?.label || '',
-          opportunityName: dataCells[cols.opportunityName]?.label || '',
-          salesScore: dataCells[cols.salesScore]?.label || '',
-          accountScore: cols.accountScore >= 0 ? dataCells[cols.accountScore]?.label || '' : '',
-          effectiveDate: dataCells[cols.effectiveDate]?.label || '',
-          grossARRAmount: dataCells[cols.grossARR]?.value?.amount || 0,
-          grossARRAmountFormatted: dataCells[cols.grossARR]?.label || '',
-          carrAmount: dataCells[cols.carr]?.value?.amount || 0,
-          carrAmountFormatted: dataCells[cols.carr]?.label || '',
-          aeId,
-          opportunityId: dataCells[cols.opportunityName]?.value || '',
-          quarter: quarterName,
-        };
-        opportunities.push(opportunity);
-        allOpportunities.push(opportunity);
-      });
-    }
-    const filteredTotalCARR = opportunities.reduce((sum, opp) => sum + opp.carrAmount, 0);
+    const opportunities = Array.isArray(quarterData?.rows)
+      ? quarterData.rows.map((row) => parseMetricsRow(row.dataCells, cols, quarterName))
+      : [];
+    allOpportunities.push(...opportunities);
+
+    const rawTotalCARR = opportunities.reduce((sum, opp) => sum + opp.carrAmount, 0);
     quarterlyData[quarterName] = {
       quarter: quarterName,
-      totalCARR: filteredTotalCARR,
-      totalCARRFormatted: `$${filteredTotalCARR.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`,
+      totalCARR: rawTotalCARR,
+      totalCARRFormatted: usd(rawTotalCARR),
       opportunityCount: opportunities.length,
       opportunities,
     };
-  });
-  let yearlyTotalCARR = 0;
-  Object.keys(quarterlyData).forEach((key) => {
-    if (key !== 'Total') yearlyTotalCARR += quarterlyData[key].totalCARR || 0;
-  });
+  }
+
+  const yearlyTotalCARR = Object.values(quarterlyData).reduce(
+    (sum, quarter) => sum + (quarter.totalCARR || 0),
+    0,
+  );
   quarterlyData['Total'] = {
     quarter: 'Total',
     totalCARR: yearlyTotalCARR,
-    totalCARRFormatted: `$${yearlyTotalCARR.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`,
+    totalCARRFormatted: usd(yearlyTotalCARR),
     opportunityCount: allOpportunities.length,
     opportunities: [],
   };
+
   const metricsPayload = {
     success: true,
     reportId: metricsReportId,
+    // Recorded so a snapshot can be audited later for which layout produced
+    // it, and whether Type was present at capture time.
+    columnSource: cols.source,
+    hasTypeColumn: cols.type >= 0,
+    capturedAt: new Date().toISOString(),
     totalOpportunities: allOpportunities.length,
     quarterlyData,
     allOpportunities,
@@ -130,10 +125,7 @@ export async function createSnapshotForYear(year) {
     reportId: calculatorReportId,
     totalOpportunities: calcData.length,
     totalCARR,
-    totalCARRFormatted: `$${totalCARR.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`,
+    totalCARRFormatted: usd(totalCARR),
     data: calcData,
   };
 

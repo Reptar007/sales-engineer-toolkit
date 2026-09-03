@@ -197,3 +197,57 @@
     grid-template-columns: 1fr;
   }
 }
+
+// Revenue-stream split on the quarter CARR tile. Colours and the shared
+// `stream-*` classes come from styles/streams.less; only the tighter sizing
+// this compact tile needs lives here.
+.metric-summary__streams {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.metric-summary__stream-bar {
+  display: flex;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: var(--stream-track);
+}
+
+.metric-summary__stream-segment {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  background: var(--stream-color, var(--stream-unspecified));
+}
+
+.metric-summary__stream-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.75rem;
+  font-size: 0.7rem;
+  color: var(--muted-gray);
+}
+
+.metric-summary__stream-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  b {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: inherit;
+  }
+}
+
+.metric-summary__stream-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--stream-color, var(--stream-unspecified));
+}

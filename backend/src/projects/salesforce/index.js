@@ -6,9 +6,16 @@ import {
   SNAPSHOTS_DIR,
 } from './functions.js';
 import { createSnapshotForYear } from './snapshotService.js';
-import { detectHasAccountScore, getMetricsColumnIndices } from './reportShape.js';
+import { resolveMetricsColumns, parseMetricsRow, readDetailColumns } from './reportShape.js';
+import { decorateMetricsPayload, decorateCalculatorPayload } from './metricsPayload.js';
+import { normalizeOppType, isKnownOppType } from './goalComposition.js';
 import { getGoalsByYearFromDb, getGoalsForYear, upsertGoalsForYear } from './goalsService.js';
 import { loadAssignedAENames, withQuarterlyDataForUser } from './userMetricsFilter.js';
+import {
+  getQuarterCarrReport,
+  streamQuarterCarrPdf,
+  getReportFilename,
+} from '../../services/quarterCarrPdfService.js';
 import { authenticateToken } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/rbac.js';
 import { decodeHtmlEntities } from '../../lib/htmlEntities.js';
@@ -172,6 +179,99 @@ router.put('/goals/:year', authenticateToken, requireRole('admin'), async (req, 
   }
 });
 
+// Download a quarter's Closed-Won CARR breakdown as a PDF (admin-only). Same
+// data + layout as the `generate-quarter-carr-pdf.js` CLI script, streamed to
+// the client for the Alpha Pack → Quarterly Goals tab.
+router.get(
+  '/carr-breakdown/:year/:quarter/pdf',
+  authenticateToken,
+  requireRole('admin'),
+  async (req, res) => {
+    const year = parseYearParam(req.params.year);
+    if (!year) {
+      return res.status(400).json({
+        error: `Year must be an integer between ${MIN_GOALS_YEAR} and ${MAX_GOALS_YEAR}.`,
+      });
+    }
+    const quarter = Number.parseInt(req.params.quarter, 10);
+    if (!Number.isInteger(quarter) || quarter < 1 || quarter > 4) {
+      return res.status(400).json({ error: 'Quarter must be an integer between 1 and 4.' });
+    }
+
+    try {
+      const report = await getQuarterCarrReport(year, quarter);
+      const filename = getReportFilename(report);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      await streamQuarterCarrPdf(res, report);
+    } catch (error) {
+      console.error('Failed to generate CARR breakdown PDF:', error);
+      // Headers may already be flushed if streaming started; only send JSON
+      // when we can still set a status.
+      if (!res.headersSent) {
+        const status = error.code === 'NO_METRICS' || error.code === 'NO_QUARTER' ? 404 : 500;
+        return res.status(status).json({
+          error: error.message || 'Failed to generate CARR breakdown PDF.',
+        });
+      }
+      res.end();
+    }
+  },
+);
+
+// Inspect a report's column metadata and the distinct values in its Type
+// column (admin-only). This is the discovery step for the NB/Expansion split:
+// column API names and the real Opportunity Type picklist values are whatever
+// Salesforce says they are, and guessing them is how you corrupt a total.
+router.get(
+  '/report/:reportId/columns',
+  authenticateToken,
+  requireRole('admin'),
+  async (req, res) => {
+    try {
+      if (!conn) {
+        conn = await getSalesforceConnection();
+      }
+      const result = await conn.analytics.report(req.params.reportId).execute({ details: true });
+      const cols = resolveMetricsColumns(result);
+      const detailColumns = readDetailColumns(result) || [];
+
+      // Distinct raw Type values across every row, so the picklist can be read
+      // off the live report rather than assumed.
+      const rawTypeValues = new Set();
+      if (cols.type >= 0) {
+        for (const quarter of Object.values(result.factMap || {})) {
+          for (const row of quarter?.rows || []) {
+            const value = row.dataCells?.[cols.type]?.label;
+            if (value) rawTypeValues.add(value);
+          }
+        }
+      }
+
+      return res.json({
+        reportId: req.params.reportId,
+        resolvedFrom: cols.source,
+        hasTypeColumn: cols.type >= 0,
+        resolvedIndices: cols,
+        detailColumns,
+        rawTypeValues: [...rawTypeValues].sort(),
+        normalizedTypeValues: [...rawTypeValues].sort().map((value) => ({
+          raw: value,
+          normalized: normalizeOppType(value),
+          recognized: isKnownOppType(normalizeOppType(value)),
+        })),
+      });
+    } catch (error) {
+      console.error('Failed to read report columns:', error);
+      return res.status(500).json({
+        error: error.message,
+        details: 'Failed to fetch report metadata from Salesforce.',
+      });
+    }
+  },
+);
+
 // Get data from a specific report (protected - requires authentication)
 router.get('/report/:reportId', authenticateToken, async (req, res) => {
   const { reportId } = req.params;
@@ -195,107 +295,39 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
     });
 
     if (metricsReportIds.includes(reportId)) {
-      // Format the result to be more readable
+      // Column indices resolve from the report's own metadata where possible
+      // and fall back to the historical positional map -- see reportShape.js.
+      const cols = resolveMetricsColumns(result);
       const quarterlyData = {};
       const allOpportunities = [];
 
-      // Detect column layout once per fetch. The 2026 report inserted
-      // an "Account Score" column between Sales Score and Effective
-      // Date; earlier years (e.g. 2025) still use the original 6-col
-      // layout. See reportShape.js for the full layout reference.
-      const hasAccountScore = detectHasAccountScore(result.factMap);
-      const cols = getMetricsColumnIndices(hasAccountScore);
-
-      Object.keys(result.factMap).forEach((quarterKey) => {
+      for (const quarterKey of Object.keys(result.factMap || {})) {
         const quarterData = result.factMap[quarterKey];
-
         const quarterName = getQuarterName(quarterKey, result.groupingsDown);
 
-        // Skip "Total" entry - we'll calculate it separately after processing all quarters
-        if (quarterName === 'Total') {
-          return;
-        }
+        // "Total" is recomputed from the quarters once policy has been applied.
+        if (quarterName === 'Total') continue;
 
-        const opportunities = [];
-        // Handle case where rows might not exist
-        if (quarterData.rows && Array.isArray(quarterData.rows)) {
-          quarterData.rows.forEach((row) => {
-            const dataCells = row.dataCells;
+        const opportunities = Array.isArray(quarterData?.rows)
+          ? quarterData.rows.map((row) => parseMetricsRow(row.dataCells, cols, quarterName))
+          : [];
+        allOpportunities.push(...opportunities);
+        quarterlyData[quarterName] = { quarter: quarterName, opportunities };
+      }
 
-            const aeId = dataCells[cols.aeName]?.value || '';
-
-            // Parse each opportunity record. Indices come from cols
-            // (which knows about the 2025 vs 2026 column layout) so
-            // both shapes parse correctly without any year plumbing.
-            const opportunity = {
-              aeName: dataCells[cols.aeName]?.label || '',
-              opportunityName: dataCells[cols.opportunityName]?.label || '',
-              salesScore: dataCells[cols.salesScore]?.label || '', // Letter grade (A/B/C/...)
-              accountScore: cols.accountScore >= 0 ? dataCells[cols.accountScore]?.label || '' : '', // ICP-uplifted score; '' on legacy reports
-              effectiveDate: dataCells[cols.effectiveDate]?.label || '',
-              grossARRAmount: dataCells[cols.grossARR]?.value?.amount || 0,
-              grossARRAmountFormatted: dataCells[cols.grossARR]?.label || '',
-              carrAmount: dataCells[cols.carr]?.value?.amount || 0,
-              carrAmountFormatted: dataCells[cols.carr]?.label || '',
-
-              aeId: aeId,
-              opportunityId: dataCells[cols.opportunityName]?.value || '',
-
-              quarter: quarterName,
-            };
-
-            opportunities.push(opportunity);
-            allOpportunities.push(opportunity);
-          });
-        }
-
-        // Recalculate totals for filtered opportunities
-        // Exclude C accounts from quarterly metrics
-        const filteredOpportunities = opportunities.filter((opp) => opp.accountScore !== 'C');
-
-        const filteredTotalCARR = filteredOpportunities.reduce(
-          (sum, opp) => sum + opp.carrAmount,
-          0,
-        );
-
-        quarterlyData[quarterName] = {
-          quarter: quarterName,
-          totalCARR: filteredTotalCARR,
-          totalCARRFormatted: `$${filteredTotalCARR.toLocaleString('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`,
-          opportunityCount: filteredOpportunities.length,
-          opportunities: filteredOpportunities,
-        };
-      });
-
-      // Calculate yearly total by summing all quarters (excluding "Total" entry)
-      // This ensures accuracy after filtering
-      let yearlyTotalCARR = 0;
-      Object.keys(quarterlyData).forEach((key) => {
-        if (key !== 'Total') {
-          yearlyTotalCARR += quarterlyData[key].totalCARR || 0;
-        }
-      });
-
-      // Update or create "Total" entry with calculated yearly total
-      quarterlyData['Total'] = {
-        quarter: 'Total',
-        totalCARR: yearlyTotalCARR,
-        totalCARRFormatted: `$${yearlyTotalCARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        opportunityCount: allOpportunities.length,
-        opportunities: [], // Total doesn't need individual opportunities
-      };
-
-      const payload = {
+      // Exactly one place decides what counts toward goal: C-score exclusions,
+      // goal exceptions, and which opportunity types the quarter's composition
+      // counts. It also attaches the per-type CARR split the tiles render.
+      const payload = decorateMetricsPayload({
         success: true,
         reportId: reportId,
+        columnSource: cols.source,
+        hasTypeColumn: cols.type >= 0,
         totalOpportunities: allOpportunities.length,
         quarterlyData: quarterlyData,
         allOpportunities: allOpportunities,
         filtered: false, // pack-wide quarterlyData stays untouched
-      };
+      });
 
       // Attach quarterlyDataForUser when the requester is an SE with at
       // least one assigned AE. Pack-wide payload is untouched so admins
@@ -339,14 +371,19 @@ router.get('/report/:reportId', authenticateToken, async (req, res) => {
       const totalCARR = data.reduce((sum, opp) => sum + (opp.carrAmount || 0), 0);
       const totalCARRFormatted = `$${totalCARR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-      res.json({
-        success: true,
-        reportId: reportId,
-        totalOpportunities: totalOpportunities,
-        totalCARR: totalCARR,
-        totalCARRFormatted: totalCARRFormatted,
-        data: data,
-      });
+      // Canonicalise `type` and total the pipeline per stream so the
+      // calculator can show whether a projection leans on New Business or
+      // Expansion -- both now count toward one goal.
+      res.json(
+        decorateCalculatorPayload({
+          success: true,
+          reportId: reportId,
+          totalOpportunities: totalOpportunities,
+          totalCARR: totalCARR,
+          totalCARRFormatted: totalCARRFormatted,
+          data: data,
+        }),
+      );
     } else {
       res.status(400).json({
         success: false,
@@ -893,7 +930,9 @@ router.get('/snapshot/:year/calculator', authenticateToken, async (req, res) => 
   const filePath = `${SNAPSHOTS_DIR}/${year}-calculator.json`;
   try {
     const raw = readFileSync(filePath, 'utf8');
-    const payload = JSON.parse(raw);
+    // Snapshots store raw rows; type canonicalisation happens on read, the
+    // same way it does for metrics.
+    const payload = decorateCalculatorPayload(JSON.parse(raw));
     return res.json(payload);
   } catch {
     return res.status(404).json({ error: `Snapshot file not found for ${year}` });

@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getQuarterlyGoals, getSalesforceConfig, updateQuarterlyGoals } from '../services/api';
+import { LuDownload } from 'react-icons/lu';
+import {
+  downloadQuarterCarrPdf,
+  getQuarterlyGoals,
+  getSalesforceConfig,
+  updateQuarterlyGoals,
+} from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import './QuarterlyGoalsPage.css';
 
@@ -42,6 +48,9 @@ const QuarterlyGoalsPage = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const currentQuarter = Math.floor(new Date().getMonth() / 3) + 1;
+  const [selectedQuarter, setSelectedQuarter] = useState(currentQuarter);
+  const [downloading, setDownloading] = useState(false);
 
   const getCachedGoalsByYear = () => {
     try {
@@ -145,6 +154,19 @@ const QuarterlyGoalsPage = () => {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    setDownloading(true);
+    try {
+      const filename = await downloadQuarterCarrPdf(selectedYear, selectedQuarter);
+      toast.success(`Downloaded ${filename}.`);
+    } catch (error) {
+      const msg = error?.message || 'Failed to download CARR breakdown PDF.';
+      toast.error(msg);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const yearlyGoalTotal = useMemo(
     () =>
       goals.reduce(
@@ -184,6 +206,35 @@ const QuarterlyGoalsPage = () => {
             </option>
           ))}
         </select>
+
+        <div className="quarterly-goals__report">
+          <label htmlFor="report-quarter" className="quarterly-goals__label">
+            CARR report
+          </label>
+          <select
+            id="report-quarter"
+            value={selectedQuarter}
+            onChange={(e) => setSelectedQuarter(Number(e.target.value))}
+            className="quarterly-goals__select"
+            disabled={downloading}
+          >
+            {[1, 2, 3, 4].map((q) => (
+              <option key={q} value={q}>
+                Q{q}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="quarterly-goals__download"
+            onClick={handleDownloadPdf}
+            disabled={downloading}
+            title={`Download Q${selectedQuarter} ${selectedYear} CARR breakdown PDF`}
+          >
+            <LuDownload aria-hidden="true" />
+            {downloading ? 'Preparing...' : 'Download PDF'}
+          </button>
+        </div>
       </div>
 
       {loading ? (

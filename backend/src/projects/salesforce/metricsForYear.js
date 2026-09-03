@@ -1,12 +1,14 @@
 /**
  * Server-side loader for a year's Salesforce metrics `quarterlyData`,
- * preferring a saved snapshot (no SF round-trip) and falling back to a
- * live report fetch. Returns the same per-quarter shape the HTTP routes
- * emit — each quarter carries an `opportunities` array whose entries
- * include `opportunityId`, `carrAmount`, and `accountScore`.
+ * preferring a saved snapshot (no SF round-trip) and falling back to a live
+ * report fetch. Returns the same per-quarter shape the HTTP routes emit, with
+ * goal policy already applied -- each quarter carries an `opportunities` array
+ * whose entries include `opportunityId`, `carrAmount`, `accountScore`, `type`
+ * and `goalEligible`, plus the `carrByType` split.
  *
- * Extracted so non-HTTP consumers (e.g. the pack CARR roll-up) can reuse
- * the metrics without going back through the REST layer.
+ * Extracted so non-HTTP consumers (the pack CARR roll-up, the quarterly CARR
+ * PDF) can reuse the metrics without going back through the REST layer -- and
+ * so they share one definition of what counts toward goal.
  */
 import { readFileSync } from 'fs';
 import {
@@ -15,16 +17,17 @@ import {
   readSnapshotRegistry,
   SNAPSHOTS_DIR,
 } from './functions.js';
-import { detectHasAccountScore, getMetricsColumnIndices } from './reportShape.js';
+import { resolveMetricsColumns, parseMetricsRow } from './reportShape.js';
+import { decorateMetricsQuarter } from './metricsPayload.js';
 import { getSalesforceConfig } from '../../config/salesforce.js';
 
-// Parse a raw jsforce metrics report result into the lightweight
-// per-quarter shape we need for CARR attribution. Mirrors the column
-// handling in snapshotService / the /report route, but only keeps the
-// fields the roll-up actually uses.
+/**
+ * Parse a raw jsforce metrics report result into per-quarter decorated data.
+ * Column indices come from `resolveMetricsColumns`, which prefers the report's
+ * own column metadata and only falls back to positional guessing.
+ */
 function buildQuarterlyData(metricsResult) {
-  const hasAccountScore = detectHasAccountScore(metricsResult.factMap);
-  const cols = getMetricsColumnIndices(hasAccountScore);
+  const cols = resolveMetricsColumns(metricsResult);
   const quarterlyData = {};
 
   for (const quarterKey of Object.keys(metricsResult.factMap || {})) {
@@ -32,24 +35,23 @@ function buildQuarterlyData(metricsResult) {
     const quarterName = getQuarterName(quarterKey, metricsResult.groupingsDown);
     if (quarterName === 'Total') continue;
 
-    const opportunities = [];
-    if (Array.isArray(quarterData?.rows)) {
-      for (const row of quarterData.rows) {
-        const dataCells = row.dataCells;
-        opportunities.push({
-          opportunityId: dataCells[cols.opportunityName]?.value || '',
-          opportunityName: dataCells[cols.opportunityName]?.label || '',
-          aeName: dataCells[cols.aeName]?.label || '',
-          aeId: dataCells[cols.aeName]?.value || '',
-          accountScore: cols.accountScore >= 0 ? dataCells[cols.accountScore]?.label || '' : '',
-          carrAmount: dataCells[cols.carr]?.value?.amount || 0,
-          quarter: quarterName,
-        });
-      }
-    }
-    quarterlyData[quarterName] = { quarter: quarterName, opportunities };
+    const opportunities = Array.isArray(quarterData?.rows)
+      ? quarterData.rows.map((row) => parseMetricsRow(row.dataCells, cols, quarterName))
+      : [];
+
+    quarterlyData[quarterName] = decorateMetricsQuarter({ opportunities }, quarterName);
   }
   return quarterlyData;
+}
+
+/** Apply policy to a snapshot's stored (raw) quarterlyData. */
+function decorateStoredQuarterlyData(quarterlyData) {
+  const out = {};
+  for (const [quarterName, entry] of Object.entries(quarterlyData || {})) {
+    if (quarterName === 'Total') continue;
+    out[quarterName] = decorateMetricsQuarter(entry, quarterName);
+  }
+  return out;
 }
 
 /**
@@ -58,7 +60,7 @@ function buildQuarterlyData(metricsResult) {
  * live report id (the caller treats that as "CARR unavailable").
  *
  * @param {number} year
- * @returns {Promise<Record<string, { quarter: string, opportunities: object[] }> | null>}
+ * @returns {Promise<Record<string, object> | null>}
  */
 export async function getMetricsQuarterlyDataForYear(year) {
   const registry = readSnapshotRegistry();
@@ -66,7 +68,7 @@ export async function getMetricsQuarterlyDataForYear(year) {
     try {
       const raw = readFileSync(`${SNAPSHOTS_DIR}/${year}-metrics.json`, 'utf8');
       const parsed = JSON.parse(raw);
-      if (parsed?.quarterlyData) return parsed.quarterlyData;
+      if (parsed?.quarterlyData) return decorateStoredQuarterlyData(parsed.quarterlyData);
     } catch {
       // Fall through to a live fetch if the snapshot file is missing/corrupt.
     }

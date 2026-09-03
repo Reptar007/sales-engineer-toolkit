@@ -563,31 +563,46 @@
   border-bottom: none;
 }
 
-/* Column widths kept identical to the previous build so headings line up
-   the same way across the existing screenshots/snapshots. */
+/* Column widths — Closed Won table.
+ *
+ * `table-layout: fixed`, so every column needs a rule and the percentages must
+ * total 100. Any column left without one collapses to nothing.
+ *
+ * Order: AE Name | Opportunity Name | Type | CARR | Close Date | Sales Score |
+ * Account Score
+ */
 .salesforce-metrics th:nth-child(1),
 .salesforce-metrics td:nth-child(1) {
-  width: 18%;
+  width: 15%;
   text-align: left;
   padding-left: 0.5rem;
 }
 .salesforce-metrics th:nth-child(2),
 .salesforce-metrics td:nth-child(2) {
-  width: 30%;
+  width: 24%;
   text-align: left;
 }
 .salesforce-metrics th:nth-child(3),
 .salesforce-metrics td:nth-child(3) {
-  width: 22%;
-  text-align: right;
+  width: 12%;
+  text-align: left;
 }
 .salesforce-metrics th:nth-child(4),
 .salesforce-metrics td:nth-child(4) {
-  width: 18%;
+  width: 15%;
+  text-align: right;
 }
 .salesforce-metrics th:nth-child(5),
 .salesforce-metrics td:nth-child(5) {
   width: 12%;
+}
+.salesforce-metrics th:nth-child(6),
+.salesforce-metrics td:nth-child(6) {
+  width: 11%;
+}
+.salesforce-metrics th:nth-child(7),
+.salesforce-metrics td:nth-child(7) {
+  width: 11%;
 }
 
 /*
@@ -659,3 +674,6 @@
     padding: 1rem;
   }
 }
+
+/* Stream split visuals (New Business / Expansion) are shared across every CARR
+ * surface and live in frontend/src/styles/streams.less. */
