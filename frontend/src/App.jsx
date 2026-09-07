@@ -16,6 +16,7 @@ import Admin from './projects/admin';
 import SalesforceCalculator from './projects/salesforce/calculator';
 import SalesforceLookup from './projects/salesforce/lookup';
 import SalesforceMetrics from './projects/salesforce-metrics';
+import CarrBySe from './projects/carr-by-se';
 import TeamPage from './projects/team';
 import OppDirectory from './projects/opps/OppDirectory';
 import MyOpps from './projects/opps/MyOpps';
@@ -117,6 +118,15 @@ function AppContent() {
               element={
                 <ProtectedRoute>
                   <SalesforceLookup />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/projects/carr-by-se"
+              element={
+                <ProtectedRoute>
+                  <CarrBySe />
                 </ProtectedRoute>
               }
             />

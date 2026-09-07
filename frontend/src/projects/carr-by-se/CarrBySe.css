@@ -1,0 +1,505 @@
+/*
+ * Spoils (CARR by SE) — dark navy + coral, matching SalesforceLookup /
+ * SalesforceCalculator: translucent surfaces over the app's midnight-navy
+ * canvas, white text with rgba grey for supporting copy, coral reserved for
+ * the brand accent and the one primary action.
+ *
+ * Colour carries meaning in exactly two places: coral marks the attributed
+ * total, and an assigned row/select picks up a teal edge. Everything else is
+ * neutral so a screen of 100 rows doesn't read as a warning.
+ *
+ * Every selector is scoped under `.carr-by-se`.
+ */
+
+.carr-by-se {
+  width: 100%;
+  color: var(--white);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* =========================
+ * Header
+ * ========================= */
+
+.carr-by-se .carr-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.carr-by-se .carr-overline {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--coral);
+  margin-bottom: 0.5rem;
+}
+
+/* App.less gives bare h1 a gradient fill; state the colour so this page's
+   title matches the other Salesforce pages instead of inheriting it. */
+.carr-by-se .carr-header h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin: 0 0 0.4rem 0;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--white);
+  background: none;
+  -webkit-text-fill-color: var(--white);
+}
+
+.carr-by-se .carr-header p {
+  margin: 0;
+  max-width: 60ch;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.95rem;
+}
+
+.carr-by-se .carr-btn {
+  flex-shrink: 0;
+  background: var(--coral);
+  color: #12131a;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.15rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+
+.carr-by-se .carr-btn:hover {
+  filter: brightness(1.08);
+}
+
+.carr-by-se .carr-warning {
+  border: 1px solid rgba(255, 176, 32, 0.4);
+  background: rgba(255, 176, 32, 0.1);
+  color: #ffd79a;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  font-size: 0.9rem;
+}
+
+/* =========================
+ * All-time strip
+ * ========================= */
+
+.carr-by-se .carr-alltime {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 1.15rem 1.25rem;
+}
+
+.carr-by-se .carr-alltime-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.carr-by-se .carr-alltime-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.carr-by-se .carr-alltime-range {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.carr-by-se .carr-alltime-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.carr-by-se .carr-chip {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+.carr-by-se .carr-chip-name {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.carr-by-se .carr-chip-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.carr-by-se .carr-chip-count {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.42);
+  font-variant-numeric: tabular-nums;
+}
+
+.carr-by-se .carr-chip--empty {
+  opacity: 0.45;
+}
+
+.carr-by-se .carr-chip--total {
+  border-color: rgba(255, 122, 89, 0.5);
+  background: rgba(255, 122, 89, 0.12);
+}
+
+.carr-by-se .carr-chip--total .carr-chip-value {
+  color: var(--coral);
+}
+
+.carr-by-se .carr-chip--muted {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.16);
+  background: transparent;
+}
+
+/* =========================
+ * Year selector
+ * ========================= */
+
+.carr-by-se .carr-years {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.75rem;
+}
+
+.carr-by-se .carr-year {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 0.5rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease;
+}
+
+.carr-by-se .carr-year:hover {
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.carr-by-se .carr-year--active {
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* =========================
+ * Summary cards
+ * ========================= */
+
+.carr-by-se .carr-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.85rem;
+}
+
+.carr-by-se .carr-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* Wrap rather than truncate: the label is a person's name, and "Sebastian
+   Antonuc…" is a worse card than a two-line one. */
+.carr-by-se .carr-card-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.3;
+  min-height: 2.05em;
+}
+
+.carr-by-se .carr-card-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.carr-by-se .carr-card-sub {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.carr-by-se .carr-card--empty {
+  opacity: 0.5;
+}
+
+.carr-by-se .carr-card--total {
+  border-color: rgba(255, 122, 89, 0.45);
+  background: rgba(255, 122, 89, 0.1);
+}
+
+.carr-by-se .carr-card--total .carr-card-value {
+  color: var(--coral);
+}
+
+.carr-by-se .carr-card--muted {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: transparent;
+}
+
+/* =========================
+ * Toolbar
+ * ========================= */
+
+.carr-by-se .carr-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.carr-by-se .carr-search {
+  flex: 1 1 260px;
+  min-width: 200px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  color: var(--white);
+  font-size: 0.9rem;
+}
+
+.carr-by-se .carr-search::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.carr-by-se .carr-search:focus {
+  outline: none;
+  border-color: rgba(255, 122, 89, 0.6);
+}
+
+.carr-by-se .carr-checkbox,
+.carr-by-se .carr-sort {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.carr-by-se .carr-sort select {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  color: var(--white);
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.carr-by-se .carr-sort select option {
+  background: var(--midnight-navy);
+  color: var(--white);
+}
+
+.carr-by-se .carr-rowcount {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================
+ * Table
+ * ========================= */
+
+.carr-by-se .carr-table-wrap {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.carr-by-se .carr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.carr-by-se .carr-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #171a24;
+  text-align: left;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+}
+
+.carr-by-se .carr-table tbody td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: middle;
+}
+
+.carr-by-se .carr-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.carr-by-se .carr-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.carr-by-se .carr-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.carr-by-se .carr-amount {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.carr-by-se .carr-opp-name {
+  display: block;
+  font-weight: 600;
+}
+
+.carr-by-se .carr-opp-account {
+  display: block;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 0.1rem;
+}
+
+/* A thin teal edge is the only marker of an assigned row — enough to scan
+   for what's left without turning the table into a block of colour. */
+.carr-by-se .carr-row--assigned td:first-child {
+  box-shadow: inset 3px 0 0 var(--brand-teal, #2ec4b6);
+}
+
+.carr-by-se .carr-select {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.86rem;
+  min-width: 170px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.carr-by-se .carr-select:focus {
+  outline: none;
+  border-color: rgba(255, 122, 89, 0.6);
+}
+
+.carr-by-se .carr-select--set {
+  color: var(--white);
+  border-color: rgba(46, 196, 182, 0.45);
+  background: rgba(46, 196, 182, 0.08);
+}
+
+.carr-by-se .carr-select:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.carr-by-se .carr-select option {
+  background: var(--midnight-navy);
+  color: var(--white);
+}
+
+.carr-by-se .carr-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* =========================
+ * Loading / error
+ * ========================= */
+
+.carr-by-se .carr-loading,
+.carr-by-se .carr-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 5rem 1rem;
+  text-align: center;
+}
+
+.carr-by-se .carr-loading h2,
+.carr-by-se .carr-error h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.carr-by-se .carr-loading p,
+.carr-by-se .carr-error p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 60ch;
+}
+
+.carr-by-se .carr-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.14);
+  border-top-color: var(--coral);
+  animation: carr-spin 0.8s linear infinite;
+}
+
+@keyframes carr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 720px) {
+  .carr-by-se .carr-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .carr-by-se .carr-rowcount {
+    margin-left: 0;
+  }
+}

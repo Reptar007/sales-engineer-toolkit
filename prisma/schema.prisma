@@ -112,6 +112,7 @@ model SalesEngineer {
   team            Team             @relation(fields: [teamId], references: [id])
   teamAssignments TeamAssignment[]
   opps            Opp[]
+  carrAttributions OppCarrAttribution[]
 
   @@index([userId])
   @@index([teamId])
@@ -225,4 +226,30 @@ model Opp {
   @@unique([salesEngineerId, oppName])
   @@index([salesEngineerId])
   @@map("opps")
+}
+
+
+/// Manual SE credit for a historical closed-won opportunity.
+///
+/// The "All Closed Won" Salesforce report stays the source of truth for the
+/// opportunity itself (name, fiscal period, CARR, owner); this table records
+/// only *which SE gets credit*, keyed by the Salesforce Opportunity Id so a
+/// renamed opp keeps its attribution. There is no "None" row -- clearing a
+/// picker deletes the row, so unattributed CARR is simply absent and can
+/// never be double-counted into a total.
+model OppCarrAttribution {
+  id                      String   @id @default(cuid())
+  salesforceOpportunityId String   @unique
+  salesEngineerId         String
+  /// Report label at the time of assignment, for reading this table directly.
+  /// Never used for totals -- the live report always wins on name and amount.
+  oppName                 String?
+  assignedByUserId        String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  salesEngineer SalesEngineer @relation(fields: [salesEngineerId], references: [id], onDelete: Cascade)
+
+  @@index([salesEngineerId])
+  @@map("opp_carr_attributions")
 }

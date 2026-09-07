@@ -16,6 +16,7 @@ import {
   streamQuarterCarrPdf,
   getReportFilename,
 } from '../../services/quarterCarrPdfService.js';
+import carrBySeRoutes from './carrBySeRoutes.js';
 import { authenticateToken } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/rbac.js';
 import { decodeHtmlEntities } from '../../lib/htmlEntities.js';
@@ -27,6 +28,10 @@ import {
 import { readFileSync } from 'fs';
 
 const router = express.Router();
+
+// CARR by SE -- manual SE credit over the full closed-won history.
+// Mounted before the routes below so "carr-by-se" is never read as a report id.
+router.use('/carr-by-se', carrBySeRoutes);
 
 const MIN_GOALS_YEAR = 2020;
 const MAX_GOALS_YEAR = 2035;

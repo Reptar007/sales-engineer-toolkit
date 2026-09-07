@@ -358,6 +358,35 @@ export async function downloadQuarterCarrPdf(year, quarter) {
   return filename;
 }
 
+/**
+ * Every closed-won opportunity in QA Wolf history, tagged with the SE credited
+ * for it. One payload backs the whole Spoils page -- rows, the SE picker
+ * options, and the fiscal years present -- so the year tabs and the all-time
+ * strip need no further round-trips.
+ *
+ * @param {{ refresh?: boolean }} [options] `refresh` re-reads the report from
+ *   Salesforce instead of the server's 5-minute row cache.
+ */
+export async function fetchCarrBySe({ refresh = false } = {}) {
+  return apiRequest(`/salesforce/carr-by-se${refresh ? '?refresh=1' : ''}`);
+}
+
+/**
+ * Set or clear the SE credited for one opportunity. `salesEngineerId: null`
+ * clears it (the "None" option), which deletes the record rather than storing
+ * an empty assignment.
+ *
+ * @param {string} opportunityId Salesforce Opportunity Id
+ * @param {string|null} salesEngineerId
+ * @param {string} [oppName] stored alongside for readability in the DB
+ */
+export async function setCarrAttribution(opportunityId, salesEngineerId, oppName) {
+  return apiRequest(`/salesforce/carr-by-se/attribution/${opportunityId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ salesEngineerId: salesEngineerId || null, oppName }),
+  });
+}
+
 /** Dashboard: today’s calendar events (Google Calendar when configured). */
 export async function fetchDashboardCalendar() {
   return apiRequest('/dashboard/calendar');
