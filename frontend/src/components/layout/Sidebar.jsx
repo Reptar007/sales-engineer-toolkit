@@ -18,6 +18,7 @@ import {
   GoChevronRight,
   GoChevronDown,
   GoBookmark,
+  GoPeople,
 } from 'react-icons/go';
 
 /**
@@ -189,6 +190,17 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
                 <GoBookmark />
               </span>
               <span className="nav-label">Hunt Board</span>
+            </NavLink>
+          </li>
+          <li className="nav-item">
+            <NavLink
+              to="/projects/carr-by-se"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
+              <span className="nav-icon">
+                <GoPeople />
+              </span>
+              <span className="nav-label">Spoils</span>
             </NavLink>
           </li>
           {/* Salesforce Dropdown — wolf-rebranded as "Hunt Pipeline" */}

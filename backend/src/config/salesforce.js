@@ -31,6 +31,18 @@ export function getOpportunityCarrFieldApiName() {
   return raw;
 }
 
+/**
+ * Env: SALESFORCE_REPORT_ID_ALL_CLOSED_WON — the "All Closed Won" report, every
+ * closed-won opportunity in QA Wolf's history grouped down by fiscal year.
+ * Backs the CARR-by-SE attribution page. Falls back to the report this feature
+ * was built against so a fresh checkout works without extra env setup.
+ */
+export function getAllClosedWonReportId() {
+  return resolve1PasswordValue(
+    process.env.SALESFORCE_REPORT_ID_ALL_CLOSED_WON || '00OPA000005qGfJ2AU',
+  );
+}
+
 export function getSalesforceConfig() {
   const calculatorReportId = resolve1PasswordValue(
     process.env.SALESFORCE_REPORT_ID_CALCULATOR || '',
@@ -44,6 +56,7 @@ export function getSalesforceConfig() {
 
   return {
     opportunityCarrFieldApiName: getOpportunityCarrFieldApiName(),
+    allClosedWonReportId: getAllClosedWonReportId(),
     reportIdsByYear: {
       2025: {
         metrics: metrics2025,
