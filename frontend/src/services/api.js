@@ -387,6 +387,19 @@ export async function setCarrAttribution(opportunityId, salesEngineerId, oppName
   });
 }
 
+/**
+ * The maintenance backlog across every QA Wolf workspace the server's key can
+ * see. Answers `{ status: 'ready', snapshot, builtAt, stale, refreshing }`
+ * from the server cache, or `{ status: 'building', progress }` while the first
+ * scan runs -- poll until it is ready.
+ *
+ * @param {{ refresh?: boolean }} [options] `refresh` starts a rescan in the
+ *   background; the stale snapshot keeps answering until it lands.
+ */
+export async function fetchMaintenanceDashboard({ refresh = false } = {}) {
+  return apiRequest(`/maintenance-dashboard${refresh ? '?refresh=1' : ''}`);
+}
+
 /** Dashboard: today’s calendar events (Google Calendar when configured). */
 export async function fetchDashboardCalendar() {
   return apiRequest('/dashboard/calendar');

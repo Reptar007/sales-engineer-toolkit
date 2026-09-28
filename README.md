@@ -221,6 +221,22 @@ The backend provides a REST API for ratio estimation:
 - **POST** `/api/ratio-estimator/estimate/postprocess` – Post-processing
 - **POST** `/api/ratio-estimator/estimate/fix-rejections` – Fix rejections (planned)
 
+### Maintenance Dashboard (Bone Pile)
+
+Read-only view of every customer's open QA Wolf maintenance reports, ranked by
+age and by how many tests each customer has parked. Backed by one background
+scan of every workspace (`whoami` + `issue.find` per workspace on QA Wolf's
+public API, using `QAW_BEARER_TOKEN`), cached in memory for
+`MAINTENANCE_DASHBOARD_CACHE_TTL_MINUTES` (default 6 h).
+
+- **GET** `/api/maintenance-dashboard` – `{ status: 'ready', snapshot, builtAt, stale, refreshing }`
+  from the cache, or `{ status: 'building', progress }` while the first scan runs
+  (poll until ready). `?refresh=1` starts a rescan in the background.
+- **POST** `/api/maintenance-dashboard/refresh` – start a rescan (no-op if one is running).
+
+`MAINTENANCE_DASHBOARD_EXCLUDED_SLUGS` (default `figma`) drops workspaces from the
+backlog entirely; demo/sandbox workspaces are flagged and hidden by a toggle on the page.
+
 ### Environment Variables
 
 The backend looks for environment variables in this order:

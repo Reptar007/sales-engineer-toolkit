@@ -6,6 +6,7 @@
 import SalesforceMetrics from './salesforce-metrics';
 import RatioEstimator from './ratio-estimator';
 import FlowDocGenerator from './flow-doc-generator';
+import MaintenanceDashboard from './maintenance-dashboard';
 
 export const projects = {
   'salesforce-metrics': {
@@ -18,6 +19,17 @@ export const projects = {
     category: 'Analytics',
     version: '1.0.0',
     features: ['Data Analysis', 'Reporting', 'Visualization', 'Export Results'],
+  },
+  'maintenance-dashboard': {
+    id: 'maintenance-dashboard',
+    name: 'Maintenance Backlog',
+    description: 'Oldest open maintenance reports and the customers with the most tests parked',
+    icon: '🦴',
+    component: MaintenanceDashboard,
+    path: '/maintenance-dashboard',
+    category: 'Analytics',
+    version: '1.0.0',
+    features: ['Cross-workspace scan', 'Age ranking', 'Culprit ranking', 'CSV + Slack export'],
   },
   'flow-doc-generator': {
     id: 'flow-doc-generator',
