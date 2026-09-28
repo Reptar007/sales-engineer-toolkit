@@ -5,12 +5,15 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  enrichWithTaskWolf,
   mapWithConcurrency,
+  probeTaskWolfCustomer,
   scanMaintenanceBacklog,
   getMaintenanceDashboard,
   resetMaintenanceCache,
 } from '../src/projects/maintenance-dashboard/maintenanceService.js';
 import { QawAuthError } from '../src/projects/maintenance-dashboard/qawolfClient.js';
+import { TaskWolfAuthError } from '../src/projects/maintenance-dashboard/taskWolfMcpClient.js';
 
 const NOW = Date.parse('2026-09-28T18:00:00.000Z');
 const daysAgo = (days) => new Date(NOW - days * 24 * 60 * 60 * 1000).toISOString();
@@ -136,6 +139,200 @@ describe('scanMaintenanceBacklog', () => {
       scanMaintenanceBacklog({ client, concurrency: 2, now: () => NOW }),
       (error) => error.code === 'QAW_AUTH',
     );
+  });
+});
+
+/**
+ * A fake Task Wolf MCP: offers the two tools with a `customer` argument and
+ * answers per customer slug. `failing` slugs throw; `authFailAfter` turns the
+ * token stale after that many calls.
+ */
+function fakeTaskWolf({ failing = new Set(), authFailAfter = Infinity, tools } = {}) {
+  const calls = [];
+  const catalog = tools || [
+    {
+      name: 'get_maintenance_status',
+      inputSchema: { type: 'object', properties: { customer: { type: 'string' } } },
+    },
+    {
+      name: 'find_tasks',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          customer: { type: 'string' },
+          type: { type: 'string', enum: ['maintenance', 'creation'] },
+        },
+      },
+    },
+  ];
+  return {
+    calls,
+    baseUrl: 'https://tw.test/mcp',
+    getServerInfo: () => ({ name: 'fake-task-wolf' }),
+    listTools: async () => catalog,
+    callTool: async (name, args) => {
+      calls.push({ name, args });
+      if (calls.length > authFailAfter) throw new TaskWolfAuthError();
+      if (failing.has(args.customer)) throw new Error(`${name} timed out for ${args.customer}`);
+      if (name === 'get_maintenance_status') {
+        if (args.customer === 'two') {
+          return {
+            total: 2,
+            truncated: false,
+            items: [
+              { flowId: 'f1', name: 'Checkout', blocked: true, blocker: { title: 'Staging down' } },
+              { flowId: 'f2', name: 'Search', blocked: false },
+            ],
+          };
+        }
+        return { total: 0, truncated: false, items: [] };
+      }
+      if (name === 'find_tasks') {
+        if (args.customer === 'two') {
+          return {
+            total: 1,
+            items: [{ id: 't1', type: 'maintenance', status: 'open', assignee: 'Kalley' }],
+          };
+        }
+        return 'No open tasks.';
+      }
+      throw new Error(`unexpected tool ${name}`);
+    },
+  };
+}
+
+describe('scanMaintenanceBacklog + Task Wolf', () => {
+  test('without a Task Wolf client the snapshot says so and the platform data stands', async () => {
+    const snapshot = await scanMaintenanceBacklog({
+      client: fakeClient(),
+      taskWolfClient: null,
+      now: () => NOW,
+    });
+    assert.equal(snapshot.taskWolf.enabled, false);
+    assert.equal(snapshot.taskWolf.error.code, 'TW_CONFIG');
+    assert.equal(snapshot.customers[0].taskWolf, null);
+    assert.equal(snapshot.reports[0].taskWolf, null);
+    assert.equal(snapshot.totals.openReports, 1);
+  });
+
+  test('asks Task Wolf about each customer with backlog and folds the answer into rows and totals', async () => {
+    const taskWolf = fakeTaskWolf();
+    const progress = [];
+    const snapshot = await scanMaintenanceBacklog({
+      client: fakeClient(),
+      taskWolfClient: taskWolf,
+      taskWolfConcurrency: 2,
+      onProgress: (p) => progress.push(p),
+      now: () => NOW,
+    });
+    // One customer has backlog (Figma is excluded), so two tool calls.
+    assert.deepEqual(
+      taskWolf.calls.map((c) => [c.name, c.args]),
+      [
+        ['get_maintenance_status', { customer: 'two' }],
+        ['find_tasks', { customer: 'two', type: 'maintenance' }],
+      ],
+    );
+    const two = snapshot.customers[0];
+    assert.equal(two.taskWolf.blockedFlows, 1);
+    assert.equal(two.taskWolf.actionableFlows, 1);
+    assert.deepEqual(two.taskWolf.assignees, ['Kalley']);
+    // The report parks f1 (blocked) and f2 (not): partly blocked, so actionable.
+    assert.equal(snapshot.reports[0].taskWolf.blocked, false);
+    assert.equal(snapshot.reports[0].taskWolf.blockedFlows, 1);
+    assert.equal(snapshot.totals.blockedFlows, 1);
+    assert.equal(snapshot.totals.customersWithTaskWolf, 1);
+    assert.equal(snapshot.taskWolf.enabled, true);
+    assert.equal(snapshot.taskWolf.error, null);
+    assert.deepEqual(snapshot.taskWolf.tools, { maintenance: true, tasks: true });
+    assert.equal(
+      progress.some((p) => p.phase === 'taskwolf' && p.total === 1),
+      true,
+    );
+    assert.equal(progress.at(-1).phase, 'taskwolf');
+    assert.equal(progress.at(-1).scanned, 1);
+  });
+
+  test('a customer Task Wolf cannot answer is listed, and prose answers are not counted as zero', async () => {
+    const snapshot = await enrichWithTaskWolf(
+      {
+        customers: [
+          { workspaceId: 'ws-2', name: 'Two', slug: 'two', isDemo: false },
+          { workspaceId: 'ws-3', name: 'Three', slug: 'three', isDemo: false },
+          { workspaceId: 'ws-d', name: 'Demo', slug: 'demo', isDemo: true },
+        ],
+        reports: [],
+        totals: {},
+      },
+      { client: fakeTaskWolf({ failing: new Set(['three']) }), concurrency: 1, now: () => NOW },
+    );
+    assert.equal(snapshot.taskWolf.customersQueried, 2); // the demo is skipped
+    assert.equal(snapshot.taskWolf.customersAnswered, 1);
+    assert.equal(snapshot.taskWolf.errors.length, 2);
+    assert.match(snapshot.taskWolf.errors[0].message, /timed out/);
+    assert.equal(snapshot.taskWolf.errors[0].workspaceName, 'Three');
+    assert.equal(snapshot.customers[1].taskWolf, null);
+  });
+
+  test('an expired token stops the Task Wolf pass, keeps what it had, and does not fail the snapshot', async () => {
+    const taskWolf = fakeTaskWolf({ authFailAfter: 2 });
+    const snapshot = await enrichWithTaskWolf(
+      {
+        customers: [
+          { workspaceId: 'ws-2', name: 'Two', slug: 'two', isDemo: false },
+          { workspaceId: 'ws-3', name: 'Three', slug: 'three', isDemo: false },
+          { workspaceId: 'ws-4', name: 'Four', slug: 'four', isDemo: false },
+        ],
+        reports: [],
+        totals: {},
+      },
+      { client: taskWolf, concurrency: 1, now: () => NOW },
+    );
+    assert.equal(snapshot.taskWolf.error.code, 'TW_AUTH');
+    assert.equal(snapshot.customers[0].taskWolf.blockedFlows, 1);
+    assert.equal(snapshot.customers[2].taskWolf, null);
+    assert.ok(taskWolf.calls.length < 6);
+  });
+
+  test('a server without the two tools is reported rather than queried', async () => {
+    const snapshot = await enrichWithTaskWolf(
+      { customers: [{ workspaceId: 'ws-2', name: 'Two', slug: 'two' }], reports: [], totals: {} },
+      {
+        client: fakeTaskWolf({ tools: [{ name: 'find_customer', inputSchema: {} }] }),
+        now: () => NOW,
+      },
+    );
+    assert.equal(snapshot.taskWolf.error.code, 'TW_TOOLS');
+    assert.equal(snapshot.taskWolf.customersAnswered, 0);
+  });
+
+  test('a schema with no recognisable customer argument is reported with its property names', async () => {
+    const tools = [
+      {
+        name: 'get_maintenance_status',
+        inputSchema: { type: 'object', properties: { suiteId: {} } },
+      },
+    ];
+    const snapshot = await enrichWithTaskWolf(
+      { customers: [{ workspaceId: 'ws-2', name: 'Two', slug: 'two' }], reports: [], totals: {} },
+      { client: fakeTaskWolf({ tools }), now: () => NOW },
+    );
+    assert.equal(snapshot.taskWolf.errors.length, 1);
+    assert.match(snapshot.taskWolf.errors[0].message, /suiteId/);
+  });
+
+  test('the probe returns schema, arguments, raw and normalized side by side', async () => {
+    const result = await probeTaskWolfCustomer(
+      { id: 'ws-2', slug: 'two', name: 'Two' },
+      { client: fakeTaskWolf(), now: () => NOW },
+    );
+    assert.equal(result.tools.maintenance.offered, true);
+    assert.deepEqual(result.tools.maintenance.arguments, { customer: 'two' });
+    assert.equal(result.tools.maintenance.raw.total, 2);
+    assert.equal(result.tools.maintenance.normalized.blockedFlows, 1);
+    assert.equal(result.tools.tasks.normalized.tasks.length, 1);
+    assert.equal(result.summary.blockedFlows, 1);
+    assert.deepEqual(result.summary.assignees, ['Kalley']);
   });
 });
 

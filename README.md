@@ -233,9 +233,28 @@ public API, using `QAW_BEARER_TOKEN`), cached in memory for
   from the cache, or `{ status: 'building', progress }` while the first scan runs
   (poll until ready). `?refresh=1` starts a rescan in the background.
 - **POST** `/api/maintenance-dashboard/refresh` – start a rescan (no-op if one is running).
+- **GET** `/api/maintenance-dashboard/taskwolf` – is Task Wolf connected, and which tools
+  (with input schemas) its MCP offers. `?refresh=1` re-reads the tool list.
+- **GET** `/api/maintenance-dashboard/taskwolf/customer/:workspaceId` – live probe for one
+  customer: the arguments derived from each tool's schema, the raw answer and the normalized
+  reading side by side (`?slug=`/`?name=` for a workspace not in the cached snapshot).
 
 `MAINTENANCE_DASHBOARD_EXCLUDED_SLUGS` (default `figma`) drops workspaces from the
 backlog entirely; demo/sandbox workspaces are flagged and hidden by a toggle on the page.
+
+**Task Wolf.** With `TASK_WOLF_MCP_TOKEN` set (a personal `twmcp_…` token from
+[Task Wolf → Settings → Connect Claude](https://www.task-wolf.com/settings/connect-claude),
+90-day life), the scan makes a second pass over every customer with backlog through the
+[Task Wolf MCP](https://www.task-wolf.com/docs/users/automation/mcp/user-guide.html):
+`get_maintenance_status` (open maintenance with real blocked status) and `find_tasks` (open
+maintenance tasks and their QAE). Each report then reads **blocked** (every parked flow sits
+behind an active blocker), **actionable**, or unknown, with the blocker and the QAE already on
+it, and the page can filter to actionable bones only. Task Wolf customer ids are platform team
+ids, so no name matching is involved. The MCP's input schemas are read live and the answers are
+read by tolerant key lookup (`backend/src/projects/maintenance-dashboard/taskWolfShape.js`);
+if the Task Wolf column looks wrong, hit the probe endpoint above and compare `raw` with
+`normalized`. Without a token, or with an expired one, the platform data still stands and the
+page says what is missing.
 
 ### Environment Variables
 

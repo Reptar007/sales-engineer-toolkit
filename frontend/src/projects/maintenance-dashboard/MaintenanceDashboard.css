@@ -26,6 +26,7 @@
 
 .bone-pile .bone-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
   gap: 1.5rem;
@@ -118,6 +119,29 @@
   border-radius: 10px;
   padding: 0.85rem 1rem;
   font-size: 0.9rem;
+}
+
+.bone-pile .bone-warning a,
+.bone-pile .bone-hint a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.bone-pile .bone-warning code,
+.bone-pile .bone-hint code {
+  font-size: 0.85em;
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Quiet, not alarming: Task Wolf is optional, the platform data still stands. */
+.bone-pile .bone-hint {
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.62);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
 }
 
 /* =========================
@@ -519,6 +543,57 @@
 
 .bone-pile .bone-priority {
   text-transform: capitalize;
+}
+
+/* =========================
+ * Task Wolf column — a status, so it gets the status colours (amber for
+ * blocked, green for free) and always a word beside the glyph.
+ * ========================= */
+
+.bone-pile .bone-tw {
+  white-space: nowrap;
+}
+
+.bone-pile .bone-tw-badge {
+  display: inline-block;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.bone-pile .bone-tw-badge--blocked {
+  color: #ffd79a;
+  border-color: rgba(255, 176, 32, 0.45);
+  background: rgba(255, 176, 32, 0.12);
+}
+
+.bone-pile .bone-tw-badge--actionable {
+  color: #b7f0c8;
+  border-color: rgba(76, 217, 123, 0.4);
+  background: rgba(76, 217, 123, 0.1);
+}
+
+.bone-pile .bone-tw-badge--unknown {
+  color: rgba(255, 255, 255, 0.35);
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+}
+
+.bone-pile .bone-tw-qae,
+.bone-pile .bone-tw-blocker {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.55);
+  max-width: 22ch;
+  white-space: normal;
+}
+
+.bone-pile .bone-tw-blocker {
+  font-style: italic;
 }
 
 /* =========================

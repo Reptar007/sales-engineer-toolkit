@@ -215,7 +215,10 @@ describe('buildSnapshot', () => {
       ['Globex', 'Acme Demo', 'Acme'],
     );
     assert.equal(snapshot.customers.find((c) => c.name === 'Acme Demo').isDemo, true);
-    assert.equal(snapshot.customers.some((c) => c.name === 'Figma'), false);
+    assert.equal(
+      snapshot.customers.some((c) => c.name === 'Figma'),
+      false,
+    );
     // The resolved Globex report is not open, so it is not a row.
     assert.equal(snapshot.reports.length, 3);
     assert.equal(snapshot.reports[0].workspaceName, 'Acme Demo');
