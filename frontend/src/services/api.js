@@ -35,7 +35,11 @@ async function apiRequest(endpoint, options = {}) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      const error = new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      // Routes that tag their failures send a machine-readable `code` too.
+      error.status = response.status;
+      error.code = errorData.code || null;
+      throw error;
     }
 
     return await response.json();
@@ -398,6 +402,16 @@ export async function setCarrAttribution(opportunityId, salesEngineerId, oppName
  */
 export async function fetchMaintenanceDashboard({ refresh = false } = {}) {
   return apiRequest(`/maintenance-dashboard${refresh ? '?refresh=1' : ''}`);
+}
+
+/**
+ * Where the maintenance backlog stands, without the snapshot: `{ status,
+ * builtAt, stale, refreshing, progress, refreshError, error }`, always HTTP
+ * 200. It never starts a scan, so it is what the page polls; the full payload
+ * is worth fetching only when `builtAt` or `refreshing` says it has changed.
+ */
+export async function fetchMaintenanceStatus() {
+  return apiRequest('/maintenance-dashboard/status');
 }
 
 /** Dashboard: today’s calendar events (Google Calendar when configured). */
