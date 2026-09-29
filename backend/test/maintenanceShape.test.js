@@ -19,6 +19,7 @@ import {
   rankOutstanding,
   buildSnapshot,
   summarizeDescription,
+  uniqueWorkspaces,
 } from '../src/projects/maintenance-dashboard/maintenanceShape.js';
 import { unwrapTrpcResponse } from '../src/projects/maintenance-dashboard/qawolfClient.js';
 
@@ -75,7 +76,7 @@ describe('activeFlowIds', () => {
 });
 
 describe('workspace filters', () => {
-  test('figma is excluded by default, by slug or by name, case-insensitively', () => {
+  test('figma is excluded by default, by slug, case-insensitively', () => {
     const excluded = parseExcludedSlugs(undefined);
     assert.equal(isExcludedWorkspace(figma, excluded), true);
     assert.equal(isExcludedWorkspace({ ...figma, slug: 'FIGMA' }, excluded), true);
@@ -87,6 +88,35 @@ describe('workspace filters', () => {
     assert.equal(isExcludedWorkspace(figma, excluded), false);
     assert.equal(isExcludedWorkspace(acme, excluded), true);
     assert.equal(isExcludedWorkspace(globex, excluded), true);
+  });
+
+  test('"none" excludes nothing; empty or unset still means the default', () => {
+    for (const raw of ['none', 'NONE', '  None  ']) {
+      const excluded = parseExcludedSlugs(raw);
+      assert.equal(excluded.size, 0, `${JSON.stringify(raw)} should exclude nothing`);
+      assert.equal(isExcludedWorkspace(figma, excluded), false);
+    }
+    for (const raw of [undefined, null, '', '   ']) {
+      assert.deepEqual([...parseExcludedSlugs(raw)], ['figma']);
+    }
+    // Only the whole value means "nothing"; inside a list it is a slug like any other.
+    assert.deepEqual([...parseExcludedSlugs('none, acme')], ['none', 'acme']);
+  });
+
+  test('the list matches slugs; the name only stands in for a workspace with no slug', () => {
+    const excluded = parseExcludedSlugs('figma');
+    // A customer that happens to be named like another workspace's slug stays in.
+    assert.equal(
+      isExcludedWorkspace({ id: 'ws-x', name: 'Figma', slug: 'figma-design-co' }, excluded),
+      false,
+    );
+    assert.equal(
+      isExcludedWorkspace({ id: 'ws-y', name: 'Something Else', slug: 'figma' }, excluded),
+      true,
+    );
+    assert.equal(isExcludedWorkspace({ id: 'ws-z', name: 'Figma' }, excluded), true);
+    assert.equal(isExcludedWorkspace({ id: 'ws-z', name: ' Figma ', slug: '  ' }, excluded), true);
+    assert.equal(isExcludedWorkspace({ id: 'ws-z', name: 'Acme' }, excluded), false);
   });
 
   test('demo and sandbox workspaces are flagged, customers are not', () => {
@@ -142,6 +172,43 @@ describe('shapeReport / shapeCustomer', () => {
     assert.equal(customer.oldestReportAgeDays, 100);
     assert.equal(customer.averageReportAgeDays, 53);
     assert.equal(customer.url, 'https://app.qawolf.com/acme/maintenance-reports');
+  });
+
+  test('a workspace with no name goes by its slug, then its id, in both rows', () => {
+    const cases = [
+      [{ id: 'ws-1', slug: 'acme' }, 'acme'],
+      [{ id: 'ws-1', name: '   ', slug: 'acme' }, 'acme'],
+      [{ id: 'ws-1', name: '', slug: ' ' }, 'ws-1'],
+      [{ id: 'ws-1', name: ' Acme ', slug: 'acme' }, 'Acme'],
+    ];
+    for (const [workspace, expected] of cases) {
+      const label = JSON.stringify(workspace);
+      assert.equal(shapeReport(report(), workspace, NOW).workspaceName, expected, label);
+      assert.equal(shapeCustomer(workspace, [report()], NOW).name, expected, label);
+    }
+  });
+});
+
+describe('uniqueWorkspaces', () => {
+  test('keeps the first of each id, drops entries without one, keeps the order', () => {
+    const renamed = { ...acme, name: 'Acme (listed again)' };
+    const unique = uniqueWorkspaces([
+      globex,
+      acme,
+      { name: 'No id', slug: 'no-id' },
+      renamed,
+      null,
+      figma,
+      globex,
+    ]);
+    assert.deepEqual(unique, [globex, acme, figma]);
+    assert.equal(unique[1], acme);
+  });
+
+  test('an empty or missing list is an empty list', () => {
+    assert.deepEqual(uniqueWorkspaces([]), []);
+    assert.deepEqual(uniqueWorkspaces(undefined), []);
+    assert.deepEqual(uniqueWorkspaces(null), []);
   });
 });
 
@@ -199,7 +266,9 @@ describe('buildSnapshot', () => {
       now: NOW,
     });
 
-    assert.equal(snapshot.totals.workspacesScanned, 5);
+    // Five listed, Figma left out, so four were there to scan.
+    assert.equal(snapshot.totals.workspacesListed, 5);
+    assert.equal(snapshot.totals.workspacesScanned, 4);
     assert.equal(snapshot.totals.workspacesExcluded, 1);
     assert.equal(snapshot.totals.workspacesFailed, 1);
     // Demo backlog is kept in the rows (flagged) but out of the headline totals.
@@ -223,6 +292,79 @@ describe('buildSnapshot', () => {
     assert.equal(snapshot.reports.length, 3);
     assert.equal(snapshot.reports[0].workspaceName, 'Acme Demo');
     assert.equal(snapshot.reports[1].workspaceName, 'Acme');
+  });
+
+  test('a workspace listed twice is one customer and is counted once', () => {
+    const snapshot = buildSnapshot({
+      workspaces: [acme, { ...acme }, globex, { name: 'No id', slug: 'no-id' }, figma, figma],
+      reportsByWorkspace: new Map([
+        ['ws-acme', [report({ issueId: 'a1', reproductions: [{ flowId: 'a' }] })]],
+        ['ws-globex', []],
+      ]),
+      excludedSlugs: parseExcludedSlugs(undefined),
+      now: NOW,
+    });
+
+    assert.deepEqual(
+      snapshot.customers.map((c) => c.workspaceId),
+      ['ws-acme'],
+    );
+    assert.deepEqual(
+      snapshot.reports.map((r) => r.issueId),
+      ['a1'],
+    );
+    assert.equal(snapshot.totals.workspacesListed, 3);
+    assert.equal(snapshot.totals.workspacesExcluded, 1);
+    assert.equal(snapshot.totals.workspacesScanned, 2);
+    assert.equal(snapshot.totals.customersWithBacklog, 1);
+    assert.equal(snapshot.totals.openReports, 1);
+    assert.equal(snapshot.totals.flowsInMaintenance, 1);
+  });
+
+  test('an excluded workspace needs no entry in reportsByWorkspace', () => {
+    // The scan skips excluded workspaces, so their reports are never fetched.
+    const snapshot = buildSnapshot({
+      workspaces: [acme, figma, globex],
+      reportsByWorkspace: new Map([
+        ['ws-acme', [report({ createdAt: daysAgo(7), reproductions: [{ flowId: 'a' }] })]],
+      ]),
+      excludedSlugs: parseExcludedSlugs(undefined),
+      now: NOW,
+    });
+
+    assert.deepEqual(snapshot.totals, {
+      workspacesListed: 3,
+      workspacesScanned: 2,
+      workspacesExcluded: 1,
+      workspacesFailed: 0,
+      customersWithBacklog: 1,
+      openReports: 1,
+      flowsInMaintenance: 1,
+      oldestReportAgeDays: 7,
+      demoWorkspacesWithBacklog: 0,
+    });
+    assert.deepEqual(
+      snapshot.customers.map((c) => c.name),
+      ['Acme'],
+    );
+  });
+
+  test('with "none" nothing is excluded, figma included', () => {
+    const snapshot = buildSnapshot({
+      workspaces: [acme, figma],
+      reportsByWorkspace: new Map([
+        ['ws-acme', [report({ reproductions: [{ flowId: 'a' }] })]],
+        ['ws-figma', [report({ reproductions: [{ flowId: 'f' }] })]],
+      ]),
+      excludedSlugs: parseExcludedSlugs('none'),
+      now: NOW,
+    });
+
+    assert.equal(snapshot.totals.workspacesListed, 2);
+    assert.equal(snapshot.totals.workspacesScanned, 2);
+    assert.equal(snapshot.totals.workspacesExcluded, 0);
+    assert.deepEqual(snapshot.excludedSlugs, []);
+    assert.deepEqual(snapshot.customers.map((c) => c.name).sort(), ['Acme', 'Figma']);
   });
 });
 

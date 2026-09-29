@@ -29,13 +29,22 @@ export function isDemoWorkspace(workspace) {
   return DEMO_NAME_RE.test(name) || INTERNAL_ORG_RE.test(org.trim());
 }
 
+/** A field as trimmed text; missing and whitespace-only both come back as ''. */
+function textOf(value) {
+  return String(value ?? '').trim();
+}
+
 /**
  * Parse `MAINTENANCE_DASHBOARD_EXCLUDED_SLUGS` ("figma, other-slug") into a set
  * of lower-cased slugs. Figma is excluded by default because its backlog is
  * handled separately and would otherwise sit at the top of every list.
+ *
+ * Empty or unset means that default, so leaving nothing out needs a word of
+ * its own: the whole value `none` (any case) is an empty set.
  */
 export function parseExcludedSlugs(raw, fallback = 'figma') {
   const source = typeof raw === 'string' && raw.trim() ? raw : fallback;
+  if (source.trim().toLowerCase() === 'none') return new Set();
   return new Set(
     source
       .split(',')
@@ -44,11 +53,40 @@ export function parseExcludedSlugs(raw, fallback = 'figma') {
   );
 }
 
+/**
+ * The list is slugs, so the slug decides. The name stands in only for a
+ * workspace that has no slug: matching it as well would drop a customer whose
+ * name happens to equal some other workspace's slug.
+ */
 export function isExcludedWorkspace(workspace, excludedSlugs) {
   if (!workspace || !excludedSlugs?.size) return false;
-  const slug = String(workspace.slug || '').toLowerCase();
-  const name = String(workspace.name || '').toLowerCase();
-  return excludedSlugs.has(slug) || excludedSlugs.has(name);
+  const slug = textOf(workspace.slug).toLowerCase();
+  return excludedSlugs.has(slug || textOf(workspace.name).toLowerCase());
+}
+
+/**
+ * What to call a workspace in a row: its name, else its slug, else its id.
+ * One rule for customer rows and report rows, so the two lists never disagree.
+ */
+function workspaceLabel(workspace) {
+  return textOf(workspace?.name) || textOf(workspace?.slug) || textOf(workspace?.id);
+}
+
+/**
+ * QA Wolf's workspace list with each workspace once: the first occurrence per id, in the
+ * order listed. An entry without an id is dropped, since nothing downstream
+ * (the reports map, the row keys) can address it.
+ */
+export function uniqueWorkspaces(workspaces) {
+  const seen = new Set();
+  const unique = [];
+  for (const workspace of workspaces || []) {
+    const id = workspace?.id;
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    unique.push(workspace);
+  }
+  return unique;
 }
 
 /** Whole days between an ISO timestamp and `now`; never negative. */
@@ -80,7 +118,7 @@ const PRIORITY_RANK = { urgent: 0, high: 1, medium: 2, low: 3, unprioritized: 4 
 
 /**
  * Shape one open report into a table row. `workspace` is the workspace it
- * belongs to (name/slug/org come from whoami, not the issue).
+ * belongs to (name/slug/org come from the workspace list, not the issue).
  */
 export function shapeReport(report, workspace, now = Date.now()) {
   const flowIds = activeFlowIds(report);
@@ -101,7 +139,7 @@ export function shapeReport(report, workspace, now = Date.now()) {
     description: summarizeDescription(report.description),
     url: report.url || null,
     workspaceId: workspace?.id || null,
-    workspaceName: workspace?.name || '',
+    workspaceName: workspaceLabel(workspace),
     workspaceSlug: workspace?.slug || '',
     organizationName: workspace?.organizationName || '',
     isDemo: isDemoWorkspace(workspace),
@@ -123,7 +161,7 @@ export function shapeCustomer(workspace, reports, now = Date.now()) {
   const ageSum = shaped.reduce((sum, r) => sum + r.ageDays, 0);
   return {
     workspaceId: workspace.id,
-    name: workspace.name || workspace.slug || workspace.id,
+    name: workspaceLabel(workspace),
     slug: workspace.slug || '',
     organizationName: workspace.organizationName || '',
     url: workspace.slug ? `https://app.qawolf.com/${workspace.slug}/maintenance-reports` : null,
@@ -163,9 +201,14 @@ export function rankOutstanding(reports) {
 /**
  * Build the whole snapshot from the raw API answers.
  *
+ * Of the totals, `workspacesListed` is everything QA Wolf listed (each id
+ * once), `workspacesExcluded` the ones left out by slug, and
+ * `workspacesScanned` the rest: the ones there were reports to ask for.
+ *
  * @param {object} args
- * @param {Array} args.workspaces          whoami's list
- * @param {Map<string, Array>} args.reportsByWorkspace  workspaceId -> raw open reports
+ * @param {Array} args.workspaces          QA Wolf's workspace list
+ * @param {Map<string, Array>} args.reportsByWorkspace  workspaceId -> raw open reports;
+ *   excluded workspaces need no entry
  * @param {Set<string>} [args.excludedSlugs]
  * @param {Array<{workspaceId:string,message:string}>} [args.errors]
  * @param {number} [args.now]
@@ -177,11 +220,12 @@ export function buildSnapshot({
   errors = [],
   now = Date.now(),
 }) {
+  const listed = uniqueWorkspaces(workspaces);
   const customers = [];
   const reports = [];
   let excludedCount = 0;
 
-  for (const workspace of workspaces || []) {
+  for (const workspace of listed) {
     if (isExcludedWorkspace(workspace, excludedSlugs)) {
       excludedCount += 1;
       continue;
@@ -202,7 +246,8 @@ export function buildSnapshot({
   return {
     generatedAt: new Date(now).toISOString(),
     totals: {
-      workspacesScanned: (workspaces || []).length,
+      workspacesListed: listed.length,
+      workspacesScanned: listed.length - excludedCount,
       workspacesExcluded: excludedCount,
       workspacesFailed: errors.length,
       customersWithBacklog: customerRows.length,
