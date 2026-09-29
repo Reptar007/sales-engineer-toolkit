@@ -13,9 +13,11 @@ import {
   getCacheTtlMs,
   getMaintenanceDashboard,
   getMaintenanceStatus,
+  getMinRescanMs,
   getRetryCooldownMs,
   getTaskWolfMaxConsecutiveFailures,
   getTaskWolfPassBudgetMs,
+  requestRescan,
   resetMaintenanceCache,
   startRefresh,
 } from '../src/projects/maintenance-dashboard/maintenanceService.js';
@@ -1549,11 +1551,16 @@ describe('getMaintenanceDashboard', () => {
     assert.match(result.error.message, /whoami shape/);
   });
 
-  test('an explicit refresh retries straight away, and a scan that works clears the error', async () => {
+  test('an explicit refresh retries once the cool-down has passed, and a scan that works clears the error', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
     await assert.rejects(startRefresh({ client: rejectedKeyClient() }));
     assert.equal(getMaintenanceDashboard().status, 'error');
 
-    // `?refresh=1`: a new scan starts inside the cool-down.
+    // `?refresh=1` inside the cool-down starts nothing.
+    assert.equal(getMaintenanceDashboard({ refresh: true }).status, 'error');
+
+    // Once it has passed, a new scan starts.
+    t.mock.timers.tick(getRetryCooldownMs());
     assert.equal(getMaintenanceDashboard({ refresh: true }).status, 'building');
     await scanInFlightFails('QAW_CONFIG');
     assert.equal(getMaintenanceDashboard().error.code, 'QAW_CONFIG');
@@ -1612,12 +1619,50 @@ describe('getMaintenanceDashboard', () => {
     assert.match(after.refreshError.message, /QAW_BEARER_TOKEN is not configured/);
     assert.equal(after.refreshError.failedAt, failedAt);
 
-    // Rescan still retries, and the cool-down passing does too.
+    // Rescan waits out the cool-down like a plain GET, then retries.
+    assert.equal(getMaintenanceDashboard({ refresh: true }).refreshing, false);
+    t.mock.timers.tick(getRetryCooldownMs());
     assert.equal(getMaintenanceDashboard({ refresh: true }).refreshing, true);
     await scanInFlightFails('QAW_CONFIG');
     t.mock.timers.tick(getRetryCooldownMs());
     assert.equal(getMaintenanceDashboard().refreshing, true);
     await scanInFlightFails('QAW_CONFIG');
+  });
+
+  test('a forced rescan waits the minimum gap after a good scan, and says when it may start', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
+    await startRefresh({ client: fakeClient(), taskWolfClient: null });
+    const availableAt = new Date(NOW + getMinRescanMs()).toISOString();
+    assert.equal(getMaintenanceDashboard().rescanAvailableAt, availableAt);
+    assert.equal(getMaintenanceStatus().rescanAvailableAt, availableAt);
+
+    // Too soon: nothing starts, under `?refresh=1` or `POST /refresh`.
+    t.mock.timers.tick(getMinRescanMs() - 1);
+    assert.equal(getMaintenanceDashboard({ refresh: true }).refreshing, false);
+    assert.deepEqual(requestRescan(), { accepted: false, retryAfterMs: 1 });
+    assert.equal(getMaintenanceStatus().refreshing, false);
+
+    // The gap has passed: one scan starts, and asking again joins it.
+    t.mock.timers.tick(1);
+    assert.equal(getMaintenanceDashboard().rescanAvailableAt, null);
+    assert.deepEqual(requestRescan(), { accepted: true, retryAfterMs: 0 });
+    const running = startRefresh();
+    assert.deepEqual(requestRescan(), { accepted: true, retryAfterMs: 0 });
+    assert.equal(startRefresh(), running);
+    await assert.rejects(running, (error) => error.code === 'QAW_CONFIG');
+  });
+
+  test('the minimum gap comes from the environment, 15 minutes by default', (t) => {
+    assert.equal(getMinRescanMs(), 15 * 60 * 1000);
+    process.env.MAINTENANCE_DASHBOARD_MIN_RESCAN_MINUTES = '5';
+    t.after(() => delete process.env.MAINTENANCE_DASHBOARD_MIN_RESCAN_MINUTES);
+    assert.equal(getMinRescanMs(), 5 * 60 * 1000);
+  });
+
+  test('with nothing cached and nothing failed, a forced rescan starts at once', () => {
+    assert.equal(getMaintenanceStatus().rescanAvailableAt, null);
+    assert.deepEqual(requestRescan(), { accepted: true, retryAfterMs: 0 });
+    return assert.rejects(startRefresh(), (error) => error.code === 'QAW_CONFIG');
   });
 
   test('a failed explicit refresh of a fresh snapshot is surfaced without restarting', async () => {
@@ -2051,7 +2096,16 @@ describe('getMaintenanceStatus', () => {
 
   afterEach(() => mock.restoreAll());
 
-  const FIELDS = ['builtAt', 'error', 'progress', 'refreshError', 'refreshing', 'stale', 'status'];
+  const FIELDS = [
+    'builtAt',
+    'error',
+    'progress',
+    'refreshError',
+    'refreshing',
+    'rescanAvailableAt',
+    'stale',
+    'status',
+  ];
 
   test('with nothing cached and nothing running it says so, and starts nothing', () => {
     for (let i = 0; i < 2; i += 1) {
@@ -2062,6 +2116,7 @@ describe('getMaintenanceStatus', () => {
         refreshing: false,
         progress: null,
         refreshError: null,
+        rescanAvailableAt: null,
         error: { code: 'NO_SNAPSHOT', message: 'No snapshot available.' },
       });
     }
@@ -2109,6 +2164,7 @@ describe('getMaintenanceStatus', () => {
       refreshing: false,
       progress: null,
       refreshError: null,
+      rescanAvailableAt: new Date(Date.parse(full.builtAt) + getMinRescanMs()).toISOString(),
       error: null,
     });
     assert.ok(JSON.stringify(status).length < 300);
@@ -2170,6 +2226,7 @@ describe('getMaintenanceStatus', () => {
         refreshing: false,
         progress: null,
         refreshError: null,
+        rescanAvailableAt: null,
         error: null,
       });
     }

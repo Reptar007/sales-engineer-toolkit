@@ -586,6 +586,7 @@ function MaintenanceDashboard() {
               refreshing: Boolean(answer.refreshing),
               progress: answer.progress || null,
               refreshError: answer.refreshError || null,
+              rescanAvailableAt: answer.rescanAvailableAt || null,
             }
           : prev,
       );
@@ -664,6 +665,19 @@ function MaintenanceDashboard() {
 
   const culprits = showAllCulprits ? customers : customers.slice(0, CULPRITS_PREVIEW);
   const maxFlows = customers.length ? customers[0].flowsInMaintenance : 0;
+
+  // The server makes a forced rescan wait a while after the last scan, since
+  // each one is about 2,000 QA Wolf calls. Rescan stays off until then, and a
+  // timer brings it back without waiting for the next poll.
+  const rescanAvailableAt = payload?.rescanAvailableAt ? Date.parse(payload.rescanAvailableAt) : 0;
+  const [, setRescanOpened] = useState(0);
+  useEffect(() => {
+    const wait = rescanAvailableAt - Date.now();
+    if (!(wait > 0)) return undefined;
+    const timer = setTimeout(() => setRescanOpened((n) => n + 1), wait + 250);
+    return () => clearTimeout(timer);
+  }, [rescanAvailableAt]);
+  const rescanWaiting = rescanAvailableAt > Date.now();
 
   const handleRescan = useCallback(() => {
     toast.info('Rescanning every workspace — this takes a few minutes.');
@@ -802,9 +816,18 @@ function MaintenanceDashboard() {
             type="button"
             className="bone-btn"
             onClick={handleRescan}
-            disabled={Boolean(payload?.refreshing)}
+            disabled={Boolean(payload?.refreshing) || rescanWaiting}
+            title={
+              rescanWaiting && !payload?.refreshing
+                ? 'A scan ran recently. Each one reads every workspace, so rescans are spaced out.'
+                : undefined
+            }
           >
-            {payload?.refreshing ? scanningLabel : 'Rescan'}
+            {payload?.refreshing
+              ? scanningLabel
+              : rescanWaiting
+                ? `Rescan at ${new Date(rescanAvailableAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                : 'Rescan'}
           </button>
         </div>
       </header>

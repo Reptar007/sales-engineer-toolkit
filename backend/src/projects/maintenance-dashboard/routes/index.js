@@ -22,7 +22,7 @@ import {
   getMaintenanceDashboard,
   getMaintenanceStatus,
   probeTaskWolfCustomer,
-  startRefresh,
+  requestRescan,
 } from '../maintenanceService.js';
 import { getTaskWolfMcpUrl, isTaskWolfConfigured } from '../taskWolfMcpClient.js';
 
@@ -64,8 +64,9 @@ function sendError(res, error, fallback) {
 // rebuild runs, and `refreshError` says so when the last rebuild failed), or
 // `{ status: 'building', progress }` during the first scan. With no snapshot
 // and a failed scan it answers `{ status: 'error', error, code }` under the
-// matching HTTP status until the cool-down passes. `?refresh=1` forces a
-// rescan in the background, failed or not.
+// matching HTTP status until the cool-down passes. `?refresh=1` asks for a
+// rescan in the background, which starts only once `rescanAvailableAt` has
+// passed; the answer is the same either way.
 router.get('/', authenticateToken, (req, res) => {
   const refresh = req.query.refresh === '1' || req.query.refresh === 'true';
   const result = getMaintenanceDashboard({ refresh });
@@ -83,9 +84,22 @@ router.get('/', authenticateToken, (req, res) => {
 // full payload above when `builtAt` moves or `refreshing` turns false.
 router.get('/status', authenticateToken, (req, res) => res.json(getMaintenanceStatus()));
 
-// POST /api/maintenance-dashboard/refresh -- start a rescan (no-op if running).
+// POST /api/maintenance-dashboard/refresh -- start a rescan, or join the one
+// running. Each scan is about 2,000 QA Wolf calls, so one asked for within
+// MAINTENANCE_DASHBOARD_MIN_RESCAN_MINUTES of the last snapshot (or the retry
+// cool-down of a failed scan) answers 429 with Retry-After instead.
 router.post('/refresh', authenticateToken, (req, res) => {
-  startRefresh();
+  const { accepted, retryAfterMs } = requestRescan();
+  if (!accepted) {
+    const retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
+    res.set('Retry-After', String(retryAfterSeconds));
+    return res.status(429).json({
+      refreshing: false,
+      error: 'A scan ran recently. Try again later.',
+      code: 'RESCAN_TOO_SOON',
+      retryAfterSeconds,
+    });
+  }
   return res.status(202).json({ refreshing: true });
 });
 

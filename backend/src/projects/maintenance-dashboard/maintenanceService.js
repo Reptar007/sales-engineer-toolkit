@@ -50,6 +50,7 @@ import {
 
 const DEFAULT_TTL_MINUTES = 6 * 60;
 const DEFAULT_RETRY_COOLDOWN_SECONDS = 60;
+const DEFAULT_MIN_RESCAN_MINUTES = 15;
 const DEFAULT_CONCURRENCY = 8;
 const MAX_CONCURRENCY = 16;
 const DEFAULT_TASK_WOLF_CONCURRENCY = 4;
@@ -111,6 +112,19 @@ export function getCacheTtlMs() {
 export function getRetryCooldownMs() {
   return (
     readNumberEnv('MAINTENANCE_DASHBOARD_RETRY_COOLDOWN_SECONDS', DEFAULT_RETRY_COOLDOWN_SECONDS) *
+    1000
+  );
+}
+
+/**
+ * How long after a scan succeeds before anyone may force another. A full scan
+ * is about 2,000 QA Wolf calls, so Rescan, `?refresh=1` and `POST /refresh`
+ * wait this out rather than stacking back-to-back scans.
+ */
+export function getMinRescanMs() {
+  return (
+    readNumberEnv('MAINTENANCE_DASHBOARD_MIN_RESCAN_MINUTES', DEFAULT_MIN_RESCAN_MINUTES) *
+    60 *
     1000
   );
 }
@@ -802,9 +816,43 @@ export function startRefresh(options = {}) {
 }
 
 /**
+ * When a forced rescan may next start, as a Date.now() value: the minimum gap
+ * after the last snapshot, and the retry cool-down after a failed scan. At or
+ * before now means it may start now.
+ */
+function nextRescanAt() {
+  return Math.max(
+    state.snapshot ? state.builtAt + getMinRescanMs() : 0,
+    state.failedAt ? state.failedAt + getRetryCooldownMs() : 0,
+  );
+}
+
+/** `rescanAvailableAt` for a response: null when a rescan may start now. */
+function rescanAvailableAt(now) {
+  const at = nextRescanAt();
+  return at > now ? new Date(at).toISOString() : null;
+}
+
+/**
+ * A rescan someone asked for (Rescan, `?refresh=1`, `POST /refresh`). A scan
+ * in flight is joined, never repeated; otherwise one starts only once the gap
+ * since the last scan has passed.
+ *
+ * @returns {{ accepted: boolean, retryAfterMs: number }}
+ */
+export function requestRescan(now = Date.now()) {
+  if (state.building) return { accepted: true, retryAfterMs: 0 };
+  const at = nextRescanAt();
+  if (at > now) return { accepted: false, retryAfterMs: at - now };
+  startRefresh();
+  return { accepted: true, retryAfterMs: 0 };
+}
+
+/**
  * What the page asks for. Answers straight from cache when it is fresh enough,
  * starts a rebuild otherwise, and never blocks on the scan itself. A rebuild
- * that failed is not restarted until the cool-down passes or `refresh` asks:
+ * that failed is not restarted until the cool-down passes, and `refresh` goes
+ * through `requestRescan`, so it waits out the same gaps:
  * with no snapshot the failure is the answer, with one it rides along as
  * `refreshError` beside the stale snapshot.
  *
@@ -816,7 +864,8 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
   const isStale = !state.snapshot || now - state.builtAt > getCacheTtlMs();
   const coolingDown = Boolean(state.lastError) && now - state.failedAt < getRetryCooldownMs();
 
-  if (refresh || (isStale && !coolingDown)) startRefresh();
+  if (refresh) requestRescan(now);
+  else if (isStale && !coolingDown) startRefresh();
 
   if (state.snapshot) {
     return {
@@ -829,6 +878,7 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
       refreshError: state.lastError
         ? { ...state.lastError, failedAt: new Date(state.failedAt).toISOString() }
         : null,
+      rescanAvailableAt: rescanAvailableAt(now),
       cacheTtlMinutes: Math.round(getCacheTtlMs() / 60000),
     };
   }
@@ -848,7 +898,7 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
  * fetch the full payload. With nothing cached, nothing running and nothing
  * failed (a process nobody has asked yet) it answers `error` / `NO_SNAPSHOT`.
  *
- * @returns {{ status: 'ready'|'building'|'error', builtAt: string|null, stale: boolean, refreshing: boolean, progress: object|null, refreshError: object|null, error: { code: string, message: string }|null }}
+ * @returns {{ status: 'ready'|'building'|'error', builtAt: string|null, stale: boolean, refreshing: boolean, progress: object|null, refreshError: object|null, rescanAvailableAt: string|null, error: { code: string, message: string }|null }}
  */
 export function getMaintenanceStatus() {
   const refreshing = Boolean(state.building);
@@ -859,6 +909,7 @@ export function getMaintenanceStatus() {
     refreshing,
     progress: state.progress,
     refreshError: null,
+    rescanAvailableAt: rescanAvailableAt(Date.now()),
     error: null,
   };
 
