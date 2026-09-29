@@ -1,26 +1,45 @@
 /**
  * Builds and caches the maintenance backlog snapshot.
  *
- * One snapshot is ~1,300 `issue.find` calls (one per workspace the key can
- * see), which is minutes of fan-out, so the page never waits on a live scan:
+ * One snapshot is about 2,000 `issue.find` calls (one per workspace the key
+ * can see), which is minutes of fan-out, so the page never waits on a live scan:
  * a GET answers the cached snapshot, or a "building" status with progress
  * while the first scan runs in the background. A scan that fails on a few
  * workspaces still produces a snapshot -- the failures ride along in
- * `errors`, so the page can say "1,290 of 1,301 scanned" instead of showing
+ * `errors`, so the page can say "1,990 of 2,004 scanned" instead of showing
  * a number that is quietly short.
+ *
+ * A scan that fails outright (no key, a rejected key, the workspace list unreachable or
+ * listing no workspace with an id, or nothing but failures from the
+ * workspaces) is remembered rather than
+ * retried by the next GET: the page polls, so retrying on every request would
+ * answer "building" forever and send upstream a doomed request every few
+ * seconds. The error answers until someone asks for a rescan or a short
+ * cool-down has passed.
+ *
+ * The Task Wolf pass comes second and can be slow, so the very first snapshot
+ * is published before it starts, marked `taskWolf.pending`, and replaced when
+ * the pass ends. The pass itself gives up on a Task Wolf that has stopped
+ * answering rather than wait out every customer's timeout.
  *
  * The cache is per-process. Heroku restarts the dyno daily, so the first
  * request after a restart rebuilds it; that is acceptable for a page read a
  * few times a day, and it keeps this change free of schema migrations.
  */
 import { listWorkspaces, listOpenMaintenanceReports } from './qawolfClient.js';
-import { buildSnapshot, parseExcludedSlugs } from './maintenanceShape.js';
+import {
+  buildSnapshot,
+  isExcludedWorkspace,
+  parseExcludedSlugs,
+  uniqueWorkspaces,
+} from './maintenanceShape.js';
 import {
   TaskWolfConfigError,
   getSharedTaskWolfClient,
   isTaskWolfConfigured,
 } from './taskWolfMcpClient.js';
 import {
+  isCustomerNotFound,
   mergeTaskWolf,
   normalizeMaintenanceStatus,
   normalizeTasks,
@@ -30,10 +49,42 @@ import {
 } from './taskWolfShape.js';
 
 const DEFAULT_TTL_MINUTES = 6 * 60;
+const DEFAULT_RETRY_COOLDOWN_SECONDS = 60;
 const DEFAULT_CONCURRENCY = 8;
 const MAX_CONCURRENCY = 16;
 const DEFAULT_TASK_WOLF_CONCURRENCY = 4;
 const MAX_TASK_WOLF_CONCURRENCY = 8;
+const DEFAULT_TASK_WOLF_MAX_CONSECUTIVE_FAILURES = 8;
+const DEFAULT_TASK_WOLF_PASS_BUDGET_MINUTES = 15;
+
+// When the first this-many workspaces to settle have all failed, the scan is
+// looking at an outage, and the rest of the fan-out would only repeat it.
+const SCAN_EARLY_FAILURE_LIMIT = 20;
+// What a worker hands back for a workspace it skipped because the scan had stopped.
+const NOT_ASKED = Symbol('not asked');
+
+// How a Task Wolf that has stopped answering fails, as opposed to one that
+// answered "not for this customer" (TW_TOOL) or answered nothing readable.
+const TASK_WOLF_OUTAGE_CODES = new Set(['TW_NETWORK', 'TW_UPSTREAM', 'TW_FORBIDDEN']);
+
+// What the page reads from a customer's Task Wolf roll-up. The scan needs the
+// rest (listed and blocked flow ids, per-flow blockers and assignees, task
+// rows) to annotate reports; nothing reads it afterwards, and it is most of
+// the payload. A report's own `taskWolf` is small and goes out whole.
+const PUBLISHED_CUSTOMER_TASK_WOLF_FIELDS = [
+  'flowsInMaintenance',
+  'blockedFlows',
+  'actionableFlows',
+  'partial',
+  'assignees',
+  'openTasks',
+  'blockedTasks',
+  'overdueTasks',
+  'oldestTaskAgeDays',
+  'blockers',
+  'truncated',
+  'url',
+];
 
 export const TASK_WOLF_MAINTENANCE_TOOL = 'get_maintenance_status';
 export const TASK_WOLF_TASKS_TOOL = 'find_tasks';
@@ -43,7 +94,8 @@ const state = {
   builtAt: 0, // Date.now() when it completed
   building: null, // in-flight promise, if any
   progress: null, // { scanned, total, startedAt, failed }
-  lastError: null, // last whole-scan failure (auth, config, whoami)
+  lastError: null, // last whole-scan failure (auth, config, workspace list)
+  failedAt: 0, // Date.now() when it failed
 };
 
 function readNumberEnv(name, fallback) {
@@ -53,6 +105,14 @@ function readNumberEnv(name, fallback) {
 
 export function getCacheTtlMs() {
   return readNumberEnv('MAINTENANCE_DASHBOARD_CACHE_TTL_MINUTES', DEFAULT_TTL_MINUTES) * 60 * 1000;
+}
+
+/** How long a failed scan answers its error before a plain GET may retry. */
+export function getRetryCooldownMs() {
+  return (
+    readNumberEnv('MAINTENANCE_DASHBOARD_RETRY_COOLDOWN_SECONDS', DEFAULT_RETRY_COOLDOWN_SECONDS) *
+    1000
+  );
 }
 
 export function getScanConcurrency() {
@@ -67,6 +127,23 @@ export function getTaskWolfConcurrency() {
   return Math.min(
     MAX_TASK_WOLF_CONCURRENCY,
     readNumberEnv('TASK_WOLF_CONCURRENCY', DEFAULT_TASK_WOLF_CONCURRENCY),
+  );
+}
+
+/** How many customers in a row Task Wolf may fail to answer before the pass stops. */
+export function getTaskWolfMaxConsecutiveFailures() {
+  return readNumberEnv(
+    'TASK_WOLF_MAX_CONSECUTIVE_FAILURES',
+    DEFAULT_TASK_WOLF_MAX_CONSECUTIVE_FAILURES,
+  );
+}
+
+/** How long the Task Wolf pass may run before it stops with what it has. */
+export function getTaskWolfPassBudgetMs() {
+  return (
+    readNumberEnv('TASK_WOLF_PASS_BUDGET_MINUTES', DEFAULT_TASK_WOLF_PASS_BUDGET_MINUTES) *
+    60 *
+    1000
   );
 }
 
@@ -106,12 +183,24 @@ export async function mapWithConcurrency(items, limit, worker, onSettled) {
 
 /**
  * Ask Task Wolf about one customer: open maintenance with blocked status, and
- * the open maintenance tasks on the board. Either half may fail on its own;
- * an auth failure is rethrown so the caller can stop asking.
+ * the open maintenance tasks on the board. Either half may fail on its own.
+ * An auth failure ends this customer's questions and comes back as
+ * `authError`, beside whatever half had already answered, so the caller can
+ * stop asking without losing it. `calls` counts the tool calls that went out,
+ * so the caller can tell "every call failed" from "one half is missing".
+ * A tool that answers it has no such customer is not a failure: it goes in
+ * `notFound`, not in `errors`, with the argument it was sent.
  */
 async function queryTaskWolfCustomer(client, schemas, customer, now) {
   const workspace = { id: customer.workspaceId, slug: customer.slug, name: customer.name };
-  const result = { maintenance: null, tasks: null, errors: [] };
+  const result = {
+    maintenance: null,
+    tasks: null,
+    errors: [],
+    notFound: [],
+    calls: 0,
+    authError: null,
+  };
 
   const attempts = [
     {
@@ -146,47 +235,114 @@ async function queryTaskWolfCustomer(client, schemas, customer, now) {
       });
       continue;
     }
+    result.calls += 1;
     try {
       const normalized = attempt.apply(await client.callTool(attempt.tool, picked.arguments));
       if (normalized === null) {
+        // Prose, or JSON with no count and no items in it.
         result.errors.push({
           tool: attempt.tool,
-          message: `${attempt.tool} answered prose rather than JSON, so it was not counted.`,
+          message: `${attempt.tool} gave an answer with no readable maintenance data, so it was not counted.`,
         });
       }
     } catch (error) {
-      if (error.code === 'TW_AUTH') throw error;
-      result.errors.push({ tool: attempt.tool, message: error.message || String(error) });
+      // "No customer matched": a former customer, most often. Task Wolf
+      // answered; it just has nothing on this one.
+      if (isCustomerNotFound(error)) {
+        result.notFound.push({
+          tool: attempt.tool,
+          via: picked.via,
+          value: picked.arguments[picked.via],
+        });
+        continue;
+      }
+      result.errors.push({
+        tool: attempt.tool,
+        code: error.code || null,
+        message: error.message || String(error),
+      });
+      // Only a dead token (401) says something about every call after it. A
+      // 403 is this customer's failure, like a timeout or a 500.
+      if (error.code === 'TW_AUTH') {
+        result.authError = error;
+        break;
+      }
     }
   }
   return result;
 }
 
+/** Every tool call made for this customer failed the way an outage fails. */
+function isTaskWolfOutage(answer) {
+  const failed = answer.errors.filter((e) => TASK_WOLF_OUTAGE_CODES.has(e.code));
+  return answer.calls > 0 && failed.length === answer.calls;
+}
+
+/**
+ * The tools a `tools/list` answer offers, by name. Entries that are not tool
+ * objects are skipped, so one bad row cannot take the platform scan down.
+ */
+function findToolIn(tools, name) {
+  const catalog = Array.isArray(tools) ? tools.filter((t) => t && typeof t === 'object') : [];
+  return catalog.find((t) => t.name === name);
+}
+
 /**
  * Second pass: fold Task Wolf's view (blocked vs actionable, who is on it)
  * into a platform snapshot. Only customers with backlog are asked, demos
- * skipped, so this is a few hundred calls rather than 1,300. Never throws:
+ * skipped, so this is a few hundred calls rather than about 2,000. Never throws:
  * a missing token, an expired token or a server-side failure lands in
  * `snapshot.taskWolf.error` and the page says so beside the platform data,
  * which is still right.
+ *
+ * A Task Wolf that accepts requests and then answers none of them would cost
+ * a full timeout per call, so the pass stops asking (`TW_ABORTED`) after
+ * `maxConsecutiveFailures` customers in a row got nothing but outage-shaped
+ * failures, or once it has run longer than `budgetMs`. An expired token
+ * stops it the same way at the first 401, under `TW_AUTH`. Either way,
+ * customers already asked are still heard out and recorded; only those never
+ * asked are skipped. A pass that ran to its end and got an answer for no
+ * customer at all is reported under `TW_ABORTED`.
+ *
+ * A customer Task Wolf has no record of ("No customer matched", a former
+ * customer most often) is none of the above: it is counted in
+ * `customersNotInTaskWolf`, not listed in `errors`, and its reports stay
+ * unknown. A customer one tool knows is answered by that tool. A pass in
+ * which Task Wolf had no record of any customer asked (more than one) is
+ * the exception: that is a customer argument it no longer takes, not every
+ * customer a former one, and it is reported under `TW_ABORTED`.
  */
 export async function enrichWithTaskWolf(
   snapshot,
-  { client, concurrency = getTaskWolfConcurrency(), onProgress, now = Date.now } = {},
+  {
+    client,
+    concurrency = getTaskWolfConcurrency(),
+    maxConsecutiveFailures = getTaskWolfMaxConsecutiveFailures(),
+    budgetMs = getTaskWolfPassBudgetMs(),
+    onProgress,
+    now = Date.now,
+  } = {},
 ) {
   const targets = snapshot.customers.filter((c) => !c.isDemo);
+  const startedAt = now();
   const meta = {
     enabled: true,
     errors: [],
     customersQueried: targets.length,
-    startedAt: new Date(now()).toISOString(),
+    customersNotInTaskWolf: 0,
+    startedAt: new Date(startedAt).toISOString(),
     tools: null,
   };
   const byWorkspace = new Map();
 
   const finish = () => {
     meta.finishedAt = new Date(now()).toISOString();
-    return mergeTaskWolf(snapshot, byWorkspace, meta);
+    const merged = mergeTaskWolf(snapshot, byWorkspace, meta);
+    // The merge keeps the pass fields it knows of; this one is the pass's own.
+    return {
+      ...merged,
+      taskWolf: { ...merged.taskWolf, customersNotInTaskWolf: meta.customersNotInTaskWolf },
+    };
   };
 
   let tools;
@@ -197,7 +353,7 @@ export async function enrichWithTaskWolf(
     return finish();
   }
   const findSchema = (name) => {
-    const tool = tools.find((t) => t.name === name);
+    const tool = findToolIn(tools, name);
     return tool ? tool.inputSchema || null : undefined;
   };
   const schemas = {
@@ -225,15 +381,30 @@ export async function enrichWithTaskWolf(
   };
   if (onProgress) onProgress({ ...progress });
 
+  let failedInARow = 0;
+  let asked = 0;
+  // The first customer Task Wolf had no record of, and what it was sent.
+  let firstNotFound = null;
+  // Why the pass stopped asking, once it has: an expired token (TW_AUTH), or
+  // the cut-off or the budget (TW_ABORTED). Calls already out cannot be taken
+  // back, so their answers are still recorded when they come in.
+  let stopped = null;
+
   try {
     await mapWithConcurrency(
       targets,
       concurrency,
-      (customer) => queryTaskWolfCustomer(client, schemas, customer, now()),
+      (customer) => {
+        if (stopped) return null;
+        asked += 1;
+        return queryTaskWolfCustomer(client, schemas, customer, now());
+      },
       (result, index) => {
+        if (result.value === null) return; // never asked: the pass had stopped
         const customer = targets[index];
+        let outage = false;
         if (result.error) {
-          if (result.error.code === 'TW_AUTH') throw result.error;
+          outage = TASK_WOLF_OUTAGE_CODES.has(result.error.code);
           progress.failed += 1;
           meta.errors.push({
             workspaceId: customer.workspaceId,
@@ -242,8 +413,17 @@ export async function enrichWithTaskWolf(
           });
         } else {
           const answer = result.value;
+          // A dead token stops the pass, whatever stopped it before. What this
+          // customer answered before the 401 is kept like any half answer.
+          if (answer.authError) {
+            stopped = { code: 'TW_AUTH', message: answer.authError.message };
+          }
+          outage = isTaskWolfOutage(answer);
           if (answer.maintenance || answer.tasks) {
             byWorkspace.set(customer.workspaceId, summarizeTaskWolfCustomer(answer));
+          } else if (answer.notFound.length) {
+            meta.customersNotInTaskWolf += 1;
+            if (!firstNotFound) firstNotFound = { customer, ...answer.notFound[0] };
           }
           if (answer.errors.length) progress.failed += 1;
           for (const err of answer.errors) {
@@ -257,11 +437,64 @@ export async function enrichWithTaskWolf(
         }
         progress.scanned += 1;
         if (onProgress) onProgress({ ...progress });
+
+        // Nothing to cut short once every customer has been asked.
+        const left = targets.length - asked;
+        if (stopped || left === 0) return;
+        failedInARow = outage ? failedInARow + 1 : 0;
+        if (failedInARow >= maxConsecutiveFailures) {
+          stopped = {
+            code: 'TW_ABORTED',
+            message: `Task Wolf failed to answer for ${failedInARow} customers in a row, so the pass stopped with ${left} of ${targets.length} customers left. Last failure: ${meta.errors.at(-1).message}`,
+          };
+        } else if (now() - startedAt > budgetMs) {
+          stopped = {
+            code: 'TW_ABORTED',
+            message: `The Task Wolf pass ran past its ${Math.round(budgetMs / 60000)}-minute budget, so it stopped with ${left} of ${targets.length} customers left.`,
+          };
+        }
       },
     );
   } catch (error) {
-    // Auth died mid-way: keep what was gathered, say why the rest is missing.
+    // Nothing above throws on purpose; if something does, keep what was
+    // gathered and say why the rest is missing.
     meta.error = { code: error.code || 'TW_UPSTREAM', message: error.message };
+  }
+  if (stopped && !meta.error) meta.error = stopped;
+  // The cut-off never fires once every customer has been asked, so a pass can
+  // run to its end without one answer. That is not a clean pass with some errors.
+  // A customer Task Wolf has no record of had nothing to answer, so it is left out.
+  const notInTaskWolf = meta.customersNotInTaskWolf;
+  const others = progress.scanned - notInTaskWolf;
+  if (!meta.error && others > 0 && byWorkspace.size === 0) {
+    const [first] = meta.errors;
+    let count =
+      others === 1
+        ? 'Task Wolf did not answer for the one customer asked.'
+        : `Task Wolf answered for none of the ${others} customers asked.`;
+    if (notInTaskWolf > 0) {
+      count = `Of the ${progress.scanned} customers asked, Task Wolf has no record of ${notInTaskWolf} and ${
+        others === 1
+          ? 'did not answer for the other one'
+          : `answered for none of the other ${others}`
+      }.`;
+    }
+    const firstFailure = first
+      ? ` First failure (${first.workspaceName || first.workspaceId}): ${first.message}`
+      : '';
+    meta.error = { code: 'TW_ABORTED', message: `${count}${firstFailure}` };
+  }
+  // Some former customers are expected; Task Wolf knowing none of those asked
+  // is what a customer argument it no longer takes looks like. One customer on
+  // its own may well be a former one.
+  if (!meta.error && others === 0 && notInTaskWolf > 1) {
+    const { customer, tool, via, value } = firstNotFound;
+    meta.error = {
+      code: 'TW_ABORTED',
+      message: `Task Wolf has no record of any of the ${notInTaskWolf} customers asked, so the customer argument it is sent is probably wrong. First (${
+        customer.name || customer.workspaceId
+      }): ${tool} was sent ${via} ${JSON.stringify(value)}.`,
+    };
   }
   return finish();
 }
@@ -291,7 +524,7 @@ export async function probeTaskWolfCustomer(
     ['tasks', TASK_WOLF_TASKS_TOOL, pickTaskArguments, normalizeTasks],
   ];
   for (const [key, name, pick, normalize] of plan) {
-    const tool = tools.find((t) => t.name === name);
+    const tool = findToolIn(tools, name);
     if (!tool) {
       out.tools[key] = { tool: name, offered: false };
       continue;
@@ -329,8 +562,63 @@ export function findCachedCustomer(workspaceId) {
 }
 
 /**
+ * A scan that got nothing but failures is an outage, not an empty backlog, so
+ * it fails as a whole: under the code the failures share when they share one,
+ * naming how many failed and the first of them.
+ */
+function scanFailedError(errors, codes, total) {
+  const [first] = errors;
+  const [code] = codes;
+  const stoppedEarly = errors.length < total;
+  let count = `All ${total} workspaces scanned failed.`;
+  if (stoppedEarly) {
+    count = `The first ${errors.length} of ${total} workspaces scanned all failed, so the scan was stopped.`;
+  } else if (total === 1) {
+    count = 'The one workspace scanned failed.';
+  }
+  const error = new Error(
+    `${count} First failure (${first.workspaceName || first.workspaceId}): ${first.message}`,
+  );
+  error.code = codes.size === 1 && code ? code : 'QAW_UPSTREAM';
+  return error;
+}
+
+/** QA Wolf listed workspaces and none of them carried an id to scan by. */
+function workspacesWithoutIdsError(workspaces) {
+  const count =
+    workspaces.length === 1
+      ? 'listed 1 workspace and it had no id'
+      : `listed ${workspaces.length} workspaces and none had an id`;
+  const keys = Object.keys(workspaces.find((w) => w && typeof w === 'object') || {});
+  const error = new Error(
+    `QA Wolf ${count}, so there was nothing to scan.${
+      keys.length ? ` Keys of the first: ${keys.join(', ')}` : ''
+    }`,
+  );
+  error.code = 'QAW_UPSTREAM';
+  return error;
+}
+
+/**
+ * The platform snapshot as it goes out while Task Wolf is still being asked:
+ * every row unknown to Task Wolf, and `pending` so the page can say why.
+ */
+function withTaskWolfPending(snapshot, now) {
+  const merged = mergeTaskWolf(snapshot, new Map(), {
+    enabled: true,
+    customersQueried: snapshot.customers.filter((c) => !c.isDemo).length,
+    startedAt: new Date(now).toISOString(),
+  });
+  return { ...merged, taskWolf: { ...merged.taskWolf, pending: true } };
+}
+
+/**
  * Scan every workspace and build a fresh snapshot. Exported for the refresh
  * route and for tests, which inject their own client functions.
+ *
+ * Excluded workspaces are not asked at all, and a workspace QA Wolf lists twice
+ * is asked once. `onPlatformSnapshot` is handed the platform-only snapshot,
+ * marked `taskWolf.pending`, just before the Task Wolf pass starts.
  */
 export async function scanMaintenanceBacklog({
   client = { listWorkspaces, listOpenMaintenanceReports },
@@ -339,10 +627,18 @@ export async function scanMaintenanceBacklog({
   taskWolfConcurrency = getTaskWolfConcurrency(),
   excludedSlugs = parseExcludedSlugs(process.env.MAINTENANCE_DASHBOARD_EXCLUDED_SLUGS),
   onProgress,
+  onPlatformSnapshot,
   now = Date.now,
 } = {}) {
   const workspaces = await client.listWorkspaces();
-  const total = workspaces.length;
+  const listed = uniqueWorkspaces(workspaces);
+  if (workspaces?.length > 0 && listed.length === 0) {
+    // A renamed id field or wrapped entries, not a key that sees nothing: an
+    // empty backlog here would replace a good snapshot with a wrong one.
+    throw workspacesWithoutIdsError(workspaces);
+  }
+  const toScan = listed.filter((workspace) => !isExcludedWorkspace(workspace, excludedSlugs));
+  const total = toScan.length;
   const progress = {
     phase: 'platform',
     scanned: 0,
@@ -354,18 +650,26 @@ export async function scanMaintenanceBacklog({
 
   const reportsByWorkspace = new Map();
   const errors = [];
+  const errorCodes = new Set();
+  // Set once the first workspaces to settle have all failed. Nobody else is
+  // asked, but the ones already out are heard: a dead key among them is what
+  // the scan failed of.
+  let stopped = null;
 
   await mapWithConcurrency(
-    workspaces,
+    toScan,
     concurrency,
-    (workspace) => client.listOpenMaintenanceReports(workspace.id),
+    (workspace) => (stopped ? NOT_ASKED : client.listOpenMaintenanceReports(workspace.id)),
     (result, index) => {
-      const workspace = workspaces[index];
+      if (result.value === NOT_ASKED) return;
+      const workspace = toScan[index];
+      // An auth failure is not "this workspace has no backlog"; it is the
+      // whole scan being blind. Surface it loudly instead of tallying it.
+      if (result.error?.code === 'QAW_AUTH') throw result.error;
+      if (stopped) return;
       if (result.error) {
-        // An auth failure is not "this workspace has no backlog"; it is the
-        // whole scan being blind. Surface it loudly instead of tallying it.
-        if (result.error.code === 'QAW_AUTH') throw result.error;
         progress.failed += 1;
+        errorCodes.add(result.error.code || null);
         errors.push({
           workspaceId: workspace.id,
           workspaceName: workspace.name,
@@ -376,8 +680,16 @@ export async function scanMaintenanceBacklog({
       }
       progress.scanned += 1;
       if (onProgress) onProgress({ ...progress });
+      if (progress.scanned === SCAN_EARLY_FAILURE_LIMIT && progress.failed === progress.scanned) {
+        stopped = scanFailedError(errors, errorCodes, total);
+      }
     },
   );
+
+  if (stopped) throw stopped;
+  if (errors.length > 0 && errors.length === total) {
+    throw scanFailedError(errors, errorCodes, total);
+  }
 
   const snapshot = buildSnapshot({
     workspaces,
@@ -396,12 +708,42 @@ export async function scanMaintenanceBacklog({
       },
     });
   }
+  if (onPlatformSnapshot) onPlatformSnapshot(withTaskWolfPending(snapshot, now()));
   return enrichWithTaskWolf(snapshot, {
     client: taskWolfClient,
     concurrency: taskWolfConcurrency,
     onProgress,
     now,
   });
+}
+
+/**
+ * What goes into the cache, and so into every response: the snapshot with
+ * each customer's Task Wolf roll-up cut down to the fields the page reads.
+ */
+function publishedSnapshot(snapshot) {
+  return {
+    ...snapshot,
+    customers: snapshot.customers.map((customer) =>
+      customer.taskWolf
+        ? {
+            ...customer,
+            taskWolf: Object.fromEntries(
+              PUBLISHED_CUSTOMER_TASK_WOLF_FIELDS.filter((key) => key in customer.taskWolf).map(
+                (key) => [key, customer.taskWolf[key]],
+              ),
+            ),
+          }
+        : customer,
+    ),
+    // Only a pass that ran counts customers Task Wolf has no record of; one
+    // still pending or not connected has found none yet.
+    taskWolf: {
+      ...snapshot.taskWolf,
+      pending: Boolean(snapshot.taskWolf?.pending),
+      customersNotInTaskWolf: snapshot.taskWolf?.customersNotInTaskWolf ?? 0,
+    },
+  };
 }
 
 /** Kick a background rebuild unless one is already running. */
@@ -421,15 +763,31 @@ export function startRefresh(options = {}) {
     onProgress: (progress) => {
       state.progress = progress;
     },
+    // First scan only: the backlog goes on the page while Task Wolf is asked.
+    // A snapshot already there stays until the new one is complete.
+    onPlatformSnapshot: (interim) => {
+      if (state.snapshot) return;
+      state.snapshot = publishedSnapshot(interim);
+      state.builtAt = Date.now();
+    },
   })
     .then((snapshot) => {
-      state.snapshot = snapshot;
+      state.snapshot = publishedSnapshot(snapshot);
       state.builtAt = Date.now();
-      return snapshot;
+      return state.snapshot;
     })
     .catch((error) => {
       console.error('Maintenance backlog scan failed:', error);
       state.lastError = { code: error.code || 'SCAN_FAILED', message: error.message };
+      state.failedAt = Date.now();
+      if (state.snapshot?.taskWolf?.pending) {
+        // The scan broke after its interim snapshot went out. The platform
+        // rows stand; Task Wolf is no longer being asked.
+        state.snapshot = {
+          ...state.snapshot,
+          taskWolf: { ...state.snapshot.taskWolf, pending: false, error: state.lastError },
+        };
+      }
       throw error;
     })
     .finally(() => {
@@ -445,16 +803,20 @@ export function startRefresh(options = {}) {
 
 /**
  * What the page asks for. Answers straight from cache when it is fresh enough,
- * starts a rebuild otherwise, and never blocks on the scan itself.
+ * starts a rebuild otherwise, and never blocks on the scan itself. A rebuild
+ * that failed is not restarted until the cool-down passes or `refresh` asks:
+ * with no snapshot the failure is the answer, with one it rides along as
+ * `refreshError` beside the stale snapshot.
  *
  * @param {{ refresh?: boolean }} [options]
- * @returns {{ status: 'ready'|'building'|'error', snapshot?: object, stale?: boolean, progress?: object, error?: object }}
+ * @returns {{ status: 'ready'|'building'|'error', snapshot?: object, stale?: boolean, progress?: object, refreshError?: object|null, error?: object }}
  */
 export function getMaintenanceDashboard({ refresh = false } = {}) {
   const now = Date.now();
   const isStale = !state.snapshot || now - state.builtAt > getCacheTtlMs();
+  const coolingDown = Boolean(state.lastError) && now - state.failedAt < getRetryCooldownMs();
 
-  if (refresh || isStale) startRefresh();
+  if (refresh || (isStale && !coolingDown)) startRefresh();
 
   if (state.snapshot) {
     return {
@@ -464,6 +826,9 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
       stale: isStale,
       refreshing: Boolean(state.building),
       progress: state.progress,
+      refreshError: state.lastError
+        ? { ...state.lastError, failedAt: new Date(state.failedAt).toISOString() }
+        : null,
       cacheTtlMinutes: Math.round(getCacheTtlMs() / 60000),
     };
   }
@@ -475,6 +840,45 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
   return { status: 'error', error: state.lastError || { message: 'No snapshot available.' } };
 }
 
+/**
+ * What the page polls while a scan runs: where things stand, without the
+ * snapshot, so a poll costs a few hundred bytes rather than the whole backlog.
+ * It reads the state and changes nothing; in particular it never starts a
+ * scan. `builtAt` moves whenever a snapshot is published, which is the cue to
+ * fetch the full payload. With nothing cached, nothing running and nothing
+ * failed (a process nobody has asked yet) it answers `error` / `NO_SNAPSHOT`.
+ *
+ * @returns {{ status: 'ready'|'building'|'error', builtAt: string|null, stale: boolean, refreshing: boolean, progress: object|null, refreshError: object|null, error: { code: string, message: string }|null }}
+ */
+export function getMaintenanceStatus() {
+  const refreshing = Boolean(state.building);
+  const answer = {
+    status: 'error',
+    builtAt: null,
+    stale: false,
+    refreshing,
+    progress: state.progress,
+    refreshError: null,
+    error: null,
+  };
+
+  if (state.snapshot) {
+    answer.status = 'ready';
+    answer.builtAt = new Date(state.builtAt).toISOString();
+    answer.stale = Date.now() - state.builtAt > getCacheTtlMs();
+    answer.refreshError = state.lastError
+      ? { ...state.lastError, failedAt: new Date(state.failedAt).toISOString() }
+      : null;
+  } else if (refreshing) {
+    answer.status = 'building';
+  } else {
+    answer.error = state.lastError
+      ? { ...state.lastError }
+      : { code: 'NO_SNAPSHOT', message: 'No snapshot available.' };
+  }
+  return answer;
+}
+
 /** Test hook: forget everything. */
 export function resetMaintenanceCache() {
   state.snapshot = null;
@@ -482,4 +886,5 @@ export function resetMaintenanceCache() {
   state.building = null;
   state.progress = null;
   state.lastError = null;
+  state.failedAt = 0;
 }
