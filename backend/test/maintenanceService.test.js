@@ -233,6 +233,18 @@ describe('scanMaintenanceBacklog', () => {
     assert.deepEqual(snapshot.customers.map((c) => c.name).sort(), ['Figma', 'Two']);
   });
 
+  test('a workspace with no slug is scanned and shown even when its name is an excluded slug', async () => {
+    // Exclusion is by slug only, and the scan and the snapshot agree on it.
+    const client = fakeClient({
+      listed: workspaces.map((w) => (w.id === 'ws-figma' ? { id: 'ws-figma', name: 'Figma' } : w)),
+    });
+    const snapshot = await scanMaintenanceBacklog({ client, concurrency: 2, now: () => NOW });
+    assert.deepEqual([...client.calls].sort(), ['ws-1', 'ws-2', 'ws-3', 'ws-figma']);
+    assert.equal(snapshot.totals.workspacesScanned, 4);
+    assert.equal(snapshot.totals.workspacesExcluded, 0);
+    assert.deepEqual(snapshot.customers.map((c) => c.name).sort(), ['Figma', 'Two']);
+  });
+
   test('a workspace listed twice is asked once, and one without an id not at all', async () => {
     const listed = [workspaces[0], workspaces[1], { ...workspaces[1] }, { name: 'No id' }];
     const client = fakeClient({ listed });

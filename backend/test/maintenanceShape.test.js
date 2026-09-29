@@ -103,7 +103,7 @@ describe('workspace filters', () => {
     assert.deepEqual([...parseExcludedSlugs('none, acme')], ['none', 'acme']);
   });
 
-  test('the list matches slugs; the name only stands in for a workspace with no slug', () => {
+  test('the list matches slugs only, never names', () => {
     const excluded = parseExcludedSlugs('figma');
     // A customer that happens to be named like another workspace's slug stays in.
     assert.equal(
@@ -114,9 +114,18 @@ describe('workspace filters', () => {
       isExcludedWorkspace({ id: 'ws-y', name: 'Something Else', slug: 'figma' }, excluded),
       true,
     );
-    assert.equal(isExcludedWorkspace({ id: 'ws-z', name: 'Figma' }, excluded), true);
-    assert.equal(isExcludedWorkspace({ id: 'ws-z', name: ' Figma ', slug: '  ' }, excluded), true);
-    assert.equal(isExcludedWorkspace({ id: 'ws-z', name: 'Acme' }, excluded), false);
+  });
+
+  test('a workspace with no slug is never excluded, whatever its name', () => {
+    const excluded = parseExcludedSlugs('figma');
+    for (const slug of [undefined, null, '', '  ']) {
+      assert.equal(
+        isExcludedWorkspace({ id: 'ws-z', name: 'Figma', slug }, excluded),
+        false,
+        `slug ${JSON.stringify(slug)} should not be excluded by its name`,
+      );
+    }
+    assert.equal(isExcludedWorkspace({ id: 'ws-z', name: ' figma ' }, excluded), false);
   });
 
   test('demo and sandbox workspaces are flagged, customers are not', () => {

@@ -265,9 +265,10 @@ next forced rescan may start (null when it may start now), and the page disables
   normalized reading side by side. The workspace id is sent as Task Wolf's `qawId`; `?slug=` /
   `?name=` only matter for a tool that takes a name instead.
 
-`MAINTENANCE_DASHBOARD_EXCLUDED_SLUGS` (default `figma`, comma-separated, matched by slug)
-drops workspaces from the backlog entirely: they are not scanned. Set it to `none` to leave
-nothing out. Demo/sandbox workspaces are flagged and hidden by a toggle on the page.
+`MAINTENANCE_DASHBOARD_EXCLUDED_SLUGS` (default `figma`, comma-separated, matched by slug only)
+drops workspaces from the backlog entirely: they are not scanned. A workspace with no slug is
+never dropped, whatever its name. Set it to `none` to leave nothing out. Demo/sandbox
+workspaces are flagged and hidden by a toggle on the page.
 
 **Task Wolf.** With `TASK_WOLF_MCP_TOKEN` set (a personal `twmcp_…` token from
 [Task Wolf → Settings → Connect Claude](https://www.task-wolf.com/settings/connect-claude),

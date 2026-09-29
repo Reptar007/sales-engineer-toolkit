@@ -36,7 +36,8 @@ function textOf(value) {
 
 /**
  * Parse `MAINTENANCE_DASHBOARD_EXCLUDED_SLUGS` ("figma, other-slug") into a set
- * of lower-cased slugs. Figma is excluded by default because its backlog is
+ * of lower-cased slugs, which `isExcludedWorkspace` matches against workspace
+ * slugs and nothing else. Figma is excluded by default because its backlog is
  * handled separately and would otherwise sit at the top of every list.
  *
  * Empty or unset means that default, so leaving nothing out needs a word of
@@ -54,14 +55,14 @@ export function parseExcludedSlugs(raw, fallback = 'figma') {
 }
 
 /**
- * The list is slugs, so the slug decides. The name stands in only for a
- * workspace that has no slug: matching it as well would drop a customer whose
- * name happens to equal some other workspace's slug.
+ * The list is slugs, so only the slug decides. A workspace with no slug is
+ * never excluded: its name is not a slug, and matching the name would drop a
+ * customer whose name happens to equal some other workspace's slug.
  */
 export function isExcludedWorkspace(workspace, excludedSlugs) {
   if (!workspace || !excludedSlugs?.size) return false;
   const slug = textOf(workspace.slug).toLowerCase();
-  return excludedSlugs.has(slug || textOf(workspace.name).toLowerCase());
+  return slug !== '' && excludedSlugs.has(slug);
 }
 
 /**
