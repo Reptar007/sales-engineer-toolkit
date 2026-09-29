@@ -40,6 +40,19 @@ export class TaskWolfAuthError extends Error {
   }
 }
 
+/**
+ * 403: the token is good but may not read what was asked for. Unlike a 401 it
+ * says nothing about the next customer, so it never stops a pass on sight.
+ */
+export class TaskWolfForbiddenError extends Error {
+  constructor(message = 'Task Wolf refused the request (403): this token may not read that.') {
+    super(message);
+    this.name = 'TaskWolfForbiddenError';
+    this.code = 'TW_FORBIDDEN';
+    this.status = 403;
+  }
+}
+
 /** A tool answered, but with `isError` or a JSON-RPC error (bad arguments, no such customer). */
 export class TaskWolfToolError extends Error {
   constructor(message, details = {}) {
@@ -167,7 +180,8 @@ export function createTaskWolfClient(options = {}) {
       Authorization: `Bearer ${authToken()}`,
       'MCP-Protocol-Version': PROTOCOL_VERSION,
     };
-    if (sessionId) headers['Mcp-Session-Id'] = sessionId;
+    const sentSession = sessionId;
+    if (sentSession) headers['Mcp-Session-Id'] = sentSession;
 
     let response;
     try {
@@ -185,28 +199,55 @@ export function createTaskWolfClient(options = {}) {
       throw wrapped;
     }
 
-    if (response.status === 401 || response.status === 403) throw new TaskWolfAuthError();
+    if (response.status === 401) throw new TaskWolfAuthError();
 
+    // An answer that arrives late, to a request sent under an older session,
+    // must not bring that session back.
     const newSession = response.headers?.get?.('mcp-session-id');
-    if (newSession) sessionId = newSession;
+    if (newSession && sessionId === sentSession) sessionId = newSession;
 
-    const rawText = await response.text();
+    let rawText;
+    try {
+      rawText = await response.text();
+    } catch (error) {
+      // The headers arrived and the body did not: a timeout or a reset mid-read.
+      const wrapped = new Error(
+        `Task Wolf MCP ${message.method} response could not be read: ${error?.message || error}`,
+      );
+      wrapped.code = 'TW_NETWORK';
+      throw wrapped;
+    }
+    if (response.status === 403) {
+      throw new TaskWolfForbiddenError(
+        `Task Wolf MCP ${message.method} returned 403: ${rawText.slice(0, 300)}`,
+      );
+    }
     if (!response.ok) {
       const error = new Error(
         `Task Wolf MCP ${message.method} returned ${response.status}: ${rawText.slice(0, 300)}`,
       );
       error.code = 'TW_UPSTREAM';
       error.status = response.status;
+      error.sessionId = sentSession;
       throw error;
     }
     if (!expectResponse) return null;
 
     const contentType = (response.headers?.get?.('content-type') || '').toLowerCase();
-    const messages = contentType.includes('text/event-stream')
-      ? parseSseBody(rawText)
-      : rawText.trim()
-        ? [JSON.parse(rawText)]
-        : [];
+    let messages = [];
+    if (contentType.includes('text/event-stream')) {
+      messages = parseSseBody(rawText);
+    } else if (rawText.trim()) {
+      try {
+        messages = [JSON.parse(rawText)];
+      } catch {
+        const error = new Error(
+          `Task Wolf MCP ${message.method} returned a body that is not JSON: ${rawText.slice(0, 300)}`,
+        );
+        error.code = 'TW_UPSTREAM';
+        throw error;
+      }
+    }
 
     const reply = messages.find((m) => m && m.id === message.id);
     if (!reply) {
@@ -235,7 +276,7 @@ export function createTaskWolfClient(options = {}) {
     return post({ jsonrpc: '2.0', id, method, params });
   }
 
-  async function initialize() {
+  function initialize() {
     if (!initialized) {
       initialized = (async () => {
         let result = null;
@@ -269,18 +310,58 @@ export function createTaskWolfClient(options = {}) {
     return initialized;
   }
 
-  /** Every tool the server offers, with its JSON schema; cached per client. */
+  /**
+   * Run `send` once the handshake is done. A stale-session recovery may replace
+   * the handshake this call started out waiting for, so it waits until the one
+   * it waited for is still the current one, and sends without another pause.
+   */
+  async function whenReady(send) {
+    let handshake;
+    do {
+      handshake = initialize();
+      await handshake;
+    } while (handshake !== initialized);
+    return send();
+  }
+
+  /**
+   * Run `send` under the current session. If the server has forgotten the
+   * session a request went out under (404), the handshake is redone and `send`
+   * runs once more, never twice. Calls in flight together share one handshake:
+   * whoever sees the 404 first drops the session, the rest find it already
+   * dropped or replaced and wait for the same `initialize`.
+   */
+  async function inSession(send) {
+    try {
+      return await whenReady(send);
+    } catch (error) {
+      const stale = error.code === 'TW_UPSTREAM' && error.status === 404 && error.sessionId;
+      if (!stale) throw error;
+      if (sessionId === stale) {
+        sessionId = null;
+        initialized = null;
+      }
+      return whenReady(send);
+    }
+  }
+
+  /**
+   * Every tool the server offers, with its JSON schema; cached per client. A
+   * stale session (404) restarts the listing once, from its first page.
+   */
   async function listTools({ force = false } = {}) {
     if (toolCatalog && !force) return toolCatalog;
-    await initialize();
-    const tools = [];
-    let cursor;
-    for (let page = 0; page < 20; page += 1) {
-      const result = await request('tools/list', cursor ? { cursor } : {});
-      tools.push(...(Array.isArray(result?.tools) ? result.tools : []));
-      cursor = result?.nextCursor;
-      if (!cursor) break;
-    }
+    const tools = await inSession(async () => {
+      const listed = [];
+      let cursor;
+      for (let page = 0; page < 20; page += 1) {
+        const result = await request('tools/list', cursor ? { cursor } : {});
+        listed.push(...(Array.isArray(result?.tools) ? result.tools : []));
+        cursor = result?.nextCursor;
+        if (!cursor) break;
+      }
+      return listed;
+    });
     toolCatalog = tools;
     return tools;
   }
@@ -295,21 +376,7 @@ export function createTaskWolfClient(options = {}) {
    * re-initialized once; every other failure is thrown with a code.
    */
   async function callTool(name, args = {}) {
-    await initialize();
-    const params = { name, arguments: args };
-    let result;
-    try {
-      result = await request('tools/call', params);
-    } catch (error) {
-      if (error.code === 'TW_UPSTREAM' && error.status === 404 && sessionId) {
-        sessionId = null;
-        initialized = null;
-        await initialize();
-        result = await request('tools/call', params);
-      } else {
-        throw error;
-      }
-    }
+    const result = await inSession(() => request('tools/call', { name, arguments: args }));
     return parseToolResult(result, name);
   }
 

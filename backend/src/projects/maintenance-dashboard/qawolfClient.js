@@ -1,11 +1,17 @@
 /**
- * Minimal client for QA Wolf's public API.
+ * Minimal client for QA Wolf's public API, the one the QA Wolf CLI speaks.
  *
- * The public API is a tRPC surface at `<base>/api/trpc/<procedure>` that takes
- * a superjson-wrapped `input` query string and a bearer key -- the same shape
- * the Howl Sheet already uses for `gitwolf.*`, and the same one the QA Wolf CLI
- * and MCP server speak (MCP tool names are these procedure paths with the dot
- * swapped for an underscore: `issue_find` is `issue.find`).
+ * Two surfaces, both behind the same bearer key:
+ * - Procedures are tRPC at `<base>/api/trpc/public.<name>` with a
+ *   superjson-wrapped `input` query string. The `public.` namespace matters: the
+ *   same `/api/trpc` also serves the web app's own procedures (the Howl Sheet's
+ *   `gitwolf.*`), and a bare public name such as `issue.find` answers 404
+ *   "The app is out of date". MCP tool names are the public names with the dot
+ *   swapped for an underscore: `issue_find` is `public.issue.find`.
+ * - Identity is plain REST under `<base>/api/v0/identity`. There is no tRPC
+ *   `whoami`; `identity/organizations` is what lists workspaces, and unlike
+ *   `identity` it includes the reach of a QA Wolf admin or employee key, which
+ *   is how the scan sees every customer.
  *
  * Only reads live here. Nothing on this page writes to QA Wolf.
  */
@@ -24,6 +30,20 @@ export class QawAuthError extends Error {
     super(message);
     this.name = 'QawAuthError';
     this.code = 'QAW_AUTH';
+  }
+}
+
+/**
+ * The key is fine but may not read this one thing (a workspace it was not
+ * granted, say). Kept apart from QawAuthError so one locked workspace is
+ * tallied as a failure instead of ending the scan as a dead key.
+ */
+export class QawForbiddenError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'QawForbiddenError';
+    this.code = 'QAW_FORBIDDEN';
+    this.status = 403;
   }
 }
 
@@ -75,59 +95,86 @@ export function unwrapTrpcResponse(body) {
 }
 
 /**
- * Call one read procedure.
+ * GET one path of the public API and parse its JSON body. `label` names the
+ * call in every error message. Shared by the tRPC procedures and the REST
+ * identity endpoint so both classify failures the same way.
  *
- * @param {string} procedure  e.g. "issue.find"
- * @param {object} input      the procedure's input object
+ * @param {string} path   e.g. "/api/v0/identity/organizations"
+ * @param {string} label  e.g. "identity/organizations"
  * @param {object} [options]
  * @param {typeof fetch} [options.fetchImpl]  injectable for tests
  * @param {string} [options.baseUrl]
  * @param {string} [options.token]
  * @param {number} [options.timeoutMs]
  */
-export async function qawQuery(procedure, input, options = {}) {
+async function getJson(path, label, options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   const baseUrl = options.baseUrl || getQawBaseUrl();
   const token = options.token || getQawToken();
   const timeoutMs = options.timeoutMs ?? 30_000;
 
-  const encoded = encodeURIComponent(JSON.stringify({ json: input ?? {} }));
-  const url = `${baseUrl}/api/trpc/${procedure}?input=${encoded}`;
-
   let response;
   try {
-    response = await fetchImpl(url, {
+    response = await fetchImpl(`${baseUrl}${path}`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
-    const wrapped = new Error(`QA Wolf ${procedure} request failed: ${error?.message || error}`);
+    const wrapped = new Error(`QA Wolf ${label} request failed: ${error?.message || error}`);
     wrapped.code = 'QAW_NETWORK';
     throw wrapped;
   }
 
-  const rawText = await response.text();
-
-  if (response.status === 401 || response.status === 403) {
+  // The status alone says the key is dead, so a 401 whose body never arrives
+  // still stops the scan instead of being tallied as a network blip.
+  if (response.status === 401) {
     throw new QawAuthError();
   }
+  if (response.status === 403) {
+    const forbiddenText = await response.text().catch(() => '');
+    throw new QawForbiddenError(`QA Wolf ${label} returned 403: ${forbiddenText.slice(0, 300)}`);
+  }
+
+  let rawText;
+  try {
+    rawText = await response.text();
+  } catch (error) {
+    // The headers arrived and the body did not: a timeout or a reset mid-read.
+    const wrapped = new Error(
+      `QA Wolf ${label} response could not be read: ${error?.message || error}`,
+    );
+    wrapped.code = 'QAW_NETWORK';
+    throw wrapped;
+  }
+
   if (!response.ok) {
     const error = new Error(
-      `QA Wolf ${procedure} returned ${response.status}: ${rawText.slice(0, 300)}`,
+      `QA Wolf ${label} returned ${response.status}: ${rawText.slice(0, 300)}`,
     );
     error.code = 'QAW_UPSTREAM';
     error.status = response.status;
     throw error;
   }
 
-  let body;
   try {
-    body = JSON.parse(rawText);
+    return JSON.parse(rawText);
   } catch {
-    const error = new Error(`QA Wolf ${procedure} returned a non-JSON body.`);
+    const error = new Error(`QA Wolf ${label} returned a non-JSON body.`);
     error.code = 'QAW_UPSTREAM';
     throw error;
   }
+}
+
+/**
+ * Call one read procedure of the public API.
+ *
+ * @param {string} procedure  the full tRPC path, e.g. "public.issue.find"
+ * @param {object} input      the procedure's input object
+ * @param {object} [options]  as for getJson
+ */
+export async function qawQuery(procedure, input, options = {}) {
+  const encoded = encodeURIComponent(JSON.stringify({ json: input ?? {} }));
+  const body = await getJson(`/api/trpc/${procedure}?input=${encoded}`, procedure, options);
 
   if (body?.error) {
     const message = body.error?.json?.message || body.error?.message || 'unknown error';
@@ -140,20 +187,25 @@ export async function qawQuery(procedure, input, options = {}) {
 }
 
 /**
- * Every workspace the key can act on, each with the organization that owns it.
- * @returns {Promise<Array<{ id: string, name: string, slug: string, organizationName?: string }>>}
+ * Every workspace the key can act on, each with the organization that owns it,
+ * from `identity/organizations` (organizations[].workspaces[]).
+ * @returns {Promise<Array<{ id: string, name: string, slug: string, organizationName: string }>>}
  */
 export async function listWorkspaces(options = {}) {
-  const data = await qawQuery('whoami', {}, options);
-  const workspaces = Array.isArray(data?.workspaces)
-    ? data.workspaces
-    : data?.workspace
-      ? [data.workspace]
-      : null;
-  if (!workspaces) {
-    throw new Error(`Unexpected whoami shape. Got keys: ${Object.keys(data || {}).join(', ')}`);
+  const data = await getJson('/api/v0/identity/organizations', 'identity/organizations', options);
+  if (!Array.isArray(data?.organizations)) {
+    const error = new Error(
+      `Unexpected identity/organizations shape. Got keys: ${Object.keys(data || {}).join(', ')}`,
+    );
+    error.code = 'QAW_UPSTREAM';
+    throw error;
   }
-  return workspaces;
+  return data.organizations.flatMap((organization) =>
+    (Array.isArray(organization?.workspaces) ? organization.workspaces : []).map((workspace) => ({
+      ...workspace,
+      organizationName: organization.name || '',
+    })),
+  );
 }
 
 const OPEN_STATUSES = ['pending', 'inProgress', 'paused'];
@@ -170,10 +222,10 @@ export async function listOpenMaintenanceReports(workspaceId, options = {}) {
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const input = { workspaceId, type: 'maintenance', statuses: OPEN_STATUSES, limit: PAGE_SIZE };
     if (cursor) input.cursor = cursor;
-    const data = await qawQuery('issue.find', input, options);
+    const data = await qawQuery('public.issue.find', input, options);
     if (!Array.isArray(data?.issues)) {
       throw new Error(
-        `Unexpected issue.find shape for ${workspaceId}. Got keys: ${Object.keys(data || {}).join(', ')}`,
+        `Unexpected public.issue.find shape for ${workspaceId}. Got keys: ${Object.keys(data || {}).join(', ')}`,
       );
     }
     issues.push(...data.issues);
