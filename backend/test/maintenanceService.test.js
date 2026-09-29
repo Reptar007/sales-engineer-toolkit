@@ -1736,6 +1736,151 @@ describe('getMaintenanceDashboard', () => {
   });
 });
 
+/** `client`, held on its workspace list until `gate` opens, to catch a scan mid-way. */
+const heldClient = (gate, client = fakeClient()) => ({
+  ...client,
+  listWorkspaces: async () => {
+    await gate;
+    return client.listWorkspaces();
+  },
+});
+
+describe('a failed scan while its retry runs', () => {
+  beforeEach(() => {
+    resetMaintenanceCache();
+    mock.method(console, 'error', () => {});
+  });
+
+  afterEach(() => mock.restoreAll());
+
+  test('stays in refreshError, from GET / and /status, until a scan works', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
+    await startRefresh({ client: fakeClient(), taskWolfClient: null });
+    t.mock.timers.tick(1000);
+    await assert.rejects(startRefresh({ client: rejectedKeyClient() }));
+    const failed = getMaintenanceDashboard().refreshError;
+    assert.equal(failed.code, 'QAW_AUTH');
+    assert.equal(failed.failedAt, new Date(NOW + 1000).toISOString());
+
+    t.mock.timers.tick(getRetryCooldownMs());
+    const { gate, open } = makeGate();
+    const retry = startRefresh({ client: heldClient(gate), taskWolfClient: null });
+
+    const during = getMaintenanceDashboard();
+    assert.equal(during.status, 'ready');
+    assert.equal(during.refreshing, true);
+    assert.deepEqual(during.refreshError, failed);
+    const status = getMaintenanceStatus();
+    assert.equal(status.refreshing, true);
+    assert.deepEqual(status.refreshError, failed);
+
+    open();
+    await retry;
+    const after = getMaintenanceDashboard();
+    assert.notEqual(after.builtAt, during.builtAt);
+    assert.equal(after.refreshing, false);
+    assert.equal(after.refreshError, null);
+    assert.equal(getMaintenanceStatus().refreshError, null);
+    // Only the gap after the new snapshot holds the next rescan back.
+    assert.equal(
+      after.rescanAvailableAt,
+      new Date(Date.parse(after.builtAt) + getMinRescanMs()).toISOString(),
+    );
+  });
+
+  test('stays through the Task Wolf pass of a retry, beside the snapshot it would replace', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
+    await startRefresh({ client: fakeClient(), taskWolfClient: null });
+    const before = getMaintenanceDashboard();
+    t.mock.timers.tick(1000);
+    await assert.rejects(startRefresh({ client: rejectedKeyClient() }));
+    const failed = getMaintenanceDashboard().refreshError;
+
+    t.mock.timers.tick(getRetryCooldownMs());
+    const { gate, open } = makeGate();
+    const taskWolf = fakeTaskWolf({ gate });
+    const retry = startRefresh({ client: fakeClient(), taskWolfClient: taskWolf });
+    await until(() => taskWolf.calls.length > 0);
+
+    // The platform scan worked, but its snapshot is held back until Task Wolf
+    // answers, so the failure stays beside the old one.
+    const during = getMaintenanceDashboard();
+    assert.equal(during.progress.phase, 'taskwolf');
+    assert.equal(during.builtAt, before.builtAt);
+    assert.deepEqual(during.snapshot, before.snapshot);
+    assert.deepEqual(during.refreshError, failed);
+    assert.deepEqual(getMaintenanceStatus().refreshError, failed);
+
+    open();
+    await retry;
+    assert.equal(getMaintenanceDashboard().refreshError, null);
+    assert.equal(getMaintenanceStatus().refreshError, null);
+  });
+
+  test('a retry that fails too replaces it with its own failure', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
+    await startRefresh({ client: fakeClient(), taskWolfClient: null });
+    await assert.rejects(startRefresh({ client: rejectedKeyClient() }));
+    const first = getMaintenanceDashboard().refreshError;
+
+    t.mock.timers.tick(getRetryCooldownMs());
+    const { gate, open } = makeGate();
+    const forbidden = fakeClient({ failWith: (id) => new QawForbiddenError(`403 for ${id}`) });
+    const retry = startRefresh({ client: heldClient(gate, forbidden), taskWolfClient: null });
+    assert.deepEqual(getMaintenanceStatus().refreshError, first);
+
+    t.mock.timers.tick(5000);
+    open();
+    await assert.rejects(retry, (error) => error.code === 'QAW_FORBIDDEN');
+    const after = getMaintenanceDashboard();
+    assert.equal(after.refreshing, false);
+    assert.equal(after.refreshError.code, 'QAW_FORBIDDEN');
+    assert.match(after.refreshError.message, /^All 3 workspaces scanned failed/);
+    assert.equal(
+      after.refreshError.failedAt,
+      new Date(NOW + getRetryCooldownMs() + 5000).toISOString(),
+    );
+    assert.deepEqual(getMaintenanceStatus().refreshError, after.refreshError);
+  });
+
+  test('a first scan being retried answers building with the failure, until its platform snapshot is out', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
+    await assert.rejects(startRefresh({ client: rejectedKeyClient() }));
+    const failed = { ...getMaintenanceStatus().error, failedAt: new Date(NOW).toISOString() };
+    assert.equal(failed.code, 'QAW_AUTH');
+
+    t.mock.timers.tick(getRetryCooldownMs());
+    const { gate: listing, open: list } = makeGate();
+    const { gate: asking, open: answer } = makeGate();
+    const taskWolf = fakeTaskWolf({ gate: asking });
+    const retry = startRefresh({ client: heldClient(listing), taskWolfClient: taskWolf });
+
+    // Building, not the error: the failure rides along instead.
+    const building = getMaintenanceDashboard();
+    assert.equal(building.status, 'building');
+    assert.deepEqual(building.refreshError, failed);
+    const status = getMaintenanceStatus();
+    assert.equal(status.status, 'building');
+    assert.equal(status.error, null);
+    assert.deepEqual(status.refreshError, failed);
+
+    // The platform scan worked and its snapshot is on the page, so what
+    // failed before is behind it, though Task Wolf is still being asked.
+    list();
+    await until(() => taskWolf.calls.length > 0);
+    const interim = getMaintenanceDashboard();
+    assert.equal(interim.status, 'ready');
+    assert.equal(interim.refreshing, true);
+    assert.equal(interim.snapshot.taskWolf.pending, true);
+    assert.equal(interim.refreshError, null);
+    assert.equal(getMaintenanceStatus().refreshError, null);
+
+    answer();
+    await retry;
+    assert.equal(getMaintenanceDashboard().refreshError, null);
+  });
+});
+
 describe('the snapshot while Task Wolf is asked', () => {
   beforeEach(() => {
     resetMaintenanceCache();
@@ -2159,6 +2304,12 @@ describe('getMaintenanceStatus', () => {
     assert.equal(status.progress.scanned, 0);
     assert.equal(status.refreshError, null);
     assert.equal(status.error, null);
+    // Nothing failed before this scan, so nothing rides along with it.
+    assert.deepEqual(getMaintenanceDashboard(), {
+      status: 'building',
+      progress: status.progress,
+      refreshError: null,
+    });
 
     open();
     await building;

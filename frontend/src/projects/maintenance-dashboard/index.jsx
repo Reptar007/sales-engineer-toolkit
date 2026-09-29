@@ -425,17 +425,37 @@ const ReportRow = memo(function ReportRow({ row, showTaskWolf, askingTaskWolf, o
  * A scan is running and the server has no snapshot to send, which is the
  * first scan, or the first one since it restarted. A snapshot already on
  * screen stays there, marked as being rescanned, until the new one lands.
+ * `refreshError` is the failed scan this one retries, as the server reports
+ * it, and null when nothing failed before it.
  */
-function whileBuilding(held, progress) {
-  if (held?.status !== 'ready') return { status: 'building', progress: progress || null };
-  // A server that is building reports no failed refresh, so none is kept.
+function whileBuilding(held, { progress, refreshError }) {
+  const failure = refreshError || null;
+  if (held?.status !== 'ready') {
+    return { status: 'building', progress: progress || null, refreshError: failure };
+  }
   return {
     ...held,
     stale: true,
     refreshing: true,
     progress: progress || null,
-    refreshError: null,
+    refreshError: failure,
   };
+}
+
+/**
+ * A failed scan in one line: when (if the server said), why, then `note`. The
+ * server keeps the failure until a scan works, so it stays up while the retry
+ * runs, and says a retry is running (`retrying`).
+ */
+function RefreshFailed({ failure, retrying = false, note = '' }) {
+  const after = [asSentence(failure.message), retrying ? 'Retrying now.' : '', note];
+  return (
+    <div className="bone-warning" role="alert">
+      Last refresh failed
+      {failure.failedAt ? ` (${formatDateTime(failure.failedAt)})` : ''}:{' '}
+      {after.filter(Boolean).join(' ')}
+    </div>
+  );
 }
 
 /**
@@ -491,8 +511,18 @@ function MaintenanceDashboard() {
     });
     // The scan this page was following failed or is out of reach: stop
     // polling and free the Rescan button. A snapshot already on screen stays.
+    // A failed scan is the server's latest word, so it replaces the failure
+    // the server reported before; a request of the page's own leaves that up.
+    const scanFailed = isScanFailure(failure);
     setPayload((prev) =>
-      prev?.status === 'ready' ? { ...prev, refreshing: false, progress: null } : null,
+      prev?.status === 'ready'
+        ? {
+            ...prev,
+            refreshing: false,
+            progress: null,
+            refreshError: scanFailed ? null : prev.refreshError,
+          }
+        : null,
     );
   }, []);
 
@@ -500,9 +530,7 @@ function MaintenanceDashboard() {
     async ({ refresh = false } = {}) => {
       try {
         const next = await fetchMaintenanceDashboard({ refresh });
-        setPayload((prev) =>
-          next.status === 'building' ? whileBuilding(prev, next.progress) : next,
-        );
+        setPayload((prev) => (next.status === 'building' ? whileBuilding(prev, next) : next));
         setError(null);
         if (next.status === 'ready') {
           // A new snapshot: drop the choices it has nothing to show for, which
@@ -554,7 +582,7 @@ function MaintenanceDashboard() {
       const idle = onScreen.status === 'ready' && !onScreen.refreshing;
 
       if (answer.status === 'building') {
-        setPayload((prev) => whileBuilding(prev, answer.progress));
+        setPayload((prev) => whileBuilding(prev, answer));
         return;
       }
       if (answer.status !== 'ready') {
@@ -747,6 +775,7 @@ function MaintenanceDashboard() {
             <p>First scan of every workspace. The page fills in when it finishes.</p>
           </div>
         </header>
+        {payload.refreshError ? <RefreshFailed failure={payload.refreshError} retrying /> : null}
         <ScanProgress progress={payload.progress} />
       </div>
     );
@@ -769,7 +798,8 @@ function MaintenanceDashboard() {
   // The server's last rebuild may have failed, and so may this page's own last
   // request. Each gets its line, the server's first. A request of the page's
   // that failed says nothing of the scan, which may still be running, unless
-  // the server answered it with a failed scan.
+  // the server answered it with a failed scan. The server's failure stays up
+  // while a rescan retries it, and says so.
   const refreshFailures = [payload?.refreshError, error].filter(Boolean);
   const ownFailure = (failure) => failure === error && !isScanFailure(error);
   const taskWolf = snapshot?.taskWolf || null;
@@ -856,11 +886,12 @@ function MaintenanceDashboard() {
             the snapshot it already has.
           </div>
         ) : (
-          <div className="bone-warning" role="alert" key={failure === error ? 'page' : 'server'}>
-            Last refresh failed
-            {failure.failedAt ? ` (${formatDateTime(failure.failedAt)})` : ''}:{' '}
-            {asSentence(failure.message)} The snapshot below is the last one that worked.
-          </div>
+          <RefreshFailed
+            key={failure === error ? 'page' : 'server'}
+            failure={failure}
+            retrying={failure !== error && Boolean(payload?.refreshing)}
+            note="The snapshot below is the last one that worked."
+          />
         ),
       )}
 

@@ -232,7 +232,7 @@ only that reach lists every customer's workspace. Cached in memory for
 `MAINTENANCE_DASHBOARD_CACHE_TTL_MINUTES` (default 6 h).
 
 - **GET** `/api/maintenance-dashboard` – `{ status: 'ready', snapshot, builtAt, stale, refreshing, refreshError }`
-  from the cache, or `{ status: 'building', progress }` while the first scan runs
+  from the cache, or `{ status: 'building', progress, refreshError }` while the first scan runs
   (poll until ready). `?refresh=1` asks for a rescan in the background (see rescan limits below). A scan that fails outright
   is not restarted by the next GET: with no snapshot the route answers
   `{ status: 'error', error, code }` (500 `QAW_CONFIG` for a missing key, 401 `QAW_AUTH` for a
@@ -240,6 +240,9 @@ only that reach lists every customer's workspace. Cached in memory for
   the stale snapshot keeps answering and `refreshError` (`{ code, message, failedAt }`) says
   why the rebuild failed. A plain GET retries after
   `MAINTENANCE_DASHBOARD_RETRY_COOLDOWN_SECONDS` (default 60), and so does `?refresh=1`.
+  While the retry runs, the failure stays in `refreshError` (beside `building` when there is no
+  snapshot yet) and the page says a retry is running; a retry that fails replaces it, and it
+  clears once a scan publishes a snapshot.
   One workspace failing, a 403 included, is tallied in `snapshot.errors` and the scan goes on.
   A scan in which every workspace failed, or the first 20 to answer all did, or whose workspace
   list has no workspace carrying an id, fails outright (502) and leaves the last
@@ -253,8 +256,8 @@ only that reach lists every customer's workspace. Cached in memory for
 
 Rescan limits: each full scan is about 2,000 QA Wolf calls, so a forced rescan (the Rescan
 button, `?refresh=1`, `POST /refresh`) starts only once
-`MAINTENANCE_DASHBOARD_MIN_RESCAN_MINUTES` (default 15) have passed since the last snapshot and
-the retry cool-down since the last failed scan. Only one scan runs per process at a time; a
+`MAINTENANCE_DASHBOARD_MIN_RESCAN_MINUTES` (default 15) have passed since the last snapshot and,
+while a failure stands, the retry cool-down since it. Only one scan runs per process at a time; a
 request made during one joins it. `rescanAvailableAt` in `GET /` and `/status` says when the
 next forced rescan may start (null when it may start now), and the page disables Rescan until then.
 

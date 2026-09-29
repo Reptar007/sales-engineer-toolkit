@@ -393,9 +393,10 @@ export async function setCarrAttribution(opportunityId, salesEngineerId, oppName
 
 /**
  * The maintenance backlog across every QA Wolf workspace the server's key can
- * see. Answers `{ status: 'ready', snapshot, builtAt, stale, refreshing }`
- * from the server cache, or `{ status: 'building', progress }` while the first
- * scan runs -- poll until it is ready.
+ * see. Answers `{ status: 'ready', snapshot, builtAt, stale, refreshing,
+ * refreshError }` from the server cache, or `{ status: 'building', progress,
+ * refreshError }` while the first scan runs -- poll until it is ready.
+ * `refreshError` is the last failed scan until one works, retries included.
  *
  * @param {{ refresh?: boolean }} [options] `refresh` starts a rescan in the
  *   background; the stale snapshot keeps answering until it lands.

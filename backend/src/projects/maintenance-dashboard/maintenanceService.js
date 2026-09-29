@@ -15,7 +15,9 @@
  * retried by the next GET: the page polls, so retrying on every request would
  * answer "building" forever and send upstream a doomed request every few
  * seconds. The error answers until someone asks for a rescan or a short
- * cool-down has passed.
+ * cool-down has passed. It stands while the retry runs, so the page can say
+ * what is being retried, and goes only when a scan publishes a snapshot; a
+ * retry that fails too replaces it with its own.
  *
  * The Task Wolf pass comes second and can be slow, so the very first snapshot
  * is published before it starts, marked `taskWolf.pending`, and replaced when
@@ -95,7 +97,7 @@ const state = {
   builtAt: 0, // Date.now() when it completed
   building: null, // in-flight promise, if any
   progress: null, // { scanned, total, startedAt, failed }
-  lastError: null, // last whole-scan failure (auth, config, workspace list)
+  lastError: null, // last whole-scan failure (auth, config, workspace list); a publish clears it
   failedAt: 0, // Date.now() when it failed
 };
 
@@ -760,10 +762,24 @@ function publishedSnapshot(snapshot) {
   };
 }
 
-/** Kick a background rebuild unless one is already running. */
+/**
+ * Put a snapshot in the cache. Every whole-scan failure happens before the
+ * platform snapshot exists, so a scan that has one to publish, interim or
+ * final, has got past what the last failed scan could not, and its failure goes.
+ */
+function publish(snapshot) {
+  state.snapshot = publishedSnapshot(snapshot);
+  state.builtAt = Date.now();
+  state.lastError = null;
+  state.failedAt = 0;
+}
+
+/**
+ * Kick a background rebuild unless one is already running. The last failure,
+ * if any, stays until this scan publishes a snapshot or fails in its turn.
+ */
 export function startRefresh(options = {}) {
   if (state.building) return state.building;
-  state.lastError = null;
   state.progress = {
     phase: 'platform',
     scanned: 0,
@@ -778,20 +794,20 @@ export function startRefresh(options = {}) {
       state.progress = progress;
     },
     // First scan only: the backlog goes on the page while Task Wolf is asked.
-    // A snapshot already there stays until the new one is complete.
+    // A snapshot already there stays until the new one is complete, and so
+    // does the failure beside it.
     onPlatformSnapshot: (interim) => {
       if (state.snapshot) return;
-      state.snapshot = publishedSnapshot(interim);
-      state.builtAt = Date.now();
+      publish(interim);
     },
   })
     .then((snapshot) => {
-      state.snapshot = publishedSnapshot(snapshot);
-      state.builtAt = Date.now();
+      publish(snapshot);
       return state.snapshot;
     })
     .catch((error) => {
       console.error('Maintenance backlog scan failed:', error);
+      // A retry that failed too replaces the failure it was retrying.
       state.lastError = { code: error.code || 'SCAN_FAILED', message: error.message };
       state.failedAt = Date.now();
       if (state.snapshot?.taskWolf?.pending) {
@@ -817,8 +833,8 @@ export function startRefresh(options = {}) {
 
 /**
  * When a forced rescan may next start, as a Date.now() value: the minimum gap
- * after the last snapshot, and the retry cool-down after a failed scan. At or
- * before now means it may start now.
+ * after the last snapshot, and the retry cool-down after a failed scan that no
+ * snapshot has come since. At or before now means it may start now.
  */
 function nextRescanAt() {
   return Math.max(
@@ -848,13 +864,22 @@ export function requestRescan(now = Date.now()) {
   return { accepted: true, retryAfterMs: 0 };
 }
 
+/** The last failure as `refreshError` carries it, or null while none stands. */
+function refreshErrorAnswer() {
+  return state.lastError
+    ? { ...state.lastError, failedAt: new Date(state.failedAt).toISOString() }
+    : null;
+}
+
 /**
  * What the page asks for. Answers straight from cache when it is fresh enough,
  * starts a rebuild otherwise, and never blocks on the scan itself. A rebuild
  * that failed is not restarted until the cool-down passes, and `refresh` goes
- * through `requestRescan`, so it waits out the same gaps:
- * with no snapshot the failure is the answer, with one it rides along as
- * `refreshError` beside the stale snapshot.
+ * through `requestRescan`, so it waits out the same gaps. With no snapshot
+ * the failure is the answer; with one it rides along as `refreshError` beside
+ * the stale snapshot. While a retry runs it stays in `refreshError`, beside
+ * the snapshot or beside `building` when there is none, until a scan
+ * publishes a snapshot.
  *
  * @param {{ refresh?: boolean }} [options]
  * @returns {{ status: 'ready'|'building'|'error', snapshot?: object, stale?: boolean, progress?: object, refreshError?: object|null, error?: object }}
@@ -875,16 +900,15 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
       stale: isStale,
       refreshing: Boolean(state.building),
       progress: state.progress,
-      refreshError: state.lastError
-        ? { ...state.lastError, failedAt: new Date(state.failedAt).toISOString() }
-        : null,
+      refreshError: refreshErrorAnswer(),
       rescanAvailableAt: rescanAvailableAt(now),
       cacheTtlMinutes: Math.round(getCacheTtlMs() / 60000),
     };
   }
 
+  // Checked before the failure: a first scan being retried is building.
   if (state.building) {
-    return { status: 'building', progress: state.progress };
+    return { status: 'building', progress: state.progress, refreshError: refreshErrorAnswer() };
   }
 
   return { status: 'error', error: state.lastError || { message: 'No snapshot available.' } };
@@ -897,6 +921,8 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
  * scan. `builtAt` moves whenever a snapshot is published, which is the cue to
  * fetch the full payload. With nothing cached, nothing running and nothing
  * failed (a process nobody has asked yet) it answers `error` / `NO_SNAPSHOT`.
+ * A failure that still stands is `refreshError` beside `ready`, or beside
+ * `building` while a first scan is retried, as in `getMaintenanceDashboard`.
  *
  * @returns {{ status: 'ready'|'building'|'error', builtAt: string|null, stale: boolean, refreshing: boolean, progress: object|null, refreshError: object|null, rescanAvailableAt: string|null, error: { code: string, message: string }|null }}
  */
@@ -917,11 +943,10 @@ export function getMaintenanceStatus() {
     answer.status = 'ready';
     answer.builtAt = new Date(state.builtAt).toISOString();
     answer.stale = Date.now() - state.builtAt > getCacheTtlMs();
-    answer.refreshError = state.lastError
-      ? { ...state.lastError, failedAt: new Date(state.failedAt).toISOString() }
-      : null;
+    answer.refreshError = refreshErrorAnswer();
   } else if (refreshing) {
     answer.status = 'building';
+    answer.refreshError = refreshErrorAnswer();
   } else {
     answer.error = state.lastError
       ? { ...state.lastError }
