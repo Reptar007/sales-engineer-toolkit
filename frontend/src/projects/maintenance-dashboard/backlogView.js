@@ -234,6 +234,35 @@ export function taskWolfBlockedLabel(tw) {
 }
 
 /**
+ * "3 reports" for a customer among the culprits. Where QA Wolf has more than
+ * the scan read (`reportsTruncated`) the count is a floor, and says so.
+ */
+export function customerReportsLabel(customer) {
+  const count = isCount(customer?.openReports) ? customer.openReports : 0;
+  const reports = `${count.toLocaleString()} ${count === 1 ? 'report' : 'reports'}`;
+  return customer?.reportsTruncated ? `at least ${reports}` : reports;
+}
+
+/**
+ * The workspaces QA Wolf has more open reports for than one scan reads
+ * (`snapshot.truncatedWorkspaces`), in one notice, or '' for none. What was
+ * read still counts, so their counts are lower bounds, not wrong.
+ */
+export function describeTruncatedWorkspaces(truncated) {
+  const list = Array.isArray(truncated) ? truncated.filter(Boolean) : [];
+  if (!list.length) return '';
+  const named = list
+    .map((w) => {
+      const read = isCount(w.reportsRead) ? ` (${w.reportsRead.toLocaleString()} read)` : '';
+      return `${oneLine(w.workspaceName || w.workspaceId)}${read}`;
+    })
+    .join(', ');
+  const where = list.length === 1 ? named : `${list.length.toLocaleString()} workspaces: ${named}`;
+  const whose = list.length === 1 ? 'Its' : 'Their';
+  return `QA Wolf has more open maintenance reports than the scan reads in ${where}. ${whose} counts below are lower bounds ("at least"), and ${whose.toLowerCase()} other reports are not listed.`;
+}
+
+/**
  * How loudly the page says Task Wolf has no record of some customers with
  * backlog: 'hint' for a few (former customers, usually), 'warning' when it is
  * most of those asked, since that many former customers is unlikely and a
@@ -594,7 +623,8 @@ export function reportsToCsv(reports) {
  * The customers behind the visible rows, the one with the most flows first.
  * Each is counted from its own visible rows and nothing else, so a line never
  * quotes more than the headline above it; the customer's entry, when the page
- * has one, lends the name and what Task Wolf said of the customer as a whole.
+ * has one, lends the name, what Task Wolf said of the customer as a whole and
+ * whether QA Wolf has more reports for it than the scan read (`truncated`).
  */
 function visibleCulprits(reports, customers) {
   const rowsBy = new Map();
@@ -610,6 +640,7 @@ function visibleCulprits(reports, customers) {
       workspaceId,
       name: oneLine(entries.get(workspaceId)?.name ?? rows[0].workspaceName),
       totals: summarize(rows),
+      truncated: Boolean(entries.get(workspaceId)?.reportsTruncated),
       partial: Boolean(tw?.partial) || rows.some((row) => row.taskWolf?.partial),
       qae: {
         own: [...new Set(qae.flatMap((who) => who.own))],
@@ -638,7 +669,8 @@ function openedAt(row) {
  * culprits and the oldest reports, all counted from the rows on screen,
  * whatever order the table is in. It is pasted into the composer by hand, so
  * it is plain text with Slack's *bold* and bare URLs, which Slack links by
- * itself.
+ * itself. It travels without the page's notices, so where a customer on
+ * screen has more reports than the scan read it says so itself.
  */
 export function slackSummary({ reports, customers, generatedAt, topN = 5 }) {
   const totals = summarize(reports);
@@ -647,8 +679,16 @@ export function slackSummary({ reports, customers, generatedAt, topN = 5 }) {
   const taskWolfNote = totals.withTaskWolf
     ? ` Task Wolf: ${totals.blockedFlows} blocked on the customer, ${totals.actionableFlows} actionable${unknownNote}.`
     : '';
+  const allCulprits = visibleCulprits(reports, customers);
+  // As on the page: the reports past the cut are not listed anywhere, so the
+  // oldest age and the oldest reports below may be short too, not only counts.
+  const cutShort = allCulprits.filter((c) => c.truncated).map((c) => c.name);
+  const whose = cutShort.length === 1 ? 'its' : 'their';
+  const truncatedNote = cutShort.length
+    ? ` QA Wolf has more open reports for ${cutShort.join(', ')} than the scan reads, so these counts are lower bounds and ${whose} other reports are not listed.`
+    : '';
   const lines = [
-    `*Maintenance backlog* (snapshot ${when}): ${countOf(totals.customers, 'customer')}, ${countOf(totals.reports, 'open report')}, ${countOf(totals.flows, 'flow')} parked. Oldest: ${countOf(totals.oldestDays, 'day')}.${taskWolfNote}`,
+    `*Maintenance backlog* (snapshot ${when}): ${countOf(totals.customers, 'customer')}, ${countOf(totals.reports, 'open report')}, ${countOf(totals.flows, 'flow')} parked. Oldest: ${countOf(totals.oldestDays, 'day')}.${taskWolfNote}${truncatedNote}`,
   ];
   // A QAE who only has a task for the customer is never passed off as being
   // on the report.
@@ -656,17 +696,19 @@ export function slackSummary({ reports, customers, generatedAt, topN = 5 }) {
     if (own.length) return ` · QAE ${own.map(oneLine).join(', ')}`;
     return customer.length ? ` · customer QAE ${customer.map(oneLine).join(', ')}` : '';
   };
-  const culprits = visibleCulprits(reports, customers).slice(0, topN);
+  const culprits = allCulprits.slice(0, topN);
   if (culprits.length) {
     lines.push('*Largest culprits*');
     for (const c of culprits) {
+      // QA Wolf has more reports for it than the scan read, so both are floors.
+      const atLeast = c.truncated ? 'at least ' : '';
       // Where Task Wolf cut the customer's list short, the count is a floor
       // only while a flow on screen is unknown: it may be blocked too. With
       // every flow on screen decided, the count is exact for what is shown.
       const floor = c.partial && c.totals.unknownFlows > 0;
       const blocked = taskWolfBlockedLabel({ blockedFlows: c.totals.blockedFlows, partial: floor });
       lines.push(
-        `• ${c.name} — ${countOf(c.totals.flows, 'flow')} across ${countOf(c.totals.reports, 'report')} (oldest ${c.totals.oldestDays} d)${blocked ? ` · ${blocked}` : ''}${qaeNote(c.qae)}`,
+        `• ${c.name} — ${atLeast}${countOf(c.totals.flows, 'flow')} across ${atLeast}${countOf(c.totals.reports, 'report')} (oldest ${c.totals.oldestDays} d)${blocked ? ` · ${blocked}` : ''}${qaeNote(c.qae)}`,
       );
     }
   }

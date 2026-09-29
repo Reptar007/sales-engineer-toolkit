@@ -7,7 +7,8 @@
  * while the first scan runs in the background. A scan that fails on a few
  * workspaces still produces a snapshot -- the failures ride along in
  * `errors`, so the page can say "1,990 of 2,004 scanned" instead of showing
- * a number that is quietly short.
+ * a number that is quietly short. A workspace with more open reports than one
+ * scan reads rides along the same way, in `truncatedWorkspaces`.
  *
  * A scan that fails outright (no key, a rejected key, the workspace list unreachable or
  * listing no workspace with an id, or nothing but failures from the
@@ -633,8 +634,10 @@ function withTaskWolfPending(snapshot, now) {
  * route and for tests, which inject their own client functions.
  *
  * Excluded workspaces are not asked at all, and a workspace QA Wolf lists twice
- * is asked once. `onPlatformSnapshot` is handed the platform-only snapshot,
- * marked `taskWolf.pending`, just before the Task Wolf pass starts.
+ * is asked once. A workspace whose report list the client cut short is not a
+ * failure: its reports count, and the snapshot marks them as a floor.
+ * `onPlatformSnapshot` is handed the platform-only snapshot, marked
+ * `taskWolf.pending`, just before the Task Wolf pass starts.
  */
 export async function scanMaintenanceBacklog({
   client = { listWorkspaces, listOpenMaintenanceReports },
@@ -665,6 +668,7 @@ export async function scanMaintenanceBacklog({
   if (onProgress) onProgress({ ...progress });
 
   const reportsByWorkspace = new Map();
+  const truncatedWorkspaceIds = new Set();
   const errors = [];
   const errorCodes = new Set();
   // Set once the first workspaces to settle have all failed. Nobody else is
@@ -692,7 +696,8 @@ export async function scanMaintenanceBacklog({
           message: result.error.message || String(result.error),
         });
       } else {
-        reportsByWorkspace.set(workspace.id, result.value || []);
+        reportsByWorkspace.set(workspace.id, result.value.issues);
+        if (result.value.truncated) truncatedWorkspaceIds.add(workspace.id);
       }
       progress.scanned += 1;
       if (onProgress) onProgress({ ...progress });
@@ -710,6 +715,7 @@ export async function scanMaintenanceBacklog({
   const snapshot = buildSnapshot({
     workspaces,
     reportsByWorkspace,
+    truncatedWorkspaceIds,
     excludedSlugs,
     errors,
     now: now(),

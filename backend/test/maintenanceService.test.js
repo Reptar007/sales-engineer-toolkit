@@ -98,14 +98,17 @@ const upstream500 = (workspaceId) =>
 /**
  * A fake QA Wolf client. `failing` workspaces throw a plain error; `failWith`
  * decides per workspace and hands back the error to throw, or nothing.
+ * `truncated` workspaces answer as a list cut short at the page limit.
  */
 function fakeClient({
   listed = workspaces,
   failing = new Set(),
   failWith = () => null,
   authFail = false,
+  truncated = new Set(),
 } = {}) {
   const calls = [];
+  const answer = (issues, workspaceId) => ({ issues, truncated: truncated.has(workspaceId) });
   return {
     calls,
     listWorkspaces: async () => listed,
@@ -116,21 +119,27 @@ function fakeClient({
       const failure = failWith(workspaceId);
       if (failure) throw failure;
       if (workspaceId === 'ws-2') {
-        return [
-          {
-            issueId: 'i-2',
-            number: 7,
-            name: 'Broken checkout',
-            status: 'pending',
-            createdAt: daysAgo(45),
-            reproductions: [{ flowId: 'f1' }, { flowId: 'f2' }],
-          },
-        ];
+        return answer(
+          [
+            {
+              issueId: 'i-2',
+              number: 7,
+              name: 'Broken checkout',
+              status: 'pending',
+              createdAt: daysAgo(45),
+              reproductions: [{ flowId: 'f1' }, { flowId: 'f2' }],
+            },
+          ],
+          workspaceId,
+        );
       }
       if (workspaceId === 'ws-figma') {
-        return [{ issueId: 'i-f', number: 1, status: 'pending', createdAt: daysAgo(500) }];
+        return answer(
+          [{ issueId: 'i-f', number: 1, status: 'pending', createdAt: daysAgo(500) }],
+          workspaceId,
+        );
       }
-      return [];
+      return answer([], workspaceId);
     },
   };
 }
@@ -300,6 +309,32 @@ describe('scanMaintenanceBacklog', () => {
       (error) => error.code === 'QAW_AUTH',
     );
     assert.deepEqual(client.calls, ['w-0', 'w-1', 'w-2']);
+  });
+
+  test('a workspace whose report list was cut short is counted and marked, not failed', async () => {
+    const snapshot = await scanMaintenanceBacklog({
+      client: fakeClient({ truncated: new Set(['ws-2']) }),
+      taskWolfClient: null,
+      now: () => NOW,
+    });
+    assert.equal(snapshot.totals.workspacesFailed, 0);
+    assert.deepEqual(snapshot.errors, []);
+    assert.equal(snapshot.totals.openReports, 1);
+    assert.equal(snapshot.customers[0].name, 'Two');
+    assert.equal(snapshot.customers[0].reportsTruncated, true);
+    assert.equal(snapshot.totals.workspacesTruncated, 1);
+    assert.deepEqual(snapshot.truncatedWorkspaces, [
+      { workspaceId: 'ws-2', workspaceName: 'Two', reportsRead: 1 },
+    ]);
+
+    const whole = await scanMaintenanceBacklog({
+      client: fakeClient(),
+      taskWolfClient: null,
+      now: () => NOW,
+    });
+    assert.equal(whole.customers[0].reportsTruncated, false);
+    assert.equal(whole.totals.workspacesTruncated, 0);
+    assert.deepEqual(whole.truncatedWorkspaces, []);
   });
 });
 
@@ -1488,7 +1523,7 @@ const rejectedKeyClient = () => ({
   listWorkspaces: async () => {
     throw new QawAuthError();
   },
-  listOpenMaintenanceReports: async () => [],
+  listOpenMaintenanceReports: async () => ({ issues: [], truncated: false }),
 });
 
 /** A promise that stays open until `open()` is called, to hold a scan mid-way. */
@@ -1554,7 +1589,7 @@ describe('getMaintenanceDashboard', () => {
       listWorkspaces: async () => {
         throw new Error('Unexpected whoami shape. Got keys: nope');
       },
-      listOpenMaintenanceReports: async () => [],
+      listOpenMaintenanceReports: async () => ({ issues: [], truncated: false }),
     };
     await assert.rejects(startRefresh({ client }));
     const result = getMaintenanceDashboard();
@@ -2154,6 +2189,28 @@ describe('the published snapshot', () => {
     assert.equal(cached.slug, 'two');
     assert.equal(cached.name, 'Two');
     assert.equal(findCachedCustomer('ws-nowhere'), null);
+  });
+
+  test('a customer whose report list was cut short goes out marked, interim and finished', async () => {
+    const { gate, open } = makeGate();
+    const answering = fakeTaskWolf({ gate });
+    const building = startRefresh({
+      client: fakeClient({ truncated: new Set(['ws-2']) }),
+      taskWolfClient: answering,
+    });
+    await until(() => answering.calls.length > 0);
+    const interim = asSent(getMaintenanceDashboard().snapshot);
+    open();
+    const finished = asSent(await building);
+    assert.equal(interim.taskWolf.pending, true);
+    assert.equal(finished.taskWolf.pending, false);
+    for (const snapshot of [interim, finished]) {
+      assert.equal(snapshot.customers[0].reportsTruncated, true);
+      assert.equal(snapshot.totals.workspacesTruncated, 1);
+      assert.deepEqual(snapshot.truncatedWorkspaces, [
+        { workspaceId: 'ws-2', workspaceName: 'Two', reportsRead: 1 },
+      ]);
+    }
   });
 
   test('a customer Task Wolf has no record of goes out counted, not as a failure', async () => {

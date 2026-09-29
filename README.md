@@ -273,6 +273,14 @@ drops workspaces from the backlog entirely: they are not scanned. A workspace wi
 never dropped, whatever its name. Set it to `none` to leave nothing out. Demo/sandbox
 workspaces are flagged and hidden by a toggle on the page.
 
+A workspace's open reports are read 100 at a time, for at most 50 pages (5,000 reports). When
+QA Wolf still hands back a cursor after the 50th, the workspace is not a failure: what was read
+counts, its customer row carries `reportsTruncated: true`, and it is listed in
+`snapshot.truncatedWorkspaces` (`{ workspaceId, workspaceName, reportsRead }`) and counted in
+`snapshot.totals.workspacesTruncated`. The page warns that its counts are floors ("at least")
+and that its other reports are not listed, so its oldest age may be short too; the Slack digest
+says the same wherever that customer has a report on screen.
+
 **Task Wolf.** With `TASK_WOLF_MCP_TOKEN` set (a personal `twmcp_…` token from
 [Task Wolf → Settings → Connect Claude](https://www.task-wolf.com/settings/connect-claude),
 90-day life), the scan makes a second pass over every customer with backlog through the

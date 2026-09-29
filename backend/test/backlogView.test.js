@@ -9,8 +9,10 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  customerReportsLabel,
   customersWithVisibleReports,
   describeScanError,
+  describeTruncatedWorkspaces,
   filterCustomers,
   filterReports,
   formatDate,
@@ -710,6 +712,49 @@ describe('taskWolfBlockedLabel', () => {
     assert.equal(
       taskWolfBlockedLabel({ blockedFlows: null, actionableFlows: 2, partial: true }),
       'blocked unknown',
+    );
+  });
+});
+
+describe('customerReportsLabel', () => {
+  test('counts the reports, and words one as one', () => {
+    assert.equal(customerReportsLabel(customer({ openReports: 1 })), '1 report');
+    assert.equal(customerReportsLabel(customer({ openReports: 3 })), '3 reports');
+    assert.equal(customerReportsLabel(customer({ openReports: 1200 })), `${printed(1200)} reports`);
+    assert.equal(customerReportsLabel(customer({ reportsTruncated: false })), '1 report');
+  });
+
+  test('says "at least" where QA Wolf has more reports than the scan read', () => {
+    assert.equal(
+      customerReportsLabel(customer({ openReports: 5000, reportsTruncated: true })),
+      `at least ${printed(5000)} reports`,
+    );
+  });
+});
+
+describe('describeTruncatedWorkspaces', () => {
+  test('says nothing when no workspace was cut short, or the field is missing', () => {
+    assert.equal(describeTruncatedWorkspaces([]), '');
+    assert.equal(describeTruncatedWorkspaces(undefined), '');
+    assert.equal(describeTruncatedWorkspaces(null), '');
+  });
+
+  test('names one workspace, how many were read, and what that means for its counts', () => {
+    assert.equal(
+      describeTruncatedWorkspaces([
+        { workspaceId: 'ws-acme', workspaceName: 'Acme', reportsRead: 5000 },
+      ]),
+      `QA Wolf has more open maintenance reports than the scan reads in Acme (${printed(5000)} read). Its counts below are lower bounds ("at least"), and its other reports are not listed.`,
+    );
+  });
+
+  test('counts and names several, each on one line, by id when it has no name', () => {
+    assert.equal(
+      describeTruncatedWorkspaces([
+        { workspaceId: 'ws-acme', workspaceName: 'Acme\n  Corp', reportsRead: 5000 },
+        { workspaceId: 'ws-globex', workspaceName: '', reportsRead: 4990 },
+      ]),
+      `QA Wolf has more open maintenance reports than the scan reads in 2 workspaces: Acme Corp (${printed(5000)} read), ws-globex (${printed(4990)} read). Their counts below are lower bounds ("at least"), and their other reports are not listed.`,
     );
   });
 });
@@ -1873,6 +1918,49 @@ describe('slackSummary', () => {
     assert.equal(rest[0], '*Largest culprits*');
     assert.equal(rest[1], '• Acme — 4 flows across 3 reports (oldest 45 d) · 1 blocked');
     assert.equal(rest[2], '*Longest outstanding*');
+  });
+
+  test('says the counts are floors where QA Wolf has more reports than the scan read', () => {
+    const rows = [
+      row({ workspaceId: 'ws-acme', flowIds: ['a1', 'a2'], ageDays: 30 }),
+      row({ workspaceId: 'ws-globex', workspaceName: 'Globex', flowIds: ['g1'], ageDays: 20 }),
+    ];
+    const cutShort = customer({ openReports: 5000, reportsTruncated: true });
+    const whole = customer({ workspaceId: 'ws-globex', name: 'Globex' });
+    const [headline, , acme, globex] = slackSummary({
+      reports: rows,
+      customers: [cutShort, whole],
+    }).split('\n');
+    assert.ok(
+      headline.endsWith(
+        ': 2 customers, 2 open reports, 3 flows parked. Oldest: 30 days. QA Wolf has more open reports for Acme than the scan reads, so these counts are lower bounds and its other reports are not listed.',
+      ),
+      headline,
+    );
+    assert.equal(acme, '• Acme — at least 2 flows across at least 1 report (oldest 30 d)');
+    assert.equal(globex, '• Globex — 1 flow across 1 report (oldest 20 d)');
+
+    const bothCut = slackSummary({
+      reports: rows,
+      customers: [cutShort, { ...whole, reportsTruncated: true }],
+    });
+    assert.ok(
+      bothCut
+        .split('\n')[0]
+        .endsWith(
+          ' QA Wolf has more open reports for Acme, Globex than the scan reads, so these counts are lower bounds and their other reports are not listed.',
+        ),
+      bothCut,
+    );
+
+    // Only a customer with a row on screen is named, whether or not it makes the top list.
+    const onlyGlobex = slackSummary({ reports: rows.slice(1), customers: [cutShort, whole] });
+    assert.ok(!onlyGlobex.includes('lower bounds'), onlyGlobex);
+    const beyondTop = slackSummary({ reports: rows, customers: [cutShort, whole], topN: 0 });
+    assert.ok(beyondTop.split('\n')[0].includes('for Acme than the scan reads'), beyondTop);
+    // Nothing is said without the flag.
+    const clean = slackSummary({ reports: rows, customers: [customer(), whole] });
+    assert.ok(!clean.includes('at least') && !clean.includes('lower bounds'), clean);
   });
 
   test('says nothing about Task Wolf when no row has a verdict', () => {

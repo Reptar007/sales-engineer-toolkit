@@ -11,9 +11,11 @@ import { fetchMaintenanceDashboard, fetchMaintenanceStatus } from '../../service
 import { useToast } from '../../contexts/ToastContext';
 import {
   ageBucket,
+  customerReportsLabel,
   customersWithVisibleReports,
   describeAge,
   describeScanError,
+  describeTruncatedWorkspaces,
   downloadText,
   filterCustomers,
   filterReports,
@@ -795,6 +797,7 @@ function MaintenanceDashboard() {
   const failedLabel = failedCount
     ? `${failedCount} ${failedNoun} could not be read, so this backlog may be short.`
     : '';
+  const truncatedLabel = describeTruncatedWorkspaces(snapshot?.truncatedWorkspaces);
   // The server's last rebuild may have failed, and so may this page's own last
   // request. Each gets its line, the server's first. A request of the page's
   // that failed says nothing of the scan, which may still be running, unless
@@ -901,6 +904,8 @@ function MaintenanceDashboard() {
           {firstError ? ` First: ${firstError.workspaceName} — ${firstError.message}` : ''}
         </div>
       ) : null}
+
+      {truncatedLabel ? <div className="bone-warning">{truncatedLabel}</div> : null}
 
       <TaskWolfNotice taskWolf={taskWolf} />
       <TaskWolfPartialNotice taskWolf={taskWolf} />
@@ -1019,11 +1024,14 @@ function MaintenanceDashboard() {
                       </span>
                       <span className="bone-bar-track">
                         <span className="bone-bar-fill" style={{ width: `${width}%` }} />
-                        <span className="bone-bar-value">{c.flowsInMaintenance}</span>
+                        <span className="bone-bar-value">
+                          {c.flowsInMaintenance}
+                          {c.reportsTruncated ? '+' : ''}
+                        </span>
                       </span>
                       <span className="bone-bar-meta">
-                        {c.openReports} {c.openReports === 1 ? 'report' : 'reports'} · oldest{' '}
-                        {c.oldestReportAgeDays} d{blocked ? ` · ${blocked}` : ''}
+                        {customerReportsLabel(c)} · oldest {c.oldestReportAgeDays} d
+                        {blocked ? ` · ${blocked}` : ''}
                         {c.taskWolf?.assignees?.length
                           ? ` · QAE ${c.taskWolf.assignees.join(', ')}`
                           : ''}

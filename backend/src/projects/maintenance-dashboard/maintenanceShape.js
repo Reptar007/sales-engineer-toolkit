@@ -206,10 +206,15 @@ export function rankOutstanding(reports) {
  * once), `workspacesExcluded` the ones left out by slug, and
  * `workspacesScanned` the rest: the ones there were reports to ask for.
  *
+ * A workspace whose report list was cut short is listed in
+ * `truncatedWorkspaces`, with how many reports were read, and its customer
+ * row carries `reportsTruncated`: its counts are floors.
+ *
  * @param {object} args
  * @param {Array} args.workspaces          QA Wolf's workspace list
  * @param {Map<string, Array>} args.reportsByWorkspace  workspaceId -> raw open reports;
  *   excluded workspaces need no entry
+ * @param {Set<string>} [args.truncatedWorkspaceIds]  workspaces QA Wolf had more reports for
  * @param {Set<string>} [args.excludedSlugs]
  * @param {Array<{workspaceId:string,message:string}>} [args.errors]
  * @param {number} [args.now]
@@ -217,6 +222,7 @@ export function rankOutstanding(reports) {
 export function buildSnapshot({
   workspaces,
   reportsByWorkspace,
+  truncatedWorkspaceIds = new Set(),
   excludedSlugs = parseExcludedSlugs(''),
   errors = [],
   now = Date.now(),
@@ -224,6 +230,7 @@ export function buildSnapshot({
   const listed = uniqueWorkspaces(workspaces);
   const customers = [];
   const reports = [];
+  const truncatedWorkspaces = [];
   let excludedCount = 0;
 
   for (const workspace of listed) {
@@ -231,11 +238,18 @@ export function buildSnapshot({
       excludedCount += 1;
       continue;
     }
-    const raw = (reportsByWorkspace.get(workspace.id) || []).filter((r) =>
-      OPEN_REPORT_STATUSES.has(r?.status || 'pending'),
-    );
+    const read = reportsByWorkspace.get(workspace.id) || [];
+    const reportsTruncated = truncatedWorkspaceIds.has(workspace.id);
+    if (reportsTruncated) {
+      truncatedWorkspaces.push({
+        workspaceId: workspace.id,
+        workspaceName: workspaceLabel(workspace),
+        reportsRead: read.length,
+      });
+    }
+    const raw = read.filter((r) => OPEN_REPORT_STATUSES.has(r?.status || 'pending'));
     if (raw.length === 0) continue;
-    customers.push(shapeCustomer(workspace, raw, now));
+    customers.push({ ...shapeCustomer(workspace, raw, now), reportsTruncated });
     for (const report of raw) reports.push(shapeReport(report, workspace, now));
   }
 
@@ -251,6 +265,7 @@ export function buildSnapshot({
       workspacesScanned: listed.length - excludedCount,
       workspacesExcluded: excludedCount,
       workspacesFailed: errors.length,
+      workspacesTruncated: truncatedWorkspaces.length,
       customersWithBacklog: customerRows.length,
       openReports: reportRows.length,
       flowsInMaintenance: customerRows.reduce((sum, c) => sum + c.flowsInMaintenance, 0),
@@ -261,5 +276,6 @@ export function buildSnapshot({
     customers: rankedCustomers,
     reports: rankedReports,
     errors,
+    truncatedWorkspaces,
   };
 }

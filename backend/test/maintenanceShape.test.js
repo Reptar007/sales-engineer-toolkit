@@ -346,6 +346,7 @@ describe('buildSnapshot', () => {
       workspacesScanned: 2,
       workspacesExcluded: 1,
       workspacesFailed: 0,
+      workspacesTruncated: 0,
       customersWithBacklog: 1,
       openReports: 1,
       flowsInMaintenance: 1,
@@ -356,6 +357,44 @@ describe('buildSnapshot', () => {
       snapshot.customers.map((c) => c.name),
       ['Acme'],
     );
+  });
+
+  test('a workspace whose report list was cut short is listed, and its row says so', () => {
+    const snapshot = buildSnapshot({
+      workspaces: [acme, globex, figma],
+      reportsByWorkspace: new Map([
+        [
+          'ws-acme',
+          [
+            report({ issueId: 'a1', reproductions: [{ flowId: 'a' }] }),
+            report({ issueId: 'a2', status: 'resolved', reproductions: [{ flowId: 'b' }] }),
+          ],
+        ],
+        ['ws-globex', [report({ issueId: 'g1', reproductions: [{ flowId: 'g' }] })]],
+      ]),
+      // Figma is excluded, so it was never read and cannot have been cut short.
+      truncatedWorkspaceIds: new Set(['ws-acme', 'ws-figma']),
+      excludedSlugs: parseExcludedSlugs(undefined),
+      now: NOW,
+    });
+
+    assert.equal(snapshot.totals.workspacesTruncated, 1);
+    // What was read, the report that is no longer open included.
+    assert.deepEqual(snapshot.truncatedWorkspaces, [
+      { workspaceId: 'ws-acme', workspaceName: 'Acme', reportsRead: 2 },
+    ]);
+    const byName = Object.fromEntries(snapshot.customers.map((c) => [c.name, c]));
+    assert.equal(byName.Acme.reportsTruncated, true);
+    assert.equal(byName.Acme.openReports, 1);
+    assert.equal(byName.Globex.reportsTruncated, false);
+    // Nothing says it was cut short unless the scan says so.
+    const whole = buildSnapshot({
+      workspaces: [acme],
+      reportsByWorkspace: new Map([['ws-acme', [report()]]]),
+      now: NOW,
+    });
+    assert.equal(whole.customers[0].reportsTruncated, false);
+    assert.deepEqual(whole.truncatedWorkspaces, []);
   });
 
   test('with "none" nothing is excluded, figma included', () => {

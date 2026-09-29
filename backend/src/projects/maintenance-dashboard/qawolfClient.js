@@ -213,8 +213,12 @@ const PAGE_SIZE = 100;
 const MAX_PAGES = 50; // 5,000 reports in one workspace would be its own emergency
 
 /**
- * Every open maintenance report in one workspace, walking the cursor until the
- * API stops handing one back.
+ * The open maintenance reports in one workspace, walking the cursor until the
+ * API stops handing one back or MAX_PAGES have been read. `truncated` is true
+ * when the walk stopped at MAX_PAGES with a cursor still in hand: QA Wolf has
+ * more than `issues`, so every count made from them is a floor.
+ *
+ * @returns {Promise<{ issues: Array<object>, truncated: boolean }>}
  */
 export async function listOpenMaintenanceReports(workspaceId, options = {}) {
   const issues = [];
@@ -230,7 +234,7 @@ export async function listOpenMaintenanceReports(workspaceId, options = {}) {
     }
     issues.push(...data.issues);
     cursor = data.nextCursor;
-    if (!cursor || data.issues.length === 0) break;
+    if (!cursor || data.issues.length === 0) return { issues, truncated: false };
   }
-  return issues;
+  return { issues, truncated: true };
 }

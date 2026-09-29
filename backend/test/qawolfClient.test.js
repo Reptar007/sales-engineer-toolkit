@@ -2,7 +2,8 @@
  * The QA Wolf client speaks tRPC and REST over HTTP with a fake fetch, so these
  * pin what the scan leans on: the paths production actually serves, which status
  * means "the key is dead" and which means "not this workspace", how upstream
- * failures are worded, both response envelopes and where the cursor walk stops.
+ * failures are worded, both response envelopes and where the cursor walk stops,
+ * saying so when it stops before the list does.
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -348,12 +349,13 @@ describe('listOpenMaintenanceReports', () => {
         ? page([{ issueId: 'i-1' }, { issueId: 'i-2' }], 'cursor-2')
         : page([{ issueId: 'i-3' }]),
     );
-    const issues = await listOpenMaintenanceReports('ws-1', api.options);
+    const { issues, truncated } = await listOpenMaintenanceReports('ws-1', api.options);
 
     assert.deepEqual(
       issues.map((issue) => issue.issueId),
       ['i-1', 'i-2', 'i-3'],
     );
+    assert.equal(truncated, false);
     assert.equal(api.requests.length, 2);
     assert.equal(api.requests[0].procedure, 'public.issue.find');
     assert.deepEqual(api.requests[0].input, {
@@ -367,9 +369,49 @@ describe('listOpenMaintenanceReports', () => {
 
   test('a single page without a cursor is one request', async () => {
     const api = fakeApi(() => page([{ issueId: 'i-1' }]));
-    const issues = await listOpenMaintenanceReports('ws-1', api.options);
+    const { issues, truncated } = await listOpenMaintenanceReports('ws-1', api.options);
     assert.equal(issues.length, 1);
+    assert.equal(truncated, false);
     assert.equal(api.requests.length, 1);
+  });
+
+  // Page n (from 1) is asked for with `cursor-n`, and is 100 reports long.
+  const pageNumber = (input) =>
+    input.cursor === undefined ? 1 : Number(input.cursor.replace('cursor-', ''));
+  const fullPage = (n) => Array.from({ length: 100 }, (_, i) => ({ issueId: `i-${n}-${i}` }));
+
+  test('50 full pages with a cursor still handed back is a list cut short', async () => {
+    const api = fakeApi(({ input }) => {
+      const n = pageNumber(input);
+      return page(fullPage(n), `cursor-${n + 1}`);
+    });
+    const { issues, truncated } = await listOpenMaintenanceReports('ws-1', api.options);
+    assert.equal(api.requests.length, 50);
+    assert.equal(api.requests.at(-1).input.cursor, 'cursor-50');
+    assert.equal(issues.length, 5000);
+    assert.equal(truncated, true);
+  });
+
+  test('a 50th page with no cursor after it is the whole list, not one cut short', async () => {
+    const api = fakeApi(({ input }) => {
+      const n = pageNumber(input);
+      return page(fullPage(n), n < 50 ? `cursor-${n + 1}` : undefined);
+    });
+    const { issues, truncated } = await listOpenMaintenanceReports('ws-1', api.options);
+    assert.equal(api.requests.length, 50);
+    assert.equal(issues.length, 5000);
+    assert.equal(truncated, false);
+  });
+
+  test('an empty 50th page ends the list, whatever cursor comes with it', async () => {
+    const api = fakeApi(({ input }) => {
+      const n = pageNumber(input);
+      return page(n < 50 ? fullPage(n) : [], `cursor-${n + 1}`);
+    });
+    const { issues, truncated } = await listOpenMaintenanceReports('ws-1', api.options);
+    assert.equal(api.requests.length, 50);
+    assert.equal(issues.length, 4900);
+    assert.equal(truncated, false);
   });
 
   test('a 403 on one workspace is QAW_FORBIDDEN, so the scan can carry on past it', async () => {
