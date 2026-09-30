@@ -420,11 +420,6 @@ export function createTaskWolfClient(options = {}) {
     return tools;
   }
 
-  async function toolSchema(name) {
-    const tools = await listTools();
-    return tools.find((t) => t.name === name)?.inputSchema || null;
-  }
-
   /**
    * Call one tool and return its parsed answer. A stale session (404) is
    * re-initialized once; every other failure is thrown with a code.
@@ -438,7 +433,6 @@ export function createTaskWolfClient(options = {}) {
     baseUrl,
     initialize,
     listTools,
-    toolSchema,
     callTool,
     getServerInfo: () => serverInfo,
   };

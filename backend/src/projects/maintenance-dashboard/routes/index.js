@@ -88,12 +88,13 @@ function sendError(res, error, fallback, extra = {}) {
 // answers while a rebuild runs, and `refreshError` says so when the last
 // rebuild failed), or `{ status: 'building', progress, refreshError }` during
 // the first scan. With no snapshot and a failed scan it answers `{ status:
-// 'error', error, code, failedAt, rescanAvailableAt }` under the matching HTTP
-// status until the cool-down passes. `refreshError` stays while the retry runs
-// and clears once a scan publishes a snapshot. The ready and building answers
-// carry `taskWolfToken`, `{ expiresOn, daysLeft, state }` or null, from
+// 'error', error, code, failedAt, rescanAvailableAt, taskWolfToken }` under the
+// matching HTTP status until the cool-down passes. `refreshError` stays while
+// the retry runs and clears once a scan publishes a snapshot. Every answer
+// carries `taskWolfToken`, `{ expiresOn, daysLeft, state }` or null, from
 // TASK_WOLF_MCP_TOKEN_EXPIRES_ON. `?refresh=1` asks for a rescan in the
-// background, which starts only once `rescanAvailableAt` has passed; the
+// background, which starts only once `rescanAvailableAt` has passed; refused,
+// it is a plain GET, which rebuilds a snapshot past the cache window. The
 // answer is the same either way.
 router.get('/', authenticateToken, (req, res) => {
   const refresh = req.query.refresh === '1' || req.query.refresh === 'true';
@@ -102,6 +103,7 @@ router.get('/', authenticateToken, (req, res) => {
     return sendError(res, result.error, 'The maintenance backlog could not be read.', {
       failedAt: result.error.failedAt || null,
       rescanAvailableAt: result.rescanAvailableAt,
+      taskWolfToken: result.taskWolfToken,
     });
   }
   return res.json(result);

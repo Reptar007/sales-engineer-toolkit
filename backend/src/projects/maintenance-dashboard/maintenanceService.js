@@ -211,12 +211,11 @@ export async function mapWithConcurrency(items, limit, worker, onSettled) {
  * `authError`, beside whatever half had already answered, so the caller can
  * stop asking without losing it. `calls` counts the tool calls that went out,
  * so the caller can tell "every call failed" from "one half is missing".
- * A tool whose schema no longer declares the arguments it is sent is not
- * asked: that goes in `errors`, naming what the schema does declare.
+ * Only the tools the pass asks (`asking`, see enrichWithTaskWolf) are called.
  * A tool that answers it has no such customer is not a failure: it goes in
  * `notFound`, not in `errors`, with the customer value it was sent.
  */
-async function queryTaskWolfCustomer(client, schemas, customer, now) {
+async function queryTaskWolfCustomer(client, asking, customer, now) {
   const result = {
     maintenance: null,
     tasks: null,
@@ -229,7 +228,7 @@ async function queryTaskWolfCustomer(client, schemas, customer, now) {
   const attempts = [
     {
       tool: TASK_WOLF_MAINTENANCE_TOOL,
-      schema: schemas.maintenance,
+      asked: asking.maintenance,
       args: maintenanceStatusArguments(customer.workspaceId),
       apply: (raw) => {
         result.maintenance = normalizeMaintenanceStatus(raw, now);
@@ -238,7 +237,7 @@ async function queryTaskWolfCustomer(client, schemas, customer, now) {
     },
     {
       tool: TASK_WOLF_TASKS_TOOL,
-      schema: schemas.tasks,
+      asked: asking.tasks,
       args: maintenanceTaskArguments(customer.workspaceId),
       apply: (raw) => {
         result.tasks = normalizeTasks(raw, now);
@@ -248,12 +247,7 @@ async function queryTaskWolfCustomer(client, schemas, customer, now) {
   ];
 
   for (const attempt of attempts) {
-    if (attempt.schema === undefined) continue; // the server does not offer this tool
-    const drift = schemaDrift(attempt.tool, attempt.schema, attempt.args);
-    if (drift) {
-      result.errors.push({ tool: attempt.tool, message: drift });
-      continue;
-    }
+    if (!attempt.asked) continue; // not offered, or its schema no longer fits
     result.calls += 1;
     try {
       const normalized = attempt.apply(await client.callTool(attempt.tool, attempt.args));
@@ -310,6 +304,13 @@ function findToolIn(tools, name) {
  * `snapshot.taskWolf.error` and the page says so beside the platform data,
  * which is still right.
  *
+ * Each tool's schema is checked once, before anyone is asked. A tool whose
+ * schema no longer declares an argument it is sent is treated as one the
+ * server does not offer: it is asked about no customer, and
+ * `snapshot.taskWolf.schemaDrift` names it once, with the properties its
+ * schema does declare. With neither tool left to ask, the pass fails under
+ * `TW_TOOLS`. `snapshot.taskWolf.tools` says which of the two were asked.
+ *
  * A Task Wolf that accepts requests and then answers none of them would cost
  * a full timeout per call, so the pass stops asking (`TW_ABORTED`) after
  * `maxConsecutiveFailures` customers in a row got nothing but outage-shaped
@@ -345,6 +346,7 @@ export async function enrichWithTaskWolf(
     errors: [],
     customersQueried: targets.length,
     customersNotInTaskWolf: 0,
+    schemaDrift: [],
     startedAt: new Date(startedAt).toISOString(),
     tools: null,
   };
@@ -353,10 +355,14 @@ export async function enrichWithTaskWolf(
   const finish = () => {
     meta.finishedAt = new Date(now()).toISOString();
     const merged = mergeTaskWolf(snapshot, byWorkspace, meta);
-    // The merge keeps the pass fields it knows of; this one is the pass's own.
+    // The merge keeps the pass fields it knows of; these two are the pass's own.
     return {
       ...merged,
-      taskWolf: { ...merged.taskWolf, customersNotInTaskWolf: meta.customersNotInTaskWolf },
+      taskWolf: {
+        ...merged.taskWolf,
+        customersNotInTaskWolf: meta.customersNotInTaskWolf,
+        schemaDrift: meta.schemaDrift,
+      },
     };
   };
 
@@ -367,22 +373,28 @@ export async function enrichWithTaskWolf(
     meta.error = { code: error.code || 'TW_UPSTREAM', message: error.message };
     return finish();
   }
-  const findSchema = (name) => {
+  // Every customer is sent the same arguments but for its id, so one look at
+  // each schema, by argument name, covers the whole pass.
+  const plan = [
+    ['maintenance', TASK_WOLF_MAINTENANCE_TOOL, maintenanceStatusArguments],
+    ['tasks', TASK_WOLF_TASKS_TOOL, maintenanceTaskArguments],
+  ];
+  const asking = {};
+  const unusable = [];
+  for (const [key, name, argumentsFor] of plan) {
     const tool = findToolIn(tools, name);
-    return tool ? tool.inputSchema || null : undefined;
-  };
-  const schemas = {
-    maintenance: findSchema(TASK_WOLF_MAINTENANCE_TOOL),
-    tasks: findSchema(TASK_WOLF_TASKS_TOOL),
-  };
-  meta.tools = {
-    maintenance: schemas.maintenance !== undefined,
-    tasks: schemas.tasks !== undefined,
-  };
-  if (schemas.maintenance === undefined && schemas.tasks === undefined) {
+    const drift = tool ? schemaDrift(name, tool.inputSchema, argumentsFor('')) : null;
+    if (drift) meta.schemaDrift.push({ tool: name, message: drift });
+    asking[key] = Boolean(tool) && !drift;
+    if (!asking[key]) unusable.push(drift || `Task Wolf MCP does not offer ${name}.`);
+  }
+  meta.tools = asking;
+  if (!asking.maintenance && !asking.tasks) {
     meta.error = {
       code: 'TW_TOOLS',
-      message: `Task Wolf MCP offers neither ${TASK_WOLF_MAINTENANCE_TOOL} nor ${TASK_WOLF_TASKS_TOOL}.`,
+      message: meta.schemaDrift.length
+        ? `Neither ${TASK_WOLF_MAINTENANCE_TOOL} nor ${TASK_WOLF_TASKS_TOOL} can be asked. ${unusable.join(' ')}`
+        : `Task Wolf MCP offers neither ${TASK_WOLF_MAINTENANCE_TOOL} nor ${TASK_WOLF_TASKS_TOOL}.`,
     };
     return finish();
   }
@@ -412,7 +424,7 @@ export async function enrichWithTaskWolf(
       (customer) => {
         if (stopped) return null;
         asked += 1;
-        return queryTaskWolfCustomer(client, schemas, customer, now());
+        return queryTaskWolfCustomer(client, asking, customer, now());
       },
       (result, index) => {
         if (result.value === null) return; // never asked: the pass had stopped
@@ -763,12 +775,14 @@ function publishedSnapshot(snapshot) {
           }
         : customer,
     ),
-    // Only a pass that ran counts customers Task Wolf has no record of; one
-    // still pending or not connected has found none yet.
+    // Only a pass that ran counts customers Task Wolf has no record of, or
+    // reads the tools' schemas; one still pending or not connected has found
+    // nothing of either yet.
     taskWolf: {
       ...snapshot.taskWolf,
       pending: Boolean(snapshot.taskWolf?.pending),
       customersNotInTaskWolf: snapshot.taskWolf?.customersNotInTaskWolf ?? 0,
+      schemaDrift: snapshot.taskWolf?.schemaDrift ?? [],
     },
   };
 }
@@ -901,13 +915,15 @@ function taskWolfTokenAnswer(now) {
  * What the page asks for. Answers straight from cache when it is fresh enough,
  * starts a rebuild otherwise, and never blocks on the scan itself. A rebuild
  * that failed is not restarted until the cool-down passes, and `refresh` goes
- * through `requestRescan`, so it waits out the same gaps. With no snapshot
- * the failure is the answer, beside `rescanAvailableAt`, so a rescan refused
- * inside the cool-down still says when one may start; with one it rides along
- * as `refreshError` beside the stale snapshot. While a retry runs it stays in
- * `refreshError`, beside the snapshot or beside `building` when there is none,
- * until a scan publishes a snapshot. Both of those answers carry
- * `taskWolfToken`, so the page can warn before the token runs out.
+ * through `requestRescan`, so it waits out the same gaps; one it refuses is
+ * still a GET, and rebuilds a snapshot past the cache window as a plain GET
+ * would. With no snapshot the failure is the answer, beside
+ * `rescanAvailableAt`, so a rescan refused inside the cool-down still says
+ * when one may start; with one it rides along as `refreshError` beside the
+ * stale snapshot. While a retry runs it stays in `refreshError`, beside the
+ * snapshot or beside `building` when there is none, until a scan publishes a
+ * snapshot. Every answer, the failure included, carries `taskWolfToken`, so
+ * the page can warn before the token runs out.
  *
  * @param {{ refresh?: boolean }} [options]
  * @returns {{ status: 'ready'|'building'|'error', snapshot?: object, stale?: boolean, progress?: object, refreshError?: object|null, rescanAvailableAt?: string|null, taskWolfToken?: object|null, error?: object }}
@@ -917,8 +933,10 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
   const isStale = !state.snapshot || now - state.builtAt > getCacheTtlMs();
   const coolingDown = Boolean(state.lastError) && now - state.failedAt < getRetryCooldownMs();
 
-  if (refresh) requestRescan(now);
-  else if (isStale && !coolingDown) startRefresh();
+  // A snapshot can age out of the cache window before the gap after it has
+  // passed, and a rescan refused for the gap must not hold back that rebuild.
+  const rescanning = refresh && requestRescan(now).accepted;
+  if (!rescanning && isStale && !coolingDown) startRefresh();
 
   if (state.snapshot) {
     return {
@@ -949,6 +967,7 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
     status: 'error',
     error: failureAnswer() || { message: 'No snapshot available.' },
     rescanAvailableAt: rescanAvailableAt(now),
+    taskWolfToken: taskWolfTokenAnswer(now),
   };
 }
 

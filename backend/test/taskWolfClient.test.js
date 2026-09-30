@@ -355,10 +355,8 @@ describe('createTaskWolfClient', () => {
 
     const tools = await client.listTools();
     assert.equal(tools[0].name, 'get_maintenance_status');
-    assert.deepEqual(await client.toolSchema('get_maintenance_status'), {
-      type: 'object',
-      properties: { customer: { type: 'string' } },
-    });
+    // Listed once and kept: asking again sends nothing.
+    assert.equal(await client.listTools(), tools);
 
     const answer = await client.callTool('get_maintenance_status', { customer: 'acme' });
     assert.deepEqual(answer, { total: 2, truncated: false, items: [] });

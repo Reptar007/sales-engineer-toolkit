@@ -188,10 +188,10 @@ function reportQaeKnown(taskWolf) {
 /**
  * One line about the Task Wolf pass: how much of the backlog it covered, or
  * why it is missing. A rejected token says who can renew it and exactly
- * where, as TaskWolfTokenNotice does, and names the expiry date setting too
- * when the server has one (`token`: see TaskWolfTokenNotice).
+ * where, as TaskWolfTokenNotice does, and names the expiry date setting as
+ * well as the token, set or not: unset, it is why nothing warned beforehand.
  */
-function TaskWolfNotice({ taskWolf, token }) {
+function TaskWolfNotice({ taskWolf }) {
   if (!taskWolf) return null;
   if (taskWolf.pending) {
     return (
@@ -224,14 +224,8 @@ function TaskWolfNotice({ taskWolf, token }) {
         <a href={TASK_WOLF_CONNECT_URL} target="_blank" rel="noreferrer noopener">
           Task Wolf → Settings → Connect Claude
         </a>
-        , update <code>TASK_WOLF_MCP_TOKEN</code>
-        {token ? (
-          <>
-            {' '}
-            and <code>TASK_WOLF_MCP_TOKEN_EXPIRES_ON</code>
-          </>
-        ) : null}
-        , and rescan. Blocked status below is {taskWolf.customersAnswered ? 'partial' : 'missing'}.
+        , update <code>TASK_WOLF_MCP_TOKEN</code> and <code>TASK_WOLF_MCP_TOKEN_EXPIRES_ON</code>,
+        and rescan. Blocked status below is {taskWolf.customersAnswered ? 'partial' : 'missing'}.
       </div>
     );
   }
@@ -249,20 +243,32 @@ function TaskWolfNotice({ taskWolf, token }) {
       </div>
     );
   }
-  // A server that offers one tool of the two answers half the question for
-  // everyone, without a single failed call to show for it.
+  // Only one tool of the two was asked, because the server does not offer the
+  // other or no longer declares what it is sent (`schemaDrift`): half the
+  // question goes unanswered for everyone, without a single failed call.
   const tools = taskWolf.tools;
   const missingTool = tools && Boolean(tools.maintenance) !== Boolean(tools.tasks);
+  const unasked = tools?.maintenance ? TASK_WOLF_TASKS_TOOL : TASK_WOLF_MAINTENANCE_TOOL;
+  const drift = missingTool && (taskWolf.schemaDrift || []).find((d) => d.tool === unasked);
+  const lost = tools?.maintenance ? LOST_WITHOUT_TASKS : LOST_WITHOUT_MAINTENANCE;
   const first = taskWolf.errors?.[0];
   if (!missingTool && !first) return null;
   return (
     <>
       {missingTool ? (
         <div className="bone-warning">
-          This Task Wolf server doesn&apos;t offer{' '}
-          <code>{tools.maintenance ? TASK_WOLF_TASKS_TOOL : TASK_WOLF_MAINTENANCE_TOOL}</code>, so{' '}
-          {tools.maintenance ? LOST_WITHOUT_TASKS : LOST_WITHOUT_MAINTENANCE} are unknown for every
-          customer.{' '}
+          {drift ? (
+            <>
+              This Task Wolf server&apos;s <code>{unasked}</code> no longer declares an argument it
+              is sent, so it wasn&apos;t asked: {lost} are unknown for every customer.{' '}
+              {asSentence(drift.message)}{' '}
+            </>
+          ) : (
+            <>
+              This Task Wolf server doesn&apos;t offer <code>{unasked}</code>, so {lost} are unknown
+              for every customer.{' '}
+            </>
+          )}
           {tools.maintenance
             ? 'Blocked status and per-report QAEs below are what Task Wolf answered.'
             : "The QAEs below are the customer's, not any one report's."}
@@ -486,15 +492,17 @@ function whileBuilding(held, { progress, refreshError, taskWolfToken }) {
 }
 
 /**
- * A failed scan in one line: when (if the server said), why, then `note`. The
- * server keeps the failure until a scan works, so it stays up while the retry
- * runs, and says a retry is running (`retrying`).
+ * A failed scan in one line: `lead`, when (if the server said), why, then
+ * `note`. The server keeps the failure until a scan works, so it stays up
+ * while the retry runs, and says a retry is running (`retrying`). Beside a
+ * snapshot the scan was a refresh of it; a first scan's failure leads as the
+ * page that says it failed does, "Last scan failed".
  */
-function RefreshFailed({ failure, retrying = false, note = '' }) {
+function RefreshFailed({ failure, lead = 'Last refresh failed', retrying = false, note = '' }) {
   const after = [asSentence(failure.message), retrying ? 'Retrying now.' : '', note];
   return (
     <div className="bone-warning" role="alert">
-      Last refresh failed
+      {lead}
       {failure.failedAt ? ` (${formatDateTime(failure.failedAt)})` : ''}:{' '}
       {after.filter(Boolean).join(' ')}
     </div>
@@ -518,9 +526,10 @@ function isScanFailure(error) {
 
 /**
  * A request that failed, as fail() takes it: the message and code, and what
- * the server's answer said beside them. A failed scan says when it failed and
- * when a rescan may start (null: now); a request that got no such answer says
- * neither, and leaves them undefined.
+ * the server's answer said beside them. A failed scan says when it failed,
+ * when a rescan may start (null: now) and where the Task Wolf token stands
+ * (null: nothing to warn of); a request that got no such answer says none of
+ * it, and leaves them undefined.
  */
 function requestFailure(err) {
   return {
@@ -528,6 +537,7 @@ function requestFailure(err) {
     code: err?.code,
     failedAt: err?.body?.failedAt,
     rescanAvailableAt: err?.body?.rescanAvailableAt,
+    taskWolfToken: err?.body?.taskWolfToken,
   };
 }
 
@@ -568,23 +578,29 @@ function MaintenanceDashboard() {
 
   const fail = useCallback((failure) => {
     failures.current += 1;
-    setError({
-      message: failure?.message || 'Failed to load the maintenance backlog.',
-      code: failure?.code || null,
-      failedAt: failure?.failedAt || null,
-      rescanAvailableAt: failure?.rescanAvailableAt || null,
-    });
     // The scan this page was following failed or is out of reach: stop
     // polling and free the Rescan button, unless the answer says a rescan must
     // wait; an answer that said nothing of it leaves what the page knew. A
     // snapshot already on screen stays. A failed scan is the server's latest
     // word, so it replaces the failure the server reported before; a request
     // of the page's own leaves that up. Where the Task Wolf token stands goes
-    // the same way: an answer that says (`taskWolfToken`) replaces what the
-    // snapshot was told, and one that does not leaves it.
+    // the same way, beside a snapshot or with none: an answer that says
+    // (`taskWolfToken`) replaces what the page was told, and one that does
+    // not leaves it.
     const scanFailed = isScanFailure(failure);
     const said = failure?.rescanAvailableAt;
     const token = failure?.taskWolfToken;
+    setError((prev) => {
+      // With nothing on screen, what the page knew is the failure it showed.
+      const known = held.current ? held.current.taskWolfToken : prev?.taskWolfToken;
+      return {
+        message: failure?.message || 'Failed to load the maintenance backlog.',
+        code: failure?.code || null,
+        failedAt: failure?.failedAt || null,
+        rescanAvailableAt: failure?.rescanAvailableAt || null,
+        taskWolfToken: (token === undefined ? known : token) ?? null,
+      };
+    });
     setPayload((prev) =>
       prev?.status === 'ready'
         ? {
@@ -663,7 +679,7 @@ function MaintenanceDashboard() {
       }
       // Beside a failure, as beside a snapshot, the answer says when a rescan
       // may start, and Rescan follows it, and where the Task Wolf token stands,
-      // which a snapshot still on screen takes up.
+      // which the page warns of with a snapshot on screen or without one.
       if (answer.status !== 'ready') {
         if (idle && answer.error?.code === 'NO_SNAPSHOT') {
           // The server restarted and nobody has asked it for a scan yet. Nothing
@@ -882,6 +898,9 @@ function MaintenanceDashboard() {
             {label}
           </button>
         </div>
+        {/* A scan never fails because Task Wolf rejected its token (that pass
+            never throws), so there is no TW_AUTH notice here to give way to. */}
+        <TaskWolfTokenNotice token={error.taskWolfToken} />
       </div>
     );
   }
@@ -896,7 +915,9 @@ function MaintenanceDashboard() {
             <p>First scan of every workspace. The page fills in when it finishes.</p>
           </div>
         </header>
-        {payload.refreshError ? <RefreshFailed failure={payload.refreshError} retrying /> : null}
+        {payload.refreshError ? (
+          <RefreshFailed failure={payload.refreshError} lead="Last scan failed" retrying />
+        ) : null}
         <TaskWolfTokenNotice token={payload.taskWolfToken} />
         <ScanProgress progress={payload.progress} />
       </div>
@@ -1027,7 +1048,7 @@ function MaintenanceDashboard() {
 
       {truncatedLabel ? <div className="bone-warning">{truncatedLabel}</div> : null}
 
-      <TaskWolfNotice taskWolf={taskWolf} token={payload?.taskWolfToken} />
+      <TaskWolfNotice taskWolf={taskWolf} />
       <TaskWolfTokenNotice token={payload?.taskWolfToken} taskWolf={taskWolf} />
       <TaskWolfPartialNotice taskWolf={taskWolf} />
       <TaskWolfNotFoundNotice taskWolf={taskWolf} />

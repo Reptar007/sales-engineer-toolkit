@@ -809,60 +809,91 @@ describe('scanMaintenanceBacklog + Task Wolf', () => {
     assert.equal(probed.tools.tasks.normalized.tasks.length, 1);
   });
 
-  test('a schema that no longer declares an argument sent is reported with its property names, not asked', async () => {
+  test('a schema that no longer declares an argument sent is reported once, with its property names, and not asked', async () => {
+    const noCustomer = {
+      name: 'get_maintenance_status',
+      inputSchema: { type: 'object', properties: { suiteId: {} } },
+    };
     const noTypes = {
       name: 'find_tasks',
       inputSchema: { type: 'object', properties: { customer: byQawId, taskType: {} } },
     };
-    const tools = [
-      {
-        name: 'get_maintenance_status',
-        inputSchema: { type: 'object', properties: { suiteId: {} } },
-      },
-      noTypes,
-    ];
-    const taskWolf = fakeTaskWolf({ tools });
-    const snapshot = await enrichWithTaskWolf(platformSnapshot(['two']), {
+    const noCustomerSaid = 'No customer argument in the get_maintenance_status schema (suiteId).';
+    const noTypesSaid = 'No types argument in the find_tasks schema (customer, taskType).';
+
+    // Neither tool can be asked: the pass fails as one with no tools would, and says why.
+    const taskWolf = fakeTaskWolf({ tools: [noCustomer, noTypes] });
+    const snapshot = await enrichWithTaskWolf(platformSnapshot(['two', 'three']), {
       client: taskWolf,
       now: () => NOW,
     });
     assert.equal(taskWolf.calls.length, 0);
-    assert.deepEqual(
-      snapshot.taskWolf.errors.map((e) => [e.tool, e.message]),
-      [
-        [
-          'get_maintenance_status',
-          'No customer argument in the get_maintenance_status schema (suiteId).',
-        ],
-        ['find_tasks', 'No types argument in the find_tasks schema (customer, taskType).'],
-      ],
+    assert.deepEqual(snapshot.taskWolf.error, {
+      code: 'TW_TOOLS',
+      message: `Neither get_maintenance_status nor find_tasks can be asked. ${noCustomerSaid} ${noTypesSaid}`,
+    });
+    assert.deepEqual(snapshot.taskWolf.schemaDrift, [
+      { tool: 'get_maintenance_status', message: noCustomerSaid },
+      { tool: 'find_tasks', message: noTypesSaid },
+    ]);
+    assert.deepEqual(snapshot.taskWolf.errors, []);
+    assert.deepEqual(snapshot.taskWolf.tools, { maintenance: false, tasks: false });
+
+    // One tool not offered and the other drifted: each is named for what it is.
+    const alone = await enrichWithTaskWolf(platformSnapshot(['two']), {
+      client: fakeTaskWolf({ tools: [noTypes] }),
+      now: () => NOW,
+    });
+    assert.equal(
+      alone.taskWolf.error.message,
+      `Neither get_maintenance_status nor find_tasks can be asked. Task Wolf MCP does not offer get_maintenance_status. ${noTypesSaid}`,
     );
 
-    // The tool that still declares its arguments is asked as before.
+    // The tool that still declares its arguments is asked of every customer
+    // as before, the other of none, and the pass is otherwise clean.
     const half = fakeTaskWolf({ tools: [maintenanceStatusTool, noTypes] });
-    const answered = await enrichWithTaskWolf(platformSnapshot(['two']), {
+    const answered = await enrichWithTaskWolf(platformSnapshot(['two', 'three']), {
       client: half,
+      concurrency: 1,
       now: () => NOW,
     });
     assert.deepEqual(
-      half.calls.map((c) => c.name),
-      ['get_maintenance_status'],
+      half.calls.map((c) => [c.name, c.customer]),
+      [
+        ['get_maintenance_status', 'two'],
+        ['get_maintenance_status', 'three'],
+      ],
     );
+    assert.equal(answered.taskWolf.error, null);
     assert.equal(answered.customers[0].taskWolf.blockedFlows, 1);
+    assert.deepEqual(answered.taskWolf.errors, []);
+    assert.deepEqual(answered.taskWolf.schemaDrift, [{ tool: 'find_tasks', message: noTypesSaid }]);
+    assert.deepEqual(answered.taskWolf.tools, { maintenance: true, tasks: false });
+
+    // The other way round, as a server without get_maintenance_status is asked.
+    const otherHalf = fakeTaskWolf({ tools: [noCustomer, findTasksTool] });
+    const tasksOnly = await enrichWithTaskWolf(platformSnapshot(['two']), {
+      client: otherHalf,
+      now: () => NOW,
+    });
     assert.deepEqual(
-      answered.taskWolf.errors.map((e) => e.tool),
+      otherHalf.calls.map((c) => c.name),
       ['find_tasks'],
     );
+    assert.equal(tasksOnly.taskWolf.error, null);
+    assert.equal(tasksOnly.customers[0].taskWolf.openTasks, 1);
+    assert.deepEqual(tasksOnly.taskWolf.schemaDrift, [
+      { tool: 'get_maintenance_status', message: noCustomerSaid },
+    ]);
+    assert.deepEqual(tasksOnly.taskWolf.tools, { maintenance: false, tasks: true });
 
-    // The probe says the same, beside the schema and the arguments it would send.
+    // The probe says it for the one customer it asks, beside the schema and
+    // the arguments it would send.
     const probed = await probeTaskWolfCustomer(
       { id: 'ws-2', slug: 'two', name: 'Two' },
       { client: half, now: () => NOW },
     );
-    assert.equal(
-      probed.tools.tasks.error,
-      'No types argument in the find_tasks schema (customer, taskType).',
-    );
+    assert.equal(probed.tools.tasks.error, noTypesSaid);
     assert.deepEqual(probed.tools.tasks.inputSchema, noTypes.inputSchema);
     assert.deepEqual(probed.tools.tasks.arguments, {
       customer: 'ws-2',
@@ -999,14 +1030,14 @@ describe('enrichWithTaskWolf: a Task Wolf that refuses or stops answering', () =
     assert.equal(unknown.taskWolf.errors.length, 24);
   });
 
-  test('customers no call went out for do not count toward the cut-off', async () => {
+  test('a drifted schema is one message for the pass, not a failure for each customer', async () => {
     // Neither schema declares the customer argument, so nobody is asked
-    // anything: no timeout was paid, and nothing says Task Wolf is down.
-    const tools = ['get_maintenance_status', 'find_tasks'].map((name) => ({
+    // anything: no customer failed, and nothing says Task Wolf is down.
+    const drifted = ['get_maintenance_status', 'find_tasks'].map((name) => ({
       name,
       inputSchema: { type: 'object', properties: { suiteId: {} } },
     }));
-    const taskWolf = fakeTaskWolf({ tools });
+    const taskWolf = fakeTaskWolf({ tools: drifted });
     const progress = [];
     const snapshot = await enrichWithTaskWolf(platformSnapshot(slugs('who', 12)), {
       client: taskWolf,
@@ -1015,13 +1046,41 @@ describe('enrichWithTaskWolf: a Task Wolf that refuses or stops answering', () =
       now: () => NOW,
     });
     assert.equal(taskWolf.calls.length, 0);
-    assert.equal(progress.at(-1).scanned, 12);
-    assert.equal(snapshot.taskWolf.errors.length, 24);
-    assert.equal(snapshot.taskWolf.error.code, 'TW_ABORTED');
-    assert.match(
+    assert.deepEqual(progress, []);
+    assert.deepEqual(snapshot.taskWolf.errors, []);
+    assert.equal(snapshot.taskWolf.schemaDrift.length, 2);
+    assert.equal(snapshot.taskWolf.error.code, 'TW_TOOLS');
+    assert.equal(
       snapshot.taskWolf.error.message,
-      /^Task Wolf answered for none of the 12 customers asked\. First failure \(who-0\): No customer argument in the get_maintenance_status schema \(suiteId\)\.$/,
+      'Neither get_maintenance_status nor find_tasks can be asked. No customer argument in the get_maintenance_status schema (suiteId). No customer or types argument in the find_tasks schema (suiteId).',
     );
+
+    // With one tool drifted, the other is asked of all twelve and they all
+    // answer: no customer failed, and the drift is said once.
+    const half = fakeTaskWolf({
+      tools: [drifted[0], findTasksTool],
+      answerWith: (customer, name) => (name === 'find_tasks' ? { total: 0, items: [] } : undefined),
+    });
+    const halfProgress = [];
+    const halfSnapshot = await enrichWithTaskWolf(platformSnapshot(slugs('who', 12)), {
+      client: half,
+      concurrency: 1,
+      onProgress: (p) => halfProgress.push(p),
+      now: () => NOW,
+    });
+    assert.equal(half.calls.length, 12);
+    assert.ok(half.calls.every((c) => c.name === 'find_tasks'));
+    assert.equal(halfProgress.at(-1).scanned, 12);
+    assert.equal(halfProgress.at(-1).failed, 0);
+    assert.equal(halfSnapshot.taskWolf.error, null);
+    assert.deepEqual(halfSnapshot.taskWolf.errors, []);
+    assert.equal(halfSnapshot.taskWolf.customersAnswered, 12);
+    assert.deepEqual(halfSnapshot.taskWolf.schemaDrift, [
+      {
+        tool: 'get_maintenance_status',
+        message: 'No customer argument in the get_maintenance_status schema (suiteId).',
+      },
+    ]);
   });
 
   test('a run that ends with the last customer cut nothing short', async () => {
@@ -1781,6 +1840,25 @@ describe('getMaintenanceDashboard', () => {
     await assert.rejects(running, (error) => error.code === 'QAW_CONFIG');
   });
 
+  test('a forced rescan refused for the gap still rebuilds a snapshot past the cache window', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
+    process.env.MAINTENANCE_DASHBOARD_CACHE_TTL_MINUTES = '10';
+    process.env.MAINTENANCE_DASHBOARD_MIN_RESCAN_MINUTES = '15';
+    t.after(() => {
+      delete process.env.MAINTENANCE_DASHBOARD_CACHE_TTL_MINUTES;
+      delete process.env.MAINTENANCE_DASHBOARD_MIN_RESCAN_MINUTES;
+    });
+    await startRefresh({ client: fakeClient(), taskWolfClient: null });
+
+    // Twelve minutes on, the snapshot has aged out and the gap has not passed.
+    t.mock.timers.tick(12 * 60 * 1000);
+    assert.deepEqual(requestRescan(), { accepted: false, retryAfterMs: 3 * 60 * 1000 });
+    const asked = getMaintenanceDashboard({ refresh: true });
+    assert.equal(asked.stale, true);
+    assert.equal(asked.refreshing, true);
+    await scanInFlightFails('QAW_CONFIG');
+  });
+
   test('the minimum gap comes from the environment, 15 minutes by default', (t) => {
     assert.equal(getMinRescanMs(), 15 * 60 * 1000);
     process.env.MAINTENANCE_DASHBOARD_MIN_RESCAN_MINUTES = '5';
@@ -2159,6 +2237,7 @@ describe('the published snapshot', () => {
     'customersAnswered',
     'customersPartial',
     'customersNotInTaskWolf',
+    'schemaDrift',
     'startedAt',
     'finishedAt',
     'tools',
@@ -2358,9 +2437,10 @@ describe('the published snapshot', () => {
     for (const [name, snapshot] of Object.entries({ interim, cutShort, notConnected })) {
       assert.deepEqual(fieldsOf(snapshot), expected, name);
     }
-    // Nobody asked has said it does not know a customer.
+    // Nobody asked has said it does not know a customer, and no schema has drifted.
     for (const snapshot of [interim, finished, cutShort, notConnected]) {
       assert.equal(snapshot.taskWolf.customersNotInTaskWolf, 0);
+      assert.deepEqual(snapshot.taskWolf.schemaDrift, []);
     }
 
     // Where the pass got an answer the rows read as in any other snapshot;
@@ -2648,6 +2728,31 @@ describe('the Task Wolf token’s expiry in the answers', () => {
     assert.deepEqual(getMaintenanceStatus().taskWolfToken, invalid);
   });
 
+  test('a failed first scan carries it too, from GET / and its route, as its retry does', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
+    expiresOn('2026-10-12');
+    const expiring = { expiresOn: '2026-10-12', daysLeft: 14, state: 'expiring' };
+    await assert.rejects(startRefresh({ client: rejectedKeyClient() }));
+
+    const failed = getMaintenanceDashboard();
+    assert.equal(failed.status, 'error');
+    assert.deepEqual(failed.taskWolfToken, expiring);
+    const res = fakeRes();
+    routeHandler('get', '/')({ query: {} }, res);
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.body.code, 'QAW_AUTH');
+    assert.deepEqual(res.body.taskWolfToken, expiring);
+
+    // The retry answers building with it, and so does the retry's own failure.
+    t.mock.timers.tick(getRetryCooldownMs());
+    assert.deepEqual(getMaintenanceDashboard().taskWolfToken, expiring);
+    await assert.rejects(startRefresh(), (error) => error.code === 'QAW_CONFIG');
+    const again = getMaintenanceDashboard();
+    assert.equal(again.status, 'error');
+    assert.equal(again.error.code, 'QAW_CONFIG');
+    assert.deepEqual(again.taskWolfToken, expiring);
+  });
+
   test('rides along /status whatever the status, and keeps it small', async (t) => {
     t.mock.timers.enable({ apis: ['Date'], now: NOW });
     expiresOn('2026-10-12');
@@ -2737,6 +2842,8 @@ describe('the routes', () => {
       assert.equal(payload.body.code, 'QAW_AUTH');
       assert.equal(payload.body.failedAt, failedAt);
       assert.equal(payload.body.rescanAvailableAt, availableAt);
+      // No token to date, so nothing to warn of; it is still said.
+      assert.equal(payload.body.taskWolfToken, null);
     }
 
     const status = fakeRes();

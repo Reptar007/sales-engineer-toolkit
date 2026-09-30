@@ -402,12 +402,14 @@ export async function setCarrAttribution(opportunityId, salesEngineerId, oppName
  * retries included. Both carry `taskWolfToken`, `{ expiresOn, daysLeft,
  * state }` or null: where the server's Task Wolf token stands against the
  * expiry date set for it. A failed scan with no snapshot to answer throws,
- * with `code`, and the error's `body` says when it failed and when a rescan
- * may start (`failedAt`, `rescanAvailableAt`).
+ * with `code`, and the error's `body` says when it failed, when a rescan may
+ * start and where the token stands (`failedAt`, `rescanAvailableAt`,
+ * `taskWolfToken`).
  *
  * @param {{ refresh?: boolean }} [options] `refresh` starts a rescan in the
  *   background, once `rescanAvailableAt` has passed; the stale snapshot keeps
- *   answering until it lands.
+ *   answering until it lands. Refused, it is a plain GET, which rebuilds a
+ *   snapshot past the cache window.
  */
 export async function fetchMaintenanceDashboard({ refresh = false } = {}) {
   return apiRequest(`/maintenance-dashboard${refresh ? '?refresh=1' : ''}`);

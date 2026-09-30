@@ -218,7 +218,9 @@ const MAX_PAGES = 50; // 5,000 reports in one workspace would be its own emergen
  * when QA Wolf has more than `issues`, so every count made from them is a
  * floor: the walk stopped at MAX_PAGES with a cursor still in hand, and one
  * more report was waiting behind it. It is true too when asking for that one
- * report failed: what was read still counts, and may be short.
+ * report failed, though QA Wolf may then have no more: nothing says which, so
+ * the list is treated as cut short, and what was read still counts as a floor.
+ * The page and the Slack digest say QA Wolf has more either way.
  *
  * @returns {Promise<{ issues: Array<object>, truncated: boolean }>}
  */
