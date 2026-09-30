@@ -28,7 +28,9 @@
  *
  * The cache is per-process. Heroku restarts the dyno daily, so the first
  * request after a restart rebuilds it; that is acceptable for a page read a
- * few times a day, and it keeps this change free of schema migrations.
+ * few times a day, and it keeps this change free of schema migrations (claims
+ * on customers, which must outlive a restart, are kept in the database: see
+ * claimService.js).
  */
 import { listWorkspaces, listOpenMaintenanceReports } from './qawolfClient.js';
 import {
@@ -63,6 +65,8 @@ const DEFAULT_TASK_WOLF_CONCURRENCY = 4;
 const MAX_TASK_WOLF_CONCURRENCY = 8;
 const DEFAULT_TASK_WOLF_MAX_CONSECUTIVE_FAILURES = 8;
 const DEFAULT_TASK_WOLF_PASS_BUDGET_MINUTES = 15;
+const DEFAULT_CLAIM_DAYS = 14;
+const MAX_CLAIM_DAYS = 90;
 
 // When the first this-many workspaces to settle have all failed, the scan is
 // looking at an outage, and the rest of the fan-out would only repeat it.
@@ -142,6 +146,17 @@ export function getScanConcurrency() {
   return Math.min(
     MAX_CONCURRENCY,
     readNumberEnv('MAINTENANCE_DASHBOARD_CONCURRENCY', DEFAULT_CONCURRENCY),
+  );
+}
+
+/**
+ * How long a claim on a customer lasts from when it was made or last renewed,
+ * in days. Capped so a typo cannot make claims all but permanent.
+ */
+export function getClaimDays() {
+  return Math.min(
+    MAX_CLAIM_DAYS,
+    readNumberEnv('MAINTENANCE_DASHBOARD_CLAIM_DAYS', DEFAULT_CLAIM_DAYS),
   );
 }
 
@@ -593,6 +608,21 @@ export async function probeTaskWolfCustomer(
 /** A customer row from the cached snapshot, for routes that take a workspace id. */
 export function findCachedCustomer(workspaceId) {
   return state.snapshot?.customers?.find((c) => c.workspaceId === workspaceId) || null;
+}
+
+/** Whether a snapshot is cached, interim or final, for routes that need its customer list. */
+export function hasCachedSnapshot() {
+  return Boolean(state.snapshot);
+}
+
+/**
+ * A workspace the cached snapshot's scan could not read, as its `errors` list
+ * it (`{ workspaceId, workspaceName, message }`), or null. Such a workspace is
+ * missing from `customers` as one whose backlog cleared would be, though it
+ * may still have one.
+ */
+export function findUnreadWorkspace(workspaceId) {
+  return state.snapshot?.errors?.find((e) => e.workspaceId === workspaceId) || null;
 }
 
 /**
