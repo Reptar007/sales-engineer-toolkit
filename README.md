@@ -277,12 +277,15 @@ never dropped, whatever its name. Set it to `none` to leave nothing out. Demo/sa
 workspaces are flagged and hidden by a toggle on the page.
 
 A workspace's open reports are read 100 at a time, for at most 50 pages (5,000 reports). When
-QA Wolf still hands back a cursor after the 50th, the workspace is not a failure: what was read
-counts, its customer row carries `reportsTruncated: true`, and it is listed in
-`snapshot.truncatedWorkspaces` (`{ workspaceId, workspaceName, reportsRead }`) and counted in
-`snapshot.totals.workspacesTruncated`. The page warns that its counts are floors ("at least")
-and that its other reports are not listed, so its oldest age may be short too; the Slack digest
-says the same wherever that customer has a report on screen.
+QA Wolf still hands back a cursor after the 50th, the scan asks for one report behind it. If
+none comes back, the 5,000 are the whole list. If one does, or that question fails, the workspace
+is cut short but not a failure: what was read counts, its customer row carries
+`reportsTruncated: true`, and it is listed in `snapshot.truncatedWorkspaces`
+(`{ workspaceId, workspaceName, reportsRead }`) and counted in
+`snapshot.totals.workspacesTruncated`. The page warns that its other reports are not listed, so
+its counts and its oldest age are lower bounds, and its row among the culprits marks each of
+them "+" (flows, reports and oldest age). The Slack digest says the same, and marks the same,
+wherever that customer has a report on screen.
 
 **Task Wolf.** With `TASK_WOLF_MCP_TOKEN` set (a personal `twmcp_…` token from
 [Task Wolf → Settings → Connect Claude](https://www.task-wolf.com/settings/connect-claude),

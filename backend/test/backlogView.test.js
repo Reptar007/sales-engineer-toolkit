@@ -9,12 +9,14 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  customerOldestLabel,
   customerReportsLabel,
   customersWithVisibleReports,
   describeScanError,
   describeTruncatedWorkspaces,
   filterCustomers,
   filterReports,
+  floorMark,
   formatDate,
   localIsoDate,
   reportsToCsv,
@@ -724,11 +726,33 @@ describe('customerReportsLabel', () => {
     assert.equal(customerReportsLabel(customer({ reportsTruncated: false })), '1 report');
   });
 
-  test('says "at least" where QA Wolf has more reports than the scan read', () => {
+  test('marks the count "+" where QA Wolf has more reports than the scan read', () => {
     assert.equal(
       customerReportsLabel(customer({ openReports: 5000, reportsTruncated: true })),
-      `at least ${printed(5000)} reports`,
+      `${printed(5000)}+ reports`,
     );
+    // One or more is plural.
+    assert.equal(customerReportsLabel(customer({ reportsTruncated: true })), '1+ reports');
+  });
+});
+
+describe('the culprit row of a customer whose reports were cut short', () => {
+  test('marks every number "+" alike, and none without the flag', () => {
+    const cutShort = customer({
+      openReports: 5000,
+      flowsInMaintenance: 7200,
+      oldestReportAgeDays: 1400,
+      reportsTruncated: true,
+    });
+    assert.equal(floorMark(cutShort), '+');
+    assert.equal(customerReportsLabel(cutShort), `${printed(5000)}+ reports`);
+    assert.equal(customerOldestLabel(cutShort), `oldest ${printed(1400)}+ d`);
+
+    const whole = customer({ oldestReportAgeDays: 40 });
+    assert.equal(floorMark(whole), '');
+    assert.equal(floorMark(customer({ reportsTruncated: false })), '');
+    assert.equal(customerReportsLabel(whole), '1 report');
+    assert.equal(customerOldestLabel(whole), 'oldest 40 d');
   });
 });
 
@@ -739,12 +763,12 @@ describe('describeTruncatedWorkspaces', () => {
     assert.equal(describeTruncatedWorkspaces(null), '');
   });
 
-  test('names one workspace, how many were read, and what that means for its counts', () => {
+  test('names one workspace, how many were read, and what that means for its counts and age', () => {
     assert.equal(
       describeTruncatedWorkspaces([
         { workspaceId: 'ws-acme', workspaceName: 'Acme', reportsRead: 5000 },
       ]),
-      `QA Wolf has more open maintenance reports than the scan reads in Acme (${printed(5000)} read). Its counts below are lower bounds ("at least"), and its other reports are not listed.`,
+      `QA Wolf has more open maintenance reports than the scan reads in Acme (${printed(5000)} read). Its other reports are not listed, so its counts and oldest age below are lower bounds, marked "+" among the culprits.`,
     );
   });
 
@@ -754,7 +778,7 @@ describe('describeTruncatedWorkspaces', () => {
         { workspaceId: 'ws-acme', workspaceName: 'Acme\n  Corp', reportsRead: 5000 },
         { workspaceId: 'ws-globex', workspaceName: '', reportsRead: 4990 },
       ]),
-      `QA Wolf has more open maintenance reports than the scan reads in 2 workspaces: Acme Corp (${printed(5000)} read), ws-globex (${printed(4990)} read). Their counts below are lower bounds ("at least"), and their other reports are not listed.`,
+      `QA Wolf has more open maintenance reports than the scan reads in 2 workspaces: Acme Corp (${printed(5000)} read), ws-globex (${printed(4990)} read). Their other reports are not listed, so their counts and oldest ages below are lower bounds, marked "+" among the culprits.`,
     );
   });
 });
@@ -1920,7 +1944,7 @@ describe('slackSummary', () => {
     assert.equal(rest[2], '*Longest outstanding*');
   });
 
-  test('says the counts are floors where QA Wolf has more reports than the scan read', () => {
+  test('says the counts and oldest age are floors where QA Wolf has more reports than the scan read', () => {
     const rows = [
       row({ workspaceId: 'ws-acme', flowIds: ['a1', 'a2'], ageDays: 30 }),
       row({ workspaceId: 'ws-globex', workspaceName: 'Globex', flowIds: ['g1'], ageDays: 20 }),
@@ -1933,11 +1957,12 @@ describe('slackSummary', () => {
     }).split('\n');
     assert.ok(
       headline.endsWith(
-        ': 2 customers, 2 open reports, 3 flows parked. Oldest: 30 days. QA Wolf has more open reports for Acme than the scan reads, so these counts are lower bounds and its other reports are not listed.',
+        ': 2 customers, 2 open reports, 3 flows parked. Oldest: 30 days. QA Wolf has more open reports for Acme than the scan reads. Its other reports are not listed, so these counts and its oldest age are lower bounds.',
       ),
       headline,
     );
-    assert.equal(acme, '• Acme — at least 2 flows across at least 1 report (oldest 30 d)');
+    // Marked as the page marks its culprit row: every number, alike.
+    assert.equal(acme, '• Acme — 2+ flows across 1+ reports (oldest 30+ d)');
     assert.equal(globex, '• Globex — 1 flow across 1 report (oldest 20 d)');
 
     const bothCut = slackSummary({
@@ -1948,7 +1973,7 @@ describe('slackSummary', () => {
       bothCut
         .split('\n')[0]
         .endsWith(
-          ' QA Wolf has more open reports for Acme, Globex than the scan reads, so these counts are lower bounds and their other reports are not listed.',
+          ' QA Wolf has more open reports for Acme, Globex than the scan reads. Their other reports are not listed, so these counts and their oldest ages are lower bounds.',
         ),
       bothCut,
     );
@@ -1958,9 +1983,9 @@ describe('slackSummary', () => {
     assert.ok(!onlyGlobex.includes('lower bounds'), onlyGlobex);
     const beyondTop = slackSummary({ reports: rows, customers: [cutShort, whole], topN: 0 });
     assert.ok(beyondTop.split('\n')[0].includes('for Acme than the scan reads'), beyondTop);
-    // Nothing is said without the flag.
+    // Nothing is said or marked without the flag.
     const clean = slackSummary({ reports: rows, customers: [customer(), whole] });
-    assert.ok(!clean.includes('at least') && !clean.includes('lower bounds'), clean);
+    assert.ok(!clean.includes('+') && !clean.includes('lower bounds'), clean);
   });
 
   test('says nothing about Task Wolf when no row has a verdict', () => {

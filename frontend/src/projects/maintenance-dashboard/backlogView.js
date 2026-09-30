@@ -234,19 +234,35 @@ export function taskWolfBlockedLabel(tw) {
 }
 
 /**
- * "3 reports" for a customer among the culprits. Where QA Wolf has more than
- * the scan read (`reportsTruncated`) the count is a floor, and says so.
+ * What follows each of a customer's numbers among the culprits: "+" where QA
+ * Wolf has more reports for it than the scan read (`reportsTruncated`), since
+ * the ones not read may add flows and be older, so every number is a floor.
+ */
+export function floorMark(customer) {
+  return customer?.reportsTruncated ? '+' : '';
+}
+
+/**
+ * "3 reports" for a customer among the culprits, or "5,000+ reports" where
+ * the count is a floor (floorMark). "1+ reports" is one or more, so plural.
  */
 export function customerReportsLabel(customer) {
   const count = isCount(customer?.openReports) ? customer.openReports : 0;
-  const reports = `${count.toLocaleString()} ${count === 1 ? 'report' : 'reports'}`;
-  return customer?.reportsTruncated ? `at least ${reports}` : reports;
+  const mark = floorMark(customer);
+  return `${count.toLocaleString()}${mark} ${count === 1 && !mark ? 'report' : 'reports'}`;
+}
+
+/** "oldest 40 d" for a customer among the culprits, or "oldest 400+ d" (floorMark). */
+export function customerOldestLabel(customer) {
+  const days = isCount(customer?.oldestReportAgeDays) ? customer.oldestReportAgeDays : 0;
+  return `oldest ${days.toLocaleString()}${floorMark(customer)} d`;
 }
 
 /**
  * The workspaces QA Wolf has more open reports for than one scan reads
  * (`snapshot.truncatedWorkspaces`), in one notice, or '' for none. What was
- * read still counts, so their counts are lower bounds, not wrong.
+ * read still counts, so their counts and oldest ages are lower bounds, not
+ * wrong, and the culprits mark them so (floorMark).
  */
 export function describeTruncatedWorkspaces(truncated) {
   const list = Array.isArray(truncated) ? truncated.filter(Boolean) : [];
@@ -257,9 +273,11 @@ export function describeTruncatedWorkspaces(truncated) {
       return `${oneLine(w.workspaceName || w.workspaceId)}${read}`;
     })
     .join(', ');
-  const where = list.length === 1 ? named : `${list.length.toLocaleString()} workspaces: ${named}`;
-  const whose = list.length === 1 ? 'Its' : 'Their';
-  return `QA Wolf has more open maintenance reports than the scan reads in ${where}. ${whose} counts below are lower bounds ("at least"), and ${whose.toLowerCase()} other reports are not listed.`;
+  const one = list.length === 1;
+  const where = one ? named : `${list.length.toLocaleString()} workspaces: ${named}`;
+  const whose = one ? 'its' : 'their';
+  const ages = one ? 'oldest age' : 'oldest ages';
+  return `QA Wolf has more open maintenance reports than the scan reads in ${where}. ${one ? 'Its' : 'Their'} other reports are not listed, so ${whose} counts and ${ages} below are lower bounds, marked "+" among the culprits.`;
 }
 
 /**
@@ -683,9 +701,9 @@ export function slackSummary({ reports, customers, generatedAt, topN = 5 }) {
   // As on the page: the reports past the cut are not listed anywhere, so the
   // oldest age and the oldest reports below may be short too, not only counts.
   const cutShort = allCulprits.filter((c) => c.truncated).map((c) => c.name);
-  const whose = cutShort.length === 1 ? 'its' : 'their';
+  const one = cutShort.length === 1;
   const truncatedNote = cutShort.length
-    ? ` QA Wolf has more open reports for ${cutShort.join(', ')} than the scan reads, so these counts are lower bounds and ${whose} other reports are not listed.`
+    ? ` QA Wolf has more open reports for ${cutShort.join(', ')} than the scan reads. ${one ? 'Its' : 'Their'} other reports are not listed, so these counts and ${one ? 'its oldest age' : 'their oldest ages'} are lower bounds.`
     : '';
   const lines = [
     `*Maintenance backlog* (snapshot ${when}): ${countOf(totals.customers, 'customer')}, ${countOf(totals.reports, 'open report')}, ${countOf(totals.flows, 'flow')} parked. Oldest: ${countOf(totals.oldestDays, 'day')}.${taskWolfNote}${truncatedNote}`,
@@ -700,15 +718,17 @@ export function slackSummary({ reports, customers, generatedAt, topN = 5 }) {
   if (culprits.length) {
     lines.push('*Largest culprits*');
     for (const c of culprits) {
-      // QA Wolf has more reports for it than the scan read, so both are floors.
-      const atLeast = c.truncated ? 'at least ' : '';
+      // QA Wolf has more reports for it than the scan read, so its flows,
+      // reports and oldest age are all floors, marked "+" as on the page.
+      const mark = c.truncated ? '+' : '';
+      const counted = (count, noun) => (mark ? `${count}+ ${noun}s` : countOf(count, noun));
       // Where Task Wolf cut the customer's list short, the count is a floor
       // only while a flow on screen is unknown: it may be blocked too. With
       // every flow on screen decided, the count is exact for what is shown.
       const floor = c.partial && c.totals.unknownFlows > 0;
       const blocked = taskWolfBlockedLabel({ blockedFlows: c.totals.blockedFlows, partial: floor });
       lines.push(
-        `• ${c.name} — ${atLeast}${countOf(c.totals.flows, 'flow')} across ${atLeast}${countOf(c.totals.reports, 'report')} (oldest ${c.totals.oldestDays} d)${blocked ? ` · ${blocked}` : ''}${qaeNote(c.qae)}`,
+        `• ${c.name} — ${counted(c.totals.flows, 'flow')} across ${counted(c.totals.reports, 'report')} (oldest ${c.totals.oldestDays}${mark} d)${blocked ? ` · ${blocked}` : ''}${qaeNote(c.qae)}`,
       );
     }
   }

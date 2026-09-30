@@ -11,6 +11,7 @@ import { fetchMaintenanceDashboard, fetchMaintenanceStatus } from '../../service
 import { useToast } from '../../contexts/ToastContext';
 import {
   ageBucket,
+  customerOldestLabel,
   customerReportsLabel,
   customersWithVisibleReports,
   describeAge,
@@ -19,6 +20,7 @@ import {
   downloadText,
   filterCustomers,
   filterReports,
+  floorMark,
   formatDate,
   formatDateTime,
   localIsoDate,
@@ -1089,11 +1091,11 @@ function MaintenanceDashboard() {
                         <span className="bone-bar-fill" style={{ width: `${width}%` }} />
                         <span className="bone-bar-value">
                           {c.flowsInMaintenance}
-                          {c.reportsTruncated ? '+' : ''}
+                          {floorMark(c)}
                         </span>
                       </span>
                       <span className="bone-bar-meta">
-                        {customerReportsLabel(c)} · oldest {c.oldestReportAgeDays} d
+                        {customerReportsLabel(c)} · {customerOldestLabel(c)}
                         {blocked ? ` · ${blocked}` : ''}
                         {c.taskWolf?.assignees?.length
                           ? ` · QAE ${c.taskWolf.assignees.join(', ')}`

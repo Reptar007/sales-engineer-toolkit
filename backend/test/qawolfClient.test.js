@@ -380,16 +380,72 @@ describe('listOpenMaintenanceReports', () => {
     input.cursor === undefined ? 1 : Number(input.cursor.replace('cursor-', ''));
   const fullPage = (n) => Array.from({ length: 100 }, (_, i) => ({ issueId: `i-${n}-${i}` }));
 
-  test('50 full pages with a cursor still handed back is a list cut short', async () => {
+  test('50 full pages with a report still behind the cursor is a list cut short', async () => {
     const api = fakeApi(({ input }) => {
       const n = pageNumber(input);
-      return page(fullPage(n), `cursor-${n + 1}`);
+      return page(fullPage(n).slice(0, input.limit), `cursor-${n + 1}`);
     });
     const { issues, truncated } = await listOpenMaintenanceReports('ws-1', api.options);
-    assert.equal(api.requests.length, 50);
-    assert.equal(api.requests.at(-1).input.cursor, 'cursor-50');
-    assert.equal(issues.length, 5000);
+    assert.equal(api.requests.length, 51);
+    assert.equal(api.requests[49].input.cursor, 'cursor-50');
+    // One more question, for one report behind the 50th page's cursor.
+    assert.deepEqual(api.requests.at(-1).input, {
+      workspaceId: 'ws-1',
+      type: 'maintenance',
+      statuses: ['pending', 'inProgress', 'paused'],
+      limit: 1,
+      cursor: 'cursor-51',
+    });
     assert.equal(truncated, true);
+    // The report that answered it is not counted: what was read is the 50 pages.
+    assert.equal(issues.length, 5000);
+    assert.ok(!issues.some((issue) => issue.issueId === 'i-51-0'));
+  });
+
+  test('a cursor after the 50th page with nothing behind it is the whole list', async () => {
+    const api = fakeApi(({ input }) => {
+      const n = pageNumber(input);
+      return page(n <= 50 ? fullPage(n) : [], `cursor-${n + 1}`);
+    });
+    const { issues, truncated } = await listOpenMaintenanceReports('ws-1', api.options);
+    assert.equal(api.requests.length, 51);
+    assert.equal(api.requests.at(-1).input.cursor, 'cursor-51');
+    assert.equal(api.requests.at(-1).input.limit, 1);
+    assert.equal(issues.length, 5000);
+    assert.equal(truncated, false);
+  });
+
+  test('a failed question past the 50th page keeps the 50 pages and calls them cut short', async () => {
+    for (const failed of [
+      () => textResponse('boom', { status: 500 }),
+      () => textResponse('Forbidden', { status: 403 }),
+      () => page(undefined, 'cursor-52'),
+      () => {
+        throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+      },
+    ]) {
+      const api = fakeApi(({ input }) => {
+        const n = pageNumber(input);
+        return n <= 50 ? page(fullPage(n), `cursor-${n + 1}`) : failed();
+      });
+      const { issues, truncated } = await listOpenMaintenanceReports('ws-1', api.options);
+      assert.equal(api.requests.length, 51);
+      assert.equal(issues.length, 5000);
+      assert.equal(truncated, true);
+    }
+  });
+
+  test('a 401 on the question past the 50th page still stops the scan', async () => {
+    const api = fakeApi(({ input }) => {
+      const n = pageNumber(input);
+      return n <= 50
+        ? page(fullPage(n), `cursor-${n + 1}`)
+        : jsonResponse({ error: 'unauthorized' }, { status: 401 });
+    });
+    await assert.rejects(
+      () => listOpenMaintenanceReports('ws-1', api.options),
+      (error) => error instanceof QawAuthError && error.code === 'QAW_AUTH',
+    );
   });
 
   test('a 50th page with no cursor after it is the whole list, not one cut short', async () => {

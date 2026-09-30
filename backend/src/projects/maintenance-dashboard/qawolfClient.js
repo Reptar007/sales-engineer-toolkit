@@ -215,16 +215,16 @@ const MAX_PAGES = 50; // 5,000 reports in one workspace would be its own emergen
 /**
  * The open maintenance reports in one workspace, walking the cursor until the
  * API stops handing one back or MAX_PAGES have been read. `truncated` is true
- * when the walk stopped at MAX_PAGES with a cursor still in hand: QA Wolf has
- * more than `issues`, so every count made from them is a floor.
+ * when QA Wolf has more than `issues`, so every count made from them is a
+ * floor: the walk stopped at MAX_PAGES with a cursor still in hand, and one
+ * more report was waiting behind it. It is true too when asking for that one
+ * report failed: what was read still counts, and may be short.
  *
  * @returns {Promise<{ issues: Array<object>, truncated: boolean }>}
  */
 export async function listOpenMaintenanceReports(workspaceId, options = {}) {
-  const issues = [];
-  let cursor;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const input = { workspaceId, type: 'maintenance', statuses: OPEN_STATUSES, limit: PAGE_SIZE };
+  const readPage = async (cursor, limit) => {
+    const input = { workspaceId, type: 'maintenance', statuses: OPEN_STATUSES, limit };
     if (cursor) input.cursor = cursor;
     const data = await qawQuery('public.issue.find', input, options);
     if (!Array.isArray(data?.issues)) {
@@ -232,9 +232,28 @@ export async function listOpenMaintenanceReports(workspaceId, options = {}) {
         `Unexpected public.issue.find shape for ${workspaceId}. Got keys: ${Object.keys(data || {}).join(', ')}`,
       );
     }
+    return data;
+  };
+
+  const issues = [];
+  let cursor;
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const data = await readPage(cursor, PAGE_SIZE);
     issues.push(...data.issues);
     cursor = data.nextCursor;
     if (!cursor || data.issues.length === 0) return { issues, truncated: false };
   }
-  return { issues, truncated: true };
+  // A cursor alone does not say there is more: above, an empty page behind one
+  // is the end. So ask for one report behind it, and call the list cut short
+  // only if there is one. That report is not added; `issues` is what the walk read.
+  let beyond;
+  try {
+    beyond = await readPage(cursor, 1);
+  } catch (error) {
+    // This question only decides the flag, so its failure must not cost the
+    // reports already read: they count, as floors. A dead key still stops the scan.
+    if (error?.code === 'QAW_AUTH') throw error;
+    return { issues, truncated: true };
+  }
+  return { issues, truncated: beyond.issues.length > 0 };
 }
