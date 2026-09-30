@@ -475,6 +475,26 @@ function isScanFailure(error) {
   return code === 'SCAN_FAILED' || code.startsWith('QAW_');
 }
 
+/**
+ * A request that failed, as fail() takes it: the message and code, and what
+ * the server's answer said beside them. A failed scan says when it failed and
+ * when a rescan may start (null: now); a request that got no such answer says
+ * neither, and leaves them undefined.
+ */
+function requestFailure(err) {
+  return {
+    message: err?.message,
+    code: err?.code,
+    failedAt: err?.body?.failedAt,
+    rescanAvailableAt: err?.body?.rescanAvailableAt,
+  };
+}
+
+/** "Rescan at 4:05 PM", for a Rescan the server is holding back until `at` (ms). */
+function rescanAtLabel(at) {
+  return `Rescan at ${new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+}
+
 function MaintenanceDashboard() {
   const toast = useToast();
 
@@ -510,12 +530,17 @@ function MaintenanceDashboard() {
     setError({
       message: failure?.message || 'Failed to load the maintenance backlog.',
       code: failure?.code || null,
+      failedAt: failure?.failedAt || null,
+      rescanAvailableAt: failure?.rescanAvailableAt || null,
     });
     // The scan this page was following failed or is out of reach: stop
-    // polling and free the Rescan button. A snapshot already on screen stays.
-    // A failed scan is the server's latest word, so it replaces the failure
-    // the server reported before; a request of the page's own leaves that up.
+    // polling and free the Rescan button, unless the answer says a rescan must
+    // wait; an answer that said nothing of it leaves what the page knew. A
+    // snapshot already on screen stays. A failed scan is the server's latest
+    // word, so it replaces the failure the server reported before; a request
+    // of the page's own leaves that up.
     const scanFailed = isScanFailure(failure);
+    const said = failure?.rescanAvailableAt;
     setPayload((prev) =>
       prev?.status === 'ready'
         ? {
@@ -523,11 +548,13 @@ function MaintenanceDashboard() {
             refreshing: false,
             progress: null,
             refreshError: scanFailed ? null : prev.refreshError,
+            rescanAvailableAt: said === undefined ? prev.rescanAvailableAt : said,
           }
         : null,
     );
   }, []);
 
+  /** Fetch the full payload. Resolves to the server's answer, or null when it failed. */
   const load = useCallback(
     async ({ refresh = false } = {}) => {
       try {
@@ -543,8 +570,10 @@ function MaintenanceDashboard() {
           );
           if (!offersTaskWolfFilter(next.snapshot?.taskWolf)) setTwFilter('all');
         }
+        return next;
       } catch (err) {
-        fail(err);
+        fail(requestFailure(err));
+        return null;
       } finally {
         setLoading(false);
       }
@@ -572,7 +601,7 @@ function MaintenanceDashboard() {
         answer = await fetchMaintenanceStatus();
       } catch (err) {
         // An idle tab that could not ask simply asks again next time.
-        if (!wasIdle && !cancelled()) fail(err);
+        if (!wasIdle && !cancelled()) fail(requestFailure(err));
         return;
       }
       if (cancelled()) return;
@@ -587,13 +616,19 @@ function MaintenanceDashboard() {
         setPayload((prev) => whileBuilding(prev, answer));
         return;
       }
+      // Beside a failure, as beside a snapshot, the answer says when a rescan
+      // may start, and Rescan follows it.
       if (answer.status !== 'ready') {
         if (idle && answer.error?.code === 'NO_SNAPSHOT') {
           // The server restarted and nobody has asked it for a scan yet. Nothing
           // failed; what is on screen is simply no longer what it would answer.
-          setPayload((prev) => (prev?.status === 'ready' ? { ...prev, stale: true } : prev));
+          setPayload((prev) =>
+            prev?.status === 'ready'
+              ? { ...prev, stale: true, rescanAvailableAt: answer.rescanAvailableAt || null }
+              : prev,
+          );
         } else {
-          fail(answer.error);
+          fail({ ...answer.error, rescanAvailableAt: answer.rescanAvailableAt });
         }
         return;
       }
@@ -697,9 +732,12 @@ function MaintenanceDashboard() {
   const maxFlows = customers.length ? customers[0].flowsInMaintenance : 0;
 
   // The server makes a forced rescan wait a while after the last scan, since
-  // each one is about 2,000 QA Wolf calls. Rescan stays off until then, and a
-  // timer brings it back without waiting for the next poll.
-  const rescanAvailableAt = payload?.rescanAvailableAt ? Date.parse(payload.rescanAvailableAt) : 0;
+  // each one is about 2,000 QA Wolf calls, and a short cool-down after one
+  // that failed. Rescan stays off until then, beside a snapshot or on the page
+  // that says the scan failed, and a timer brings it back without waiting for
+  // the next poll. With no snapshot on screen, the failure says when.
+  const rescanSaid = (snapshot ? payload : error)?.rescanAvailableAt;
+  const rescanAvailableAt = rescanSaid ? Date.parse(rescanSaid) : 0;
   const [, setRescanOpened] = useState(0);
   useEffect(() => {
     const wait = rescanAvailableAt - Date.now();
@@ -709,10 +747,17 @@ function MaintenanceDashboard() {
   }, [rescanAvailableAt]);
   const rescanWaiting = rescanAvailableAt > Date.now();
 
-  const handleRescan = useCallback(() => {
-    toast.info('Rescanning every workspace — this takes a few minutes.');
-    load({ refresh: true });
-  }, [load, toast]);
+  const handleRescan = useCallback(async () => {
+    // The button is off until then, so a click that gets here anyway asks for nothing.
+    if (rescanAvailableAt > Date.now()) return;
+    const next = await load({ refresh: true });
+    // Said once the server has answered, since it may still hold the rescan
+    // back for a scan that ran since this page last asked; the button then
+    // says until when, and nothing says a rescan is running.
+    if (next?.status === 'building' || next?.refreshing) {
+      toast.info('Rescanning every workspace — this takes a few minutes.');
+    }
+  }, [load, toast, rescanAvailableAt]);
 
   const handleExport = useCallback(() => {
     // Today where the reader is; the UTC date is tomorrow's for a US evening.
@@ -752,15 +797,33 @@ function MaintenanceDashboard() {
     // Only a scan that failed is worth running again. When it was this page's
     // request that failed, asking again is enough and costs upstream nothing,
     // and so it is with no key on the server: no scan can run until one is set.
+    // The server holds a rescan back for a short cool-down after a failed
+    // scan, and Rescan says until when, as it does beside a snapshot.
     const rescan = isScanFailure(error) && error.code !== 'QAW_CONFIG';
+    const waiting = rescan && rescanWaiting;
+    let label = 'Try again';
+    if (rescan) label = waiting ? rescanAtLabel(rescanAvailableAt) : 'Rescan';
     return (
       <div className="bone-pile">
         <div className="bone-error" role="alert">
           <h2>{failure.title}</h2>
-          <p>{failure.message}</p>
+          <p>
+            {error.failedAt ? `Last scan failed (${formatDateTime(error.failedAt)}): ` : ''}
+            {failure.message}
+          </p>
           {failure.hint ? <p className="bone-error-hint">{failure.hint}</p> : null}
-          <button type="button" className="bone-btn" onClick={() => load({ refresh: rescan })}>
-            {rescan ? 'Rescan' : 'Try again'}
+          <button
+            type="button"
+            className="bone-btn"
+            onClick={() => load({ refresh: rescan })}
+            disabled={waiting}
+            title={
+              waiting
+                ? 'The scan failed moments ago, so the server waits a short cool-down before another.'
+                : undefined
+            }
+          >
+            {label}
           </button>
         </div>
       </div>
@@ -859,7 +922,7 @@ function MaintenanceDashboard() {
             {payload?.refreshing
               ? scanningLabel
               : rescanWaiting
-                ? `Rescan at ${new Date(rescanAvailableAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                ? rescanAtLabel(rescanAvailableAt)
                 : 'Rescan'}
           </button>
         </div>

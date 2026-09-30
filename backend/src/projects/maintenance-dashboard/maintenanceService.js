@@ -15,10 +15,11 @@
  * workspaces) is remembered rather than
  * retried by the next GET: the page polls, so retrying on every request would
  * answer "building" forever and send upstream a doomed request every few
- * seconds. The error answers until someone asks for a rescan or a short
- * cool-down has passed. It stands while the retry runs, so the page can say
- * what is being retried, and goes only when a scan publishes a snapshot; a
- * retry that fails too replaces it with its own.
+ * seconds. The error answers, with when it failed, until a short cool-down has
+ * passed; a rescan asked for before then is refused, and the answer says when
+ * one may start. It stands while the retry runs, so the page can say what is
+ * being retried, and goes only when a scan publishes a snapshot; a retry that
+ * fails too replaces it with its own.
  *
  * The Task Wolf pass comes second and can be slow, so the very first snapshot
  * is published before it starts, marked `taskWolf.pending`, and replaced when
@@ -111,7 +112,10 @@ export function getCacheTtlMs() {
   return readNumberEnv('MAINTENANCE_DASHBOARD_CACHE_TTL_MINUTES', DEFAULT_TTL_MINUTES) * 60 * 1000;
 }
 
-/** How long a failed scan answers its error before a plain GET may retry. */
+/**
+ * How long a failed scan answers its error before another may start: the
+ * retry a plain GET starts, or a rescan someone asked for (see nextRescanAt).
+ */
 export function getRetryCooldownMs() {
   return (
     readNumberEnv('MAINTENANCE_DASHBOARD_RETRY_COOLDOWN_SECONDS', DEFAULT_RETRY_COOLDOWN_SECONDS) *
@@ -870,8 +874,12 @@ export function requestRescan(now = Date.now()) {
   return { accepted: true, retryAfterMs: 0 };
 }
 
-/** The last failure as `refreshError` carries it, or null while none stands. */
-function refreshErrorAnswer() {
+/**
+ * The last failure as an answer carries it, with when it failed, or null
+ * while none stands: in `refreshError`, or as the `error` itself when there is
+ * no snapshot and no scan running.
+ */
+function failureAnswer() {
   return state.lastError
     ? { ...state.lastError, failedAt: new Date(state.failedAt).toISOString() }
     : null;
@@ -882,13 +890,14 @@ function refreshErrorAnswer() {
  * starts a rebuild otherwise, and never blocks on the scan itself. A rebuild
  * that failed is not restarted until the cool-down passes, and `refresh` goes
  * through `requestRescan`, so it waits out the same gaps. With no snapshot
- * the failure is the answer; with one it rides along as `refreshError` beside
- * the stale snapshot. While a retry runs it stays in `refreshError`, beside
- * the snapshot or beside `building` when there is none, until a scan
- * publishes a snapshot.
+ * the failure is the answer, beside `rescanAvailableAt`, so a rescan refused
+ * inside the cool-down still says when one may start; with one it rides along
+ * as `refreshError` beside the stale snapshot. While a retry runs it stays in
+ * `refreshError`, beside the snapshot or beside `building` when there is none,
+ * until a scan publishes a snapshot.
  *
  * @param {{ refresh?: boolean }} [options]
- * @returns {{ status: 'ready'|'building'|'error', snapshot?: object, stale?: boolean, progress?: object, refreshError?: object|null, error?: object }}
+ * @returns {{ status: 'ready'|'building'|'error', snapshot?: object, stale?: boolean, progress?: object, refreshError?: object|null, rescanAvailableAt?: string|null, error?: object }}
  */
 export function getMaintenanceDashboard({ refresh = false } = {}) {
   const now = Date.now();
@@ -906,7 +915,7 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
       stale: isStale,
       refreshing: Boolean(state.building),
       progress: state.progress,
-      refreshError: refreshErrorAnswer(),
+      refreshError: failureAnswer(),
       rescanAvailableAt: rescanAvailableAt(now),
       cacheTtlMinutes: Math.round(getCacheTtlMs() / 60000),
     };
@@ -914,10 +923,14 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
 
   // Checked before the failure: a first scan being retried is building.
   if (state.building) {
-    return { status: 'building', progress: state.progress, refreshError: refreshErrorAnswer() };
+    return { status: 'building', progress: state.progress, refreshError: failureAnswer() };
   }
 
-  return { status: 'error', error: state.lastError || { message: 'No snapshot available.' } };
+  return {
+    status: 'error',
+    error: failureAnswer() || { message: 'No snapshot available.' },
+    rescanAvailableAt: rescanAvailableAt(now),
+  };
 }
 
 /**
@@ -928,9 +941,10 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
  * fetch the full payload. With nothing cached, nothing running and nothing
  * failed (a process nobody has asked yet) it answers `error` / `NO_SNAPSHOT`.
  * A failure that still stands is `refreshError` beside `ready`, or beside
- * `building` while a first scan is retried, as in `getMaintenanceDashboard`.
+ * `building` while a first scan is retried, as in `getMaintenanceDashboard`;
+ * with neither, it is `error`, with when it failed.
  *
- * @returns {{ status: 'ready'|'building'|'error', builtAt: string|null, stale: boolean, refreshing: boolean, progress: object|null, refreshError: object|null, rescanAvailableAt: string|null, error: { code: string, message: string }|null }}
+ * @returns {{ status: 'ready'|'building'|'error', builtAt: string|null, stale: boolean, refreshing: boolean, progress: object|null, refreshError: object|null, rescanAvailableAt: string|null, error: { code: string, message: string, failedAt?: string }|null }}
  */
 export function getMaintenanceStatus() {
   const refreshing = Boolean(state.building);
@@ -949,14 +963,12 @@ export function getMaintenanceStatus() {
     answer.status = 'ready';
     answer.builtAt = new Date(state.builtAt).toISOString();
     answer.stale = Date.now() - state.builtAt > getCacheTtlMs();
-    answer.refreshError = refreshErrorAnswer();
+    answer.refreshError = failureAnswer();
   } else if (refreshing) {
     answer.status = 'building';
-    answer.refreshError = refreshErrorAnswer();
+    answer.refreshError = failureAnswer();
   } else {
-    answer.error = state.lastError
-      ? { ...state.lastError }
-      : { code: 'NO_SNAPSHOT', message: 'No snapshot available.' };
+    answer.error = failureAnswer() || { code: 'NO_SNAPSHOT', message: 'No snapshot available.' };
   }
   return answer;
 }

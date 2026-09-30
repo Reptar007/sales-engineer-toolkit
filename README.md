@@ -231,15 +231,17 @@ scan of every workspace on QA Wolf's public API, using `QAW_BEARER_TOKEN`: one
 only that reach lists every customer's workspace. Cached in memory for
 `MAINTENANCE_DASHBOARD_CACHE_TTL_MINUTES` (default 6 h).
 
-- **GET** `/api/maintenance-dashboard` – `{ status: 'ready', snapshot, builtAt, stale, refreshing, refreshError }`
+- **GET** `/api/maintenance-dashboard` – `{ status: 'ready', snapshot, builtAt, stale, refreshing, refreshError, rescanAvailableAt }`
   from the cache, or `{ status: 'building', progress, refreshError }` while the first scan runs
   (poll until ready). `?refresh=1` asks for a rescan in the background (see rescan limits below). A scan that fails outright
   is not restarted by the next GET: with no snapshot the route answers
-  `{ status: 'error', error, code }` (500 `QAW_CONFIG` for a missing key, 401 `QAW_AUTH` for a
+  `{ status: 'error', error, code, failedAt, rescanAvailableAt }` (500 `QAW_CONFIG` for a missing key, 401 `QAW_AUTH` for a
   rejected one, 502 when QA Wolf is unreachable or answers 403, `QAW_FORBIDDEN`); with one,
   the stale snapshot keeps answering and `refreshError` (`{ code, message, failedAt }`) says
   why the rebuild failed. A plain GET retries after
-  `MAINTENANCE_DASHBOARD_RETRY_COOLDOWN_SECONDS` (default 60), and so does `?refresh=1`.
+  `MAINTENANCE_DASHBOARD_RETRY_COOLDOWN_SECONDS` (default 60), and so does `?refresh=1`; a
+  rescan asked for before then is refused, and `rescanAvailableAt` says when one may start, with
+  or without a snapshot.
   While the retry runs, the failure stays in `refreshError` (beside `building` when there is no
   snapshot yet) and the page says a retry is running; a retry that fails replaces it, and it
   clears once a scan publishes a snapshot.
@@ -249,8 +251,8 @@ only that reach lists every customer's workspace. Cached in memory for
   snapshot in place.
 - **GET** `/api/maintenance-dashboard/status` – what the page polls while a scan runs:
   `{ status, builtAt, stale, refreshing, progress, refreshError, rescanAvailableAt, error }`, never the snapshot.
-  Always 200, a failed scan included (`error` is `{ code, message }`), and it never starts a
-  scan. Fetch the full payload when `builtAt` moves or `refreshing` turns false.
+  Always 200, a failed scan included (`error` is `{ code, message, failedAt }`), and it never
+  starts a scan. Fetch the full payload when `builtAt` moves or `refreshing` turns false.
 - **POST** `/api/maintenance-dashboard/refresh` – start a rescan, or join the one running (202).
   Asked for too soon after the last scan it answers 429 `RESCAN_TOO_SOON` with `Retry-After`.
 
@@ -259,7 +261,8 @@ button, `?refresh=1`, `POST /refresh`) starts only once
 `MAINTENANCE_DASHBOARD_MIN_RESCAN_MINUTES` (default 15) have passed since the last snapshot and,
 while a failure stands, the retry cool-down since it. Only one scan runs per process at a time; a
 request made during one joins it. `rescanAvailableAt` in `GET /` and `/status` says when the
-next forced rescan may start (null when it may start now), and the page disables Rescan until then.
+next forced rescan may start (null when it may start now), a failed scan's answer included, and
+the page disables Rescan until then, beside a snapshot or on the page that says the scan failed.
 
 - **GET** `/api/maintenance-dashboard/taskwolf` (admin only) – is Task Wolf connected, and
   which tools (with input schemas) its MCP offers. `?refresh=1` re-reads the tool list.

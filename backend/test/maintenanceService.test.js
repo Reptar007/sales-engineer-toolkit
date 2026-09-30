@@ -1621,6 +1621,37 @@ describe('getMaintenanceDashboard', () => {
     assert.equal(ready.snapshot.customers.length, 1);
   });
 
+  test('a failed first scan says when it failed and when a rescan may start, refused or not', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
+    await assert.rejects(startRefresh({ client: rejectedKeyClient() }));
+    const failedAt = new Date(NOW).toISOString();
+    const availableAt = new Date(NOW + getRetryCooldownMs()).toISOString();
+
+    // Rescan inside the cool-down starts nothing, and the answer says until when.
+    t.mock.timers.tick(1000);
+    for (const refresh of [false, true]) {
+      const result = getMaintenanceDashboard({ refresh });
+      assert.equal(result.status, 'error');
+      assert.equal(result.error.code, 'QAW_AUTH');
+      assert.equal(result.error.failedAt, failedAt);
+      assert.equal(result.rescanAvailableAt, availableAt);
+    }
+    assert.deepEqual(requestRescan(), {
+      accepted: false,
+      retryAfterMs: getRetryCooldownMs() - 1000,
+    });
+    const status = getMaintenanceStatus();
+    assert.equal(status.refreshing, false);
+    assert.equal(status.error.failedAt, failedAt);
+    assert.equal(status.rescanAvailableAt, availableAt);
+
+    // Once the cool-down is out, nothing holds a rescan back.
+    t.mock.timers.tick(getRetryCooldownMs() - 1000);
+    assert.equal(getMaintenanceStatus().rescanAvailableAt, null);
+    assert.equal(getMaintenanceDashboard({ refresh: true }).status, 'building');
+    await scanInFlightFails('QAW_CONFIG');
+  });
+
   test('a plain GET retries on its own once the cool-down has passed, not before', async (t) => {
     t.mock.timers.enable({ apis: ['Date'], now: NOW });
     await assert.rejects(startRefresh({ client: rejectedKeyClient() }));
@@ -1881,8 +1912,10 @@ describe('a failed scan while its retry runs', () => {
   test('a first scan being retried answers building with the failure, until its platform snapshot is out', async (t) => {
     t.mock.timers.enable({ apis: ['Date'], now: NOW });
     await assert.rejects(startRefresh({ client: rejectedKeyClient() }));
-    const failed = { ...getMaintenanceStatus().error, failedAt: new Date(NOW).toISOString() };
+    // The failure the answers carried as the error is the one they carry beside `building`.
+    const failed = getMaintenanceStatus().error;
     assert.equal(failed.code, 'QAW_AUTH');
+    assert.equal(failed.failedAt, new Date(NOW).toISOString());
 
     t.mock.timers.tick(getRetryCooldownMs());
     const { gate: listing, open: list } = makeGate();
@@ -2422,9 +2455,11 @@ describe('getMaintenanceStatus', () => {
     assert.equal(status.status, 'error');
     assert.equal(status.refreshing, false);
     assert.equal(status.refreshError, null);
-    assert.deepEqual(Object.keys(status.error).sort(), ['code', 'message']);
+    assert.deepEqual(Object.keys(status.error).sort(), ['code', 'failedAt', 'message']);
     assert.equal(status.error.code, 'QAW_AUTH');
     assert.match(status.error.message, /invalid or expired/);
+    assert.equal(status.error.failedAt, new Date(NOW).toISOString());
+    assert.equal(status.rescanAvailableAt, null);
     assert.equal(getMaintenanceStatus().refreshing, false);
   });
 
@@ -2538,17 +2573,26 @@ describe('the routes', () => {
     const getStatus = routeHandler('get', '/status');
 
     await assert.rejects(startRefresh({ client: rejectedKeyClient() }));
-    const payload = fakeRes();
-    getPayload({ query: {} }, payload);
-    assert.equal(payload.statusCode, 401);
-    assert.equal(payload.body.status, 'error');
-    assert.equal(payload.body.code, 'QAW_AUTH');
+    const failedAt = new Date(NOW).toISOString();
+    const availableAt = new Date(NOW + getRetryCooldownMs()).toISOString();
+    // A rescan asked for inside the cool-down answers the same, and says until when.
+    for (const query of [{}, { refresh: '1' }]) {
+      const payload = fakeRes();
+      getPayload({ query }, payload);
+      assert.equal(payload.statusCode, 401);
+      assert.equal(payload.body.status, 'error');
+      assert.equal(payload.body.code, 'QAW_AUTH');
+      assert.equal(payload.body.failedAt, failedAt);
+      assert.equal(payload.body.rescanAvailableAt, availableAt);
+    }
 
     const status = fakeRes();
     getStatus({ query: {} }, status);
     assert.equal(status.statusCode, 200);
     assert.equal(status.body.status, 'error');
     assert.equal(status.body.error.code, 'QAW_AUTH');
+    assert.equal(status.body.error.failedAt, failedAt);
+    assert.equal(status.body.rescanAvailableAt, availableAt);
     assert.equal(status.body.refreshing, false);
 
     // Every workspace refused: 502 for the payload, and still 200 for /status.

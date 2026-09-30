@@ -50,40 +50,47 @@ export function statusForError(error) {
   return 500;
 }
 
-function sendError(res, error, fallback) {
+/** A failure as the routes answer it; `extra` is what a route says beside it. */
+function sendError(res, error, fallback, extra = {}) {
   return res.status(statusForError(error)).json({
     status: 'error',
     error: error?.message || fallback,
     code: error?.code || null,
+    ...extra,
   });
 }
 
 // GET /api/maintenance-dashboard
 // `{ status: 'ready', snapshot, builtAt, stale, refreshing, progress,
-// refreshError }` when a snapshot exists (a stale one still answers while a
-// rebuild runs, and `refreshError` says so when the last rebuild failed), or
-// `{ status: 'building', progress, refreshError }` during the first scan. With
-// no snapshot and a failed scan it answers `{ status: 'error', error, code }`
-// under the matching HTTP status until the cool-down passes. `refreshError`
-// stays while the retry runs and clears once a scan publishes a snapshot.
-// `?refresh=1` asks for a rescan in the background, which starts only once
-// `rescanAvailableAt` has passed; the answer is the same either way.
+// refreshError, rescanAvailableAt }` when a snapshot exists (a stale one still
+// answers while a rebuild runs, and `refreshError` says so when the last
+// rebuild failed), or `{ status: 'building', progress, refreshError }` during
+// the first scan. With no snapshot and a failed scan it answers `{ status:
+// 'error', error, code, failedAt, rescanAvailableAt }` under the matching HTTP
+// status until the cool-down passes. `refreshError` stays while the retry runs
+// and clears once a scan publishes a snapshot. `?refresh=1` asks for a rescan
+// in the background, which starts only once `rescanAvailableAt` has passed;
+// the answer is the same either way.
 router.get('/', authenticateToken, (req, res) => {
   const refresh = req.query.refresh === '1' || req.query.refresh === 'true';
   const result = getMaintenanceDashboard({ refresh });
   if (result.status === 'error') {
-    return sendError(res, result.error, 'The maintenance backlog could not be read.');
+    return sendError(res, result.error, 'The maintenance backlog could not be read.', {
+      failedAt: result.error.failedAt || null,
+      rescanAvailableAt: result.rescanAvailableAt,
+    });
   }
   return res.json(result);
 });
 
 // GET /api/maintenance-dashboard/status
 // What the page polls while a scan runs: `{ status, builtAt, stale,
-// refreshing, progress, refreshError, error }` and never the snapshot, which
-// is megabytes at production size. Always 200, a failed scan included (it is
-// in `error`, as `{ code, message }`, or in `refreshError` beside a snapshot or
-// a retry that is running), and it never starts a scan. Fetch the full payload
-// above when `builtAt` moves or `refreshing` turns false.
+// refreshing, progress, refreshError, rescanAvailableAt, error }` and never the
+// snapshot, which is megabytes at production size. Always 200, a failed scan
+// included (it is in `error`, as `{ code, message, failedAt }`, or in
+// `refreshError` beside a snapshot or a retry that is running), and it never
+// starts a scan. Fetch the full payload above when `builtAt` moves or
+// `refreshing` turns false.
 router.get('/status', authenticateToken, (req, res) => res.json(getMaintenanceStatus()));
 
 // POST /api/maintenance-dashboard/refresh -- start a rescan, or join the one
