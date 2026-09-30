@@ -156,6 +156,7 @@ export function ClaimCard({
                 className="bone-link"
                 onClick={() => releaseOther(claim)}
                 disabled={disabled}
+                aria-label={`Release ${claim.claimer}'s claim`}
               >
                 Release
               </button>
@@ -196,6 +197,7 @@ export function ClaimCard({
             className="bone-btn bone-btn--ghost"
             onClick={releaseMine}
             disabled={disabled}
+            aria-label="Release my claim"
           >
             Release
           </button>
@@ -236,6 +238,7 @@ export function ClaimReminders({ reminders, busy, now, onRenew, onRelease, onFoc
       className="bone-link"
       onClick={() => onRenew(claim.workspaceId)}
       disabled={Boolean(busy)}
+      aria-label={`Renew my claim on ${claim.workspaceName || 'this customer'}`}
     >
       Renew
     </button>
@@ -246,6 +249,7 @@ export function ClaimReminders({ reminders, busy, now, onRenew, onRelease, onFoc
       className="bone-link"
       onClick={() => onRelease(claim.workspaceId, claim)}
       disabled={Boolean(busy)}
+      aria-label={`Release my claim on ${claim.workspaceName || 'this customer'}`}
     >
       Release
     </button>
