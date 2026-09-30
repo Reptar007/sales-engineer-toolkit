@@ -9,6 +9,12 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  asSentence,
+  claimFilterIds,
+  claimReminders,
+  claimTag,
+  claimTimeLeft,
+  claimsByWorkspace,
   customerOldestLabel,
   customerReportsLabel,
   customersWithVisibleReports,
@@ -20,6 +26,8 @@ import {
   floorMark,
   formatCalendarDay,
   formatDate,
+  isClaimExpiring,
+  listNames,
   localIsoDate,
   reportsToCsv,
   slackSummary,
@@ -2180,5 +2188,364 @@ describe('describeScanError', () => {
       );
     }
     assert.equal(describeScanError(undefined).title, 'Couldn’t read the maintenance backlog');
+  });
+});
+
+describe('asSentence', () => {
+  test('ends a message with a full stop, unless it already ends a sentence', () => {
+    assert.equal(asSentence('Claims could not be read'), 'Claims could not be read.');
+    assert.equal(asSentence('  Claims could not be read.  '), 'Claims could not be read.');
+    assert.equal(asSentence('Is the server up?'), 'Is the server up?');
+    assert.equal(asSentence('It said "try later."'), 'It said "try later."');
+    assert.equal(asSentence('(see the log.)'), '(see the log.)');
+    assert.equal(asSentence(''), '');
+    assert.equal(asSentence(null), '');
+  });
+});
+
+describe('listNames', () => {
+  test('lists names as a sentence does', () => {
+    assert.equal(listNames([]), '');
+    assert.equal(listNames(['Robin V.']), 'Robin V.');
+    assert.equal(listNames(['Robin V.', 'Sam K.']), 'Robin V. and Sam K.');
+    assert.equal(listNames(['Robin V.', 'Sam K.', 'Jo M.']), 'Robin V., Sam K. and Jo M.');
+    assert.equal(listNames(undefined), '');
+  });
+});
+
+// Claims, as GET /claims sends them to Robin, on invented customers.
+const CLAIM_NOW = Date.parse('2026-09-30T18:00:00.000Z');
+const CLAIM_HOUR = 60 * 60 * 1000;
+const CLAIM_DAY = 24 * CLAIM_HOUR;
+const inFuture = (ms) => new Date(CLAIM_NOW + ms).toISOString();
+const CLAIM_NOTE = 'Rebuilding checkout flows';
+
+function claim(overrides = {}) {
+  return {
+    workspaceId: 'ws-1',
+    workspaceName: 'Harbor Lane',
+    userId: 'u-robin',
+    claimer: 'Robin V.',
+    note: null,
+    claimedAt: inFuture(-2 * CLAIM_DAY),
+    expiresAt: inFuture(12 * CLAIM_DAY),
+    mine: true,
+    canRelease: true,
+    ...overrides,
+  };
+}
+const samOn = (workspaceId, overrides = {}) =>
+  claim({
+    workspaceId,
+    userId: 'u-sam',
+    claimer: 'Sam K.',
+    mine: false,
+    canRelease: false,
+    ...overrides,
+  });
+
+describe('claimsByWorkspace', () => {
+  test('groups the claims by customer, the viewer’s own first, then the earliest', () => {
+    const jo = claim({
+      userId: 'u-jo',
+      claimer: 'Jo M.',
+      mine: false,
+      claimedAt: inFuture(-5 * CLAIM_DAY),
+    });
+    const sam = samOn('ws-1', { claimedAt: inFuture(-3 * CLAIM_DAY) });
+    const mine = claim({ claimedAt: inFuture(-CLAIM_DAY) });
+    const other = samOn('ws-2');
+    const by = claimsByWorkspace([sam, mine, other, jo]);
+    assert.deepEqual([...by.keys()], ['ws-1', 'ws-2']);
+    assert.deepEqual(by.get('ws-1'), [mine, jo, sam]);
+    assert.deepEqual(by.get('ws-2'), [other]);
+    assert.equal(by.get('ws-3'), undefined);
+  });
+
+  test('is null while no claims have loaded, and empty when there are none', () => {
+    assert.equal(claimsByWorkspace(null), null);
+    assert.equal(claimsByWorkspace(undefined), null);
+    assert.equal(claimsByWorkspace([]).size, 0);
+  });
+});
+
+describe('the Claims filter', () => {
+  // Robin has claimed Harbor Lane, Sam has Tidewater, nobody has Saltmarsh, and
+  // the sandbox is a demo nobody has claimed.
+  const rows = [
+    row({ issueId: 'r-1a', workspaceId: 'ws-1', workspaceName: 'Harbor Lane' }),
+    row({ issueId: 'r-1b', workspaceId: 'ws-1', workspaceName: 'Harbor Lane' }),
+    row({ issueId: 'r-2', workspaceId: 'ws-2', workspaceName: 'Tidewater' }),
+    row({ issueId: 'r-3', workspaceId: 'ws-3', workspaceName: 'Saltmarsh' }),
+    row({ issueId: 'r-4', workspaceId: 'ws-4', workspaceName: 'Harbor sandbox', isDemo: true }),
+  ];
+  const customers = [
+    customer({ workspaceId: 'ws-1', name: 'Harbor Lane' }),
+    customer({ workspaceId: 'ws-2', name: 'Tidewater' }),
+    customer({ workspaceId: 'ws-3', name: 'Saltmarsh' }),
+    customer({ workspaceId: 'ws-4', name: 'Harbor sandbox', isDemo: true }),
+  ];
+  const claims = [claim({ note: CLAIM_NOTE }), samOn('ws-2')];
+  // The filter's options as the page builds them: `choice`, judged by its ids.
+  const by = (choice, extra = {}) => ({
+    claim: choice,
+    claimIds: claimFilterIds(claims, choice),
+    ...extra,
+  });
+  const reportIds = (options) =>
+    filterReports(rows, options)
+      .map((r) => r.issueId)
+      .sort();
+  const customerIds = (options) => filterCustomers(customers, options).map((c) => c.workspaceId);
+
+  test('"all" keeps every row, "unclaimed" those nobody has claimed, "mine" the viewer’s', () => {
+    assert.deepEqual(reportIds(by('all')), ['r-1a', 'r-1b', 'r-2', 'r-3']);
+    assert.deepEqual(reportIds(by('unclaimed')), ['r-3']);
+    assert.deepEqual(reportIds(by('mine')), ['r-1a', 'r-1b']);
+    assert.deepEqual(customerIds(by('all')), ['ws-1', 'ws-2', 'ws-3']);
+    assert.deepEqual(customerIds(by('unclaimed')), ['ws-3']);
+    assert.deepEqual(customerIds(by('mine')), ['ws-1']);
+  });
+
+  test('with no claims loaded, keeps everything, whatever it is set to', () => {
+    for (const choice of ['unclaimed', 'mine']) {
+      const options = { claim: choice, claimIds: claimFilterIds(null, choice) };
+      assert.deepEqual(reportIds(options), ['r-1a', 'r-1b', 'r-2', 'r-3']);
+      assert.deepEqual(customerIds(options), ['ws-1', 'ws-2', 'ws-3']);
+    }
+  });
+
+  test('never hides the customer in focus: claimed under "unclaimed", someone else’s under "mine"', () => {
+    assert.deepEqual(reportIds(by('unclaimed', { workspaceId: 'ws-1' })), ['r-1a', 'r-1b']);
+    assert.deepEqual(customerIds(by('unclaimed', { focusedWorkspaceId: 'ws-1' })), [
+      'ws-1',
+      'ws-3',
+    ]);
+    assert.deepEqual(reportIds(by('mine', { workspaceId: 'ws-2' })), ['r-2']);
+    assert.deepEqual(customerIds(by('mine', { focusedWorkspaceId: 'ws-2' })), ['ws-1', 'ws-2']);
+  });
+
+  test('narrows the culprits and the table to the same customers', () => {
+    const workspaces = (list) => [...new Set(list.map((r) => r.workspaceId))].sort();
+    for (const choice of ['all', 'unclaimed', 'mine']) {
+      for (const hideDemos of [true, false]) {
+        const options = by(choice, { hideDemos });
+        assert.deepEqual(
+          workspaces(filterReports(rows, options)),
+          workspaces(filterCustomers(customers, options)),
+          `${choice}, hideDemos ${hideDemos}`,
+        );
+      }
+    }
+  });
+
+  test('under "mine" the tiles total the viewer’s claimed backlog and nothing else', () => {
+    const totals = summarize(filterReports(rows, by('mine')));
+    assert.equal(totals.customers, 1);
+    assert.equal(totals.reports, 2);
+  });
+
+  test('hands back the snapshot’s own rows, so the CSV and the digest carry no claim', () => {
+    const kept = filterReports(rows, by('mine'));
+    assert.equal(kept.length, 2);
+    for (const r of kept) assert.ok(rows.includes(r), r.issueId);
+    const csv = reportsToCsv(kept);
+    const digest = slackSummary({ reports: kept, customers });
+    for (const text of [csv, digest]) {
+      assert.ok(!text.includes('Robin'), text);
+      assert.ok(!text.includes(CLAIM_NOTE), text);
+    }
+  });
+});
+
+describe('claimFilterIds', () => {
+  const robins = claim({ note: CLAIM_NOTE });
+  const claims = [samOn('ws-2'), robins, samOn('ws-1')];
+
+  test('is the customers anyone has claimed for "unclaimed", the viewer’s for "mine", each once and sorted', () => {
+    assert.deepEqual(claimFilterIds(claims, 'unclaimed'), ['ws-1', 'ws-2']);
+    assert.deepEqual(claimFilterIds(claims, 'mine'), ['ws-1']);
+    assert.deepEqual(claimFilterIds([], 'unclaimed'), []);
+  });
+
+  test('is null when the filter keeps every customer: "all", or no claims loaded', () => {
+    assert.equal(claimFilterIds(claims, 'all'), null);
+    assert.equal(claimFilterIds(null, 'unclaimed'), null);
+    assert.equal(claimFilterIds(undefined, 'mine'), null);
+  });
+
+  test('holds still while claims change in ways the filter cannot see', () => {
+    const key = (list, choice) => JSON.stringify(claimFilterIds(list, choice));
+    const renewed = claim({ note: 'Rebuilding login flows', expiresAt: inFuture(14 * CLAIM_DAY) });
+    const joined = [...claims, claim({ userId: 'u-jo', claimer: 'Jo M.', mine: false })];
+    for (const choice of ['unclaimed', 'mine']) {
+      assert.equal(key([samOn('ws-2'), renewed, samOn('ws-1')], choice), key(claims, choice));
+      assert.equal(key(joined, choice), key(claims, choice), choice);
+    }
+    // A customer's first claim moves "unclaimed"; the viewer's own moves "mine".
+    const onSaltmarsh = [...claims, samOn('ws-3')];
+    assert.notEqual(key(onSaltmarsh, 'unclaimed'), key(claims, 'unclaimed'));
+    assert.equal(key(onSaltmarsh, 'mine'), key(claims, 'mine'));
+    const robinJoinsTidewater = [...claims, claim({ workspaceId: 'ws-2' })];
+    assert.equal(key(robinJoinsTidewater, 'unclaimed'), key(claims, 'unclaimed'));
+    assert.notEqual(key(robinJoinsTidewater, 'mine'), key(claims, 'mine'));
+  });
+});
+
+describe('claimTimeLeft', () => {
+  const left = (ms) => claimTimeLeft(inFuture(ms), CLAIM_NOW);
+
+  test('counts whole days, rounded, from a day up', () => {
+    assert.equal(left(14 * CLAIM_DAY), '14 days left');
+    assert.equal(left(1.6 * CLAIM_DAY), '2 days left');
+    assert.equal(left(1.2 * CLAIM_DAY), '1 day left');
+    assert.equal(left(CLAIM_DAY), '1 day left');
+  });
+
+  test('counts whole hours under a day, rounded down, then "under an hour"', () => {
+    assert.equal(left(23.9 * CLAIM_HOUR), '23 h left');
+    assert.equal(left(5.5 * CLAIM_HOUR), '5 h left');
+    assert.equal(left(CLAIM_HOUR), '1 h left');
+    assert.equal(left(20 * 60 * 1000), 'under an hour left');
+  });
+
+  test('is "expired" at or past the time, and nothing for a date it cannot read', () => {
+    assert.equal(left(0), 'expired');
+    assert.equal(left(-CLAIM_DAY), 'expired');
+    for (const value of ['not a date', null, undefined, '']) {
+      assert.equal(claimTimeLeft(value, CLAIM_NOW), '', String(value));
+    }
+  });
+});
+
+describe('isClaimExpiring', () => {
+  test('is 48 hours or less left', () => {
+    const expiring = (ms) => isClaimExpiring(claim({ expiresAt: inFuture(ms) }), CLAIM_NOW);
+    assert.equal(expiring(48 * CLAIM_HOUR), true);
+    assert.equal(expiring(48 * CLAIM_HOUR + 1), false);
+    assert.equal(expiring(CLAIM_HOUR), true);
+    assert.equal(expiring(-CLAIM_HOUR), true);
+    assert.equal(isClaimExpiring(claim({ expiresAt: 'soon' }), CLAIM_NOW), false);
+  });
+});
+
+describe('claimTag', () => {
+  const mine = claim({ note: CLAIM_NOTE });
+  const sams = samOn('ws-1', { expiresAt: inFuture(14 * CLAIM_DAY) });
+
+  test('is nothing for no claims', () => {
+    assert.equal(claimTag(undefined), null);
+    assert.equal(claimTag([]), null);
+  });
+
+  test('names the viewer "You" and the first other claimer otherwise, with how many more', () => {
+    assert.equal(claimTag([mine]).text, 'You');
+    assert.equal(claimTag([mine]).mine, true);
+    assert.equal(claimTag([mine, sams]).text, 'You +1');
+    const robinsSeenBySam = claim({ mine: false, canRelease: false });
+    const tag = claimTag([robinsSeenBySam, sams]);
+    assert.equal(tag.text, 'Robin V. +1');
+    assert.equal(tag.mine, false);
+  });
+
+  test('says how long the viewer’s claim has once it is expiring, and only when given the time', () => {
+    const lapsing = claim({ expiresAt: inFuture(1.2 * CLAIM_DAY) });
+    const timed = claimTag([lapsing, sams], { now: CLAIM_NOW });
+    assert.equal(timed.text, 'You +1 · 1 day left');
+    assert.equal(timed.expiring, true);
+    assert.equal(claimTag([lapsing], { now: CLAIM_NOW }).text, 'You · 1 day left');
+
+    const untimed = claimTag([lapsing, sams]);
+    assert.equal(untimed.text, 'You +1');
+    assert.equal(untimed.expiring, false);
+    assert.doesNotMatch(untimed.title, /left|expired/);
+
+    // Another SE's claim running out is theirs to renew, not the viewer's to be told of.
+    const theirs = claimTag([samOn('ws-1', { expiresAt: inFuture(CLAIM_HOUR) })], {
+      now: CLAIM_NOW,
+    });
+    assert.equal(theirs.text, 'Sam K.');
+    assert.equal(theirs.expiring, false);
+  });
+
+  test('lists every claimer in the title, with their note', () => {
+    assert.equal(claimTag([mine, sams]).title, `You — ${CLAIM_NOTE}\nSam K.`);
+    assert.equal(
+      claimTag([mine, sams], { now: CLAIM_NOW }).title,
+      `You — ${CLAIM_NOTE} · 12 days left\nSam K. · 14 days left`,
+    );
+  });
+});
+
+describe('claimReminders', () => {
+  test('are the viewer’s claims about to lapse or on a customer gone from the snapshot, soonest first', () => {
+    const customers = [
+      customer({ workspaceId: 'ws-1', name: 'Harbor Lane' }),
+      customer({ workspaceId: 'ws-2', name: 'Tidewater' }),
+    ];
+    const lapsing = claim({ workspaceId: 'ws-1', expiresAt: inFuture(CLAIM_DAY) });
+    const fine = claim({ workspaceId: 'ws-2', expiresAt: inFuture(10 * CLAIM_DAY) });
+    const cleared = claim({
+      workspaceId: 'ws-9',
+      workspaceName: 'Old Quay',
+      expiresAt: inFuture(5 * CLAIM_DAY),
+    });
+    const unnamed = claim({
+      workspaceId: 'ws-8',
+      workspaceName: null,
+      expiresAt: inFuture(3 * CLAIM_DAY),
+    });
+    const others = samOn('ws-1', { expiresAt: inFuture(CLAIM_HOUR) });
+    const reminders = claimReminders(
+      [cleared, fine, others, unnamed, lapsing],
+      customers,
+      CLAIM_NOW,
+    );
+    assert.deepEqual(
+      reminders.map(({ kind, claim: c, name }) => [kind, c.workspaceId, name]),
+      [
+        ['expiring', 'ws-1', 'Harbor Lane'],
+        ['gone', 'ws-8', 'ws-8'],
+        ['gone', 'ws-9', 'Old Quay'],
+      ],
+    );
+    assert.deepEqual(claimReminders([], customers, CLAIM_NOW), []);
+  });
+
+  test('a claim on a workspace the scan could not read is "unread", not gone, however long it has', () => {
+    const customers = [customer({ workspaceId: 'ws-1', name: 'Harbor Lane' })];
+    // The snapshot's `errors`: Tidewater's reports failed to load, and so did
+    // a workspace nobody has claimed.
+    const unread = [
+      { workspaceId: 'ws-2', workspaceName: 'Tidewater', message: 'QA Wolf returned 502' },
+      { workspaceId: 'ws-5', workspaceName: 'Saltmarsh', message: 'timed out' },
+    ];
+    const onTidewater = claim({
+      workspaceId: 'ws-2',
+      workspaceName: 'Tidewater',
+      expiresAt: inFuture(12 * CLAIM_DAY),
+    });
+    const renamed = claim({
+      workspaceId: 'ws-6',
+      workspaceName: null,
+      expiresAt: inFuture(13 * CLAIM_DAY),
+    });
+    const samsOnTidewater = samOn('ws-2', { expiresAt: inFuture(CLAIM_HOUR) });
+    const reminders = claimReminders(
+      [renamed, samsOnTidewater, onTidewater],
+      customers,
+      CLAIM_NOW,
+      [...unread, { workspaceId: 'ws-6', workspaceName: 'Old Quay', message: 'timed out' }],
+    );
+    assert.deepEqual(
+      reminders.map(({ kind, claim: c, name }) => [kind, c.workspaceId, name]),
+      [
+        ['unread', 'ws-2', 'Tidewater'],
+        // Named from the scan's error when the claim carries no name.
+        ['unread', 'ws-6', 'Old Quay'],
+      ],
+    );
+    // Without the errors it would read as gone.
+    assert.equal(claimReminders([onTidewater], customers, CLAIM_NOW)[0].kind, 'gone');
   });
 });

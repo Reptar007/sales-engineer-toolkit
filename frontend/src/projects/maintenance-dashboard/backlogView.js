@@ -83,6 +83,15 @@ export function statusLabel(status) {
 }
 
 /**
+ * A server's message as a sentence of its own, so another can follow it. A
+ * closing quote or bracket after the full stop still ends the sentence.
+ */
+export function asSentence(message) {
+  const text = String(message || '').trim();
+  return !text || /[.!?…]["'”’)\]]*$/.test(text) ? text : `${text}.`;
+}
+
+/**
  * A failed scan, in words. The server's message already names the problem;
  * the code picks the heading and says who can fix it, because a missing or
  * rejected key is an admin's job and rescanning will not help until then.
@@ -347,6 +356,36 @@ function passesTaskWolfFilter(row, taskWolf) {
   return true;
 }
 
+/**
+ * The Claims toolbar filter: 'all' | 'unclaimed' | 'mine'. A claim belongs to
+ * a customer, so a row is judged by its workspace, against `ids` (a Set of
+ * claimFilterIds for the same `claim`): 'unclaimed' keeps the customers not
+ * among them, 'mine' the ones that are. With no ids (null: 'all', or no
+ * claims loaded) nothing is filtered out.
+ */
+function passesClaimFilter(workspaceId, claim, ids) {
+  if (claim === 'all' || !ids) return true;
+  if (claim === 'unclaimed') return !ids.has(workspaceId);
+  if (claim === 'mine') return ids.has(workspaceId);
+  return true;
+}
+
+/**
+ * What the Claims filter judges customers by, for `claim`: the workspace ids,
+ * sorted, of the customers anyone has claimed, for 'unclaimed', which it
+ * leaves out, or the viewer has, for 'mine', which it keeps. Null when it
+ * keeps every customer: 'all', or claims not loaded (null), when every
+ * customer would read as unclaimed. Only a customer's first claim or last
+ * release (for 'mine', the viewer's) changes it; a renewal, a note or
+ * another SE joining a claimed customer leaves it as it was, so the page can
+ * hold the rows still while those change.
+ */
+export function claimFilterIds(claims, claim) {
+  if (claim === 'all' || !claims) return null;
+  const ids = claims.filter((c) => claim === 'unclaimed' || c.mine).map((c) => c.workspaceId);
+  return [...new Set(ids)].sort();
+}
+
 /** Customer-written text on one line: newlines and runs of whitespace become one space. */
 function oneLine(text) {
   return String(text ?? '')
@@ -371,6 +410,12 @@ function reportLabel(row) {
 /**
  * Apply the toolbar to the ranked report rows. Order is preserved from the
  * server (oldest first) unless `sortKey` says otherwise.
+ *
+ * The Claims filter (`claim`, judged by `claimIds` from claimFilterIds)
+ * judges a row by its customer, since a claim is on a customer, so the
+ * culprits and the table narrow alike. The customer in focus (`workspaceId`)
+ * always passes it, so claiming that customer under "unclaimed", or releasing
+ * it under "mine", does not take it off the screen while the SE works on it.
  */
 export function filterReports(
   reports,
@@ -382,9 +427,12 @@ export function filterReports(
     status = 'all',
     sortKey = 'age',
     taskWolf = 'all',
+    claim = 'all',
+    claimIds = null,
   } = {},
 ) {
   const needle = searchable(search);
+  const judged = claimIds ? new Set(claimIds) : null;
   // A search of "#231" alone is that report number, whole: not #2310.
   const numberOnly = /^#\d+$/.test(needle);
   const filtered = (reports || []).filter((row) => {
@@ -393,6 +441,9 @@ export function filterReports(
     if (status !== 'all' && row.status !== status) return false;
     if (minFlows > 0 && row.flowCount < minFlows) return false;
     if (!passesTaskWolfFilter(row, taskWolf)) return false;
+    if (row.workspaceId !== workspaceId && !passesClaimFilter(row.workspaceId, claim, judged)) {
+      return false;
+    }
     if (!needle) return true;
     if (numberOnly) return searchable(reportLabel(row)).split(' ')[0] === needle;
     // The report is matched as printed, so "#231 sso login" finds it as well
@@ -423,19 +474,39 @@ function isUncounted(tw) {
 }
 
 /**
- * Apply the demo toggle, search and Task Wolf filter to the ranked customer
- * rows. "Actionable" keeps customers with at least one flow Task Wolf counts
- * as free; "blocked" keeps those with any blocked flow; "unknown" keeps those
- * Task Wolf gave no full count for, so a customer it counted 0 blocked and 0
- * actionable for is unknown too. A missing count is unknown, never zero.
+ * Apply the demo toggle, search, Task Wolf and Claims filters to the ranked
+ * customer rows. "Actionable" keeps customers with at least one flow Task Wolf
+ * counts as free; "blocked" keeps those with any blocked flow; "unknown" keeps
+ * those Task Wolf gave no full count for, so a customer it counted 0 blocked
+ * and 0 actionable for is unknown too. A missing count is unknown, never zero.
+ *
+ * The Claims filter (`claim`, judged by `claimIds` from claimFilterIds) is
+ * the one filterReports applies: a claim is on a customer, so the culprits
+ * and the table narrow alike. The customer in focus (`focusedWorkspaceId`) always
+ * passes it, so claiming it under "unclaimed", or releasing it under "mine",
+ * does not take it off the screen while the SE works on it.
  */
 export function filterCustomers(
   customers,
-  { search = '', hideDemos = true, taskWolf = 'all' } = {},
+  {
+    search = '',
+    hideDemos = true,
+    taskWolf = 'all',
+    claim = 'all',
+    claimIds = null,
+    focusedWorkspaceId = null,
+  } = {},
 ) {
   const needle = searchable(search);
+  const judged = claimIds ? new Set(claimIds) : null;
   return (customers || []).filter((row) => {
     if (hideDemos && row.isDemo) return false;
+    if (
+      row.workspaceId !== focusedWorkspaceId &&
+      !passesClaimFilter(row.workspaceId, claim, judged)
+    ) {
+      return false;
+    }
     const tw = row.taskWolf;
     const blocked = isCount(tw?.blockedFlows) ? tw.blockedFlows : null;
     const actionable = isCount(tw?.actionableFlows) ? tw.actionableFlows : null;
@@ -453,6 +524,131 @@ export function filterCustomers(
 export function customersWithVisibleReports(customers, reports) {
   const visible = new Set((reports || []).map((row) => row.workspaceId));
   return (customers || []).filter((c) => visible.has(c.workspaceId));
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+// A claim this close to lapsing is flagged, and its owner reminded to renew.
+const CLAIM_EXPIRING_MS = 48 * HOUR_MS;
+
+/** A time as ms, or NaN for a missing or unreadable one (`new Date(null)` is 1970). */
+function timeOf(value) {
+  return value === null || value === undefined || value === '' ? NaN : new Date(value).getTime();
+}
+
+/**
+ * Names as a sentence lists them: "Robin V.", "Robin V. and Sam K.", "Robin
+ * V., Sam K. and Jo M.".
+ */
+export function listNames(names) {
+  const list = (names || []).filter(Boolean);
+  if (list.length < 2) return list.join('');
+  return `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`;
+}
+
+/**
+ * The claims on each customer, as a Map of workspace id to its claims, or
+ * null while none have loaded; a customer with no entry has no claim. Within
+ * a customer the viewer's own claim comes first, then the earliest.
+ */
+export function claimsByWorkspace(claims) {
+  if (!claims) return null;
+  const by = new Map();
+  for (const claim of claims) {
+    if (!by.has(claim.workspaceId)) by.set(claim.workspaceId, []);
+    by.get(claim.workspaceId).push(claim);
+  }
+  for (const held of by.values()) {
+    held.sort(
+      (a, b) =>
+        Number(Boolean(b.mine)) - Number(Boolean(a.mine)) ||
+        timeOf(a.claimedAt) - timeOf(b.claimedAt),
+    );
+  }
+  return by;
+}
+
+/**
+ * How long a claim has left at `now` (ms): "14 days left" and "1 day left",
+ * rounded, from a day up; "5 h left" under a day, rounded down so it never
+ * promises an hour it does not have; "under an hour left"; "expired" at or
+ * past `expiresAt`. '' for a date that cannot be read.
+ */
+export function claimTimeLeft(expiresAt, now) {
+  const at = timeOf(expiresAt);
+  if (Number.isNaN(at)) return '';
+  const left = at - now;
+  if (left <= 0) return 'expired';
+  if (left >= DAY_MS) {
+    const days = Math.round(left / DAY_MS);
+    return `${days} ${days === 1 ? 'day' : 'days'} left`;
+  }
+  const hours = Math.floor(left / HOUR_MS);
+  return hours >= 1 ? `${hours} h left` : 'under an hour left';
+}
+
+/** Whether a claim has 48 hours or less left at `now` (ms). */
+export function isClaimExpiring(claim, now) {
+  const at = timeOf(claim?.expiresAt);
+  return !Number.isNaN(at) && at - now <= CLAIM_EXPIRING_MS;
+}
+
+/**
+ * The tag a customer's claims (from claimsByWorkspace) get beside its name, or
+ * null for none: `text` is "You" or the first claimer, then "+N" for the
+ * others; `title` has a line per claimer, with their note. Given `now`, the
+ * viewer's own claim says how long it has left once it is expiring, in the
+ * text, and every line of the title says how long each has; without it the
+ * tag says nothing that goes stale, for a row that is not redrawn as time passes.
+ */
+export function claimTag(claims, { now = null } = {}) {
+  const list = claims || [];
+  if (!list.length) return null;
+  const mine = list.find((c) => c.mine) || null;
+  const who = (c) => (c.mine ? 'You' : c.claimer);
+  const timed = now !== null;
+  const expiring = timed && Boolean(mine) && isClaimExpiring(mine, now);
+  let text = who(mine || list[0]);
+  if (list.length > 1) text += ` +${list.length - 1}`;
+  if (expiring) text += ` · ${claimTimeLeft(mine.expiresAt, now)}`;
+  const title = list
+    .map((c) => {
+      const note = c.note ? ` — ${c.note}` : '';
+      const left = timed ? ` · ${claimTimeLeft(c.expiresAt, now)}` : '';
+      return `${who(c)}${note}${left}`;
+    })
+    .join('\n');
+  return { text, title, mine: Boolean(mine), expiring };
+}
+
+/**
+ * The viewer's claims that need a hand, soonest to lapse first: `expiring`
+ * for one on a customer in the snapshot with 48 hours or less left; `unread`
+ * for one on a workspace the snapshot's scan could not read (in `unread`,
+ * the snapshot's `errors`), whose backlog may still be there and whose claim
+ * can still be renewed; and `gone` for one whose customer is in neither (its
+ * backlog cleared, most often). The last two show nowhere else on the page,
+ * so they are listed however long they have left, named as the claim was
+ * last, since the snapshot does not name them.
+ */
+export function claimReminders(claims, customers, now, unread = []) {
+  const listed = new Map((customers || []).map((c) => [c.workspaceId, c]));
+  const failed = new Map((unread || []).map((e) => [e.workspaceId, e]));
+  const reminders = [];
+  for (const claim of claims || []) {
+    if (!claim.mine) continue;
+    const customer = listed.get(claim.workspaceId);
+    if (customer) {
+      if (isClaimExpiring(claim, now)) {
+        reminders.push({ kind: 'expiring', claim, name: customer.name });
+      }
+      continue;
+    }
+    const error = failed.get(claim.workspaceId);
+    const name = claim.workspaceName || error?.workspaceName || claim.workspaceId;
+    reminders.push({ kind: error ? 'unread' : 'gone', claim, name });
+  }
+  return reminders.sort((a, b) => timeOf(a.claim.expiresAt) - timeOf(b.claim.expiresAt));
 }
 
 // On a flow two reports both park, the firmer word wins.

@@ -11,6 +11,10 @@ import { fetchMaintenanceDashboard, fetchMaintenanceStatus } from '../../service
 import { useToast } from '../../contexts/ToastContext';
 import {
   ageBucket,
+  asSentence,
+  claimFilterIds,
+  claimReminders,
+  claimsByWorkspace,
   customerOldestLabel,
   customerReportsLabel,
   customersWithVisibleReports,
@@ -24,6 +28,7 @@ import {
   floorMark,
   formatDate,
   formatDateTime,
+  listNames,
   localIsoDate,
   reportsToCsv,
   slackSummary,
@@ -36,6 +41,8 @@ import {
   taskWolfQae,
   taskWolfVerdict,
 } from './backlogView';
+import useClaims from './useClaims';
+import { ClaimCard, ClaimReminders, ClaimTag, ClaimsNotice } from './Claims';
 import './MaintenanceDashboard.css';
 
 /**
@@ -60,6 +67,12 @@ import './MaintenanceDashboard.css';
  * The snapshot is large, so it is downloaded when it has changed and not
  * before: while a scan runs, and every few minutes while nothing does, the
  * page asks the status route, which is a few hundred bytes and starts nothing.
+ *
+ * Claims (who on the team is on which customer) are the one thing not read
+ * from the snapshot. They come from their own route, refreshed every minute
+ * while the tab is visible and at once on returning to it (useClaims), and
+ * are joined to the rows by workspace id as the page renders. So they never
+ * reach the CSV or the Slack digest, and a scan is never needed for them.
  */
 
 const POLL_MS = 4000;
@@ -131,15 +144,6 @@ function ScanProgress({ progress }) {
       </div>
     </div>
   );
-}
-
-/**
- * A server's message as a sentence of its own, so another can follow it. A
- * closing quote or bracket after the full stop still ends the sentence.
- */
-function asSentence(message) {
-  const text = String(message || '').trim();
-  return !text || /[.!?…]["'”’)\]]*$/.test(text) ? text : `${text}.`;
 }
 
 // What each tool answers, so a notice calls unknown only what a missing or
@@ -389,11 +393,22 @@ function reportsTileLabel(totals, { qaeKnown }) {
 /**
  * One report in the table. Memoised, and handed only props that keep their
  * identity from one render to the next (the row out of the snapshot,
- * booleans, a state setter), so a keystroke in the toolbar renders the rows
- * that changed rather than all of them. While Task Wolf is still being asked
- * (`askingTaskWolf`) its cell says so, not that Task Wolf said nothing.
+ * booleans, a state setter, its customer's claims), so a keystroke in the
+ * toolbar renders the rows that changed rather than all of them. While Task
+ * Wolf is still being asked (`askingTaskWolf`) its cell says so, not that Task
+ * Wolf said nothing. `claims` is undefined for a customer nobody has claimed.
+ * A claims answer that differs from the last in any way gives every claimed
+ * customer a new array, so their rows redraw when claims change (on a poll or
+ * a click), never on a keystroke. The tag shows names and notes only, never a
+ * time left, which would go stale in a row that is not redrawn.
  */
-const ReportRow = memo(function ReportRow({ row, showTaskWolf, askingTaskWolf, onSelectCustomer }) {
+const ReportRow = memo(function ReportRow({
+  row,
+  claims,
+  showTaskWolf,
+  askingTaskWolf,
+  onSelectCustomer,
+}) {
   const label = `#${row.number ?? '?'} ${row.name}`;
   return (
     <tr className={`bone-age--${ageBucket(row.ageDays)}`}>
@@ -410,6 +425,7 @@ const ReportRow = memo(function ReportRow({ row, showTaskWolf, askingTaskWolf, o
           {row.workspaceName}
         </button>
         {row.isDemo ? <span className="bone-tag">demo</span> : null}
+        <ClaimTag claims={claims} />
       </td>
       <td>
         {row.url ? (
@@ -561,6 +577,7 @@ function MaintenanceDashboard() {
   const [twFilter, setTwFilter] = useState('all');
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(null);
   const [showAllCulprits, setShowAllCulprits] = useState(false);
+  const [claimFilter, setClaimFilter] = useState('all');
 
   // The rows the reader asked to see in full; any change to them folds the
   // table back to its first REPORTS_PREVIEW.
@@ -755,6 +772,19 @@ function MaintenanceDashboard() {
 
   const snapshot = payload?.status === 'ready' ? payload.snapshot : null;
 
+  // No claims are asked for before there is a backlog to claim from: not
+  // during the first scan, and not on the page that says it failed.
+  const claimsState = useClaims({ enabled: Boolean(snapshot) });
+  const claimsBy = useMemo(() => claimsByWorkspace(claimsState.claims), [claimsState.claims]);
+  // What the Claims filter judges by (claimFilterIds), held by its value, not
+  // the claims': a new `reports` array folds a "Show all" the reader opened,
+  // so the rows are filtered again only when a customer gains its first claim
+  // or loses its last (under 'mine', the viewer's), not when a claim is
+  // renewed, a note edited, or another SE joins a claimed customer. While the
+  // filter is 'all' it is null, and claims play no part in which rows show.
+  const claimIdsKey = JSON.stringify(claimFilterIds(claimsState.claims, claimFilter));
+  const claimIds = useMemo(() => JSON.parse(claimIdsKey), [claimIdsKey]);
+
   // Typing stays ahead of the table: the input shows each keystroke at once
   // and the rows follow when the browser has a moment.
   const deferredSearch = useDeferredValue(search);
@@ -762,12 +792,20 @@ function MaintenanceDashboard() {
   // The culprits are how the reader picks a customer, so the status, min-flows
   // and focused-customer filters leave them alone. The Task Wolf filter keeps
   // the customers with a report that passes it, judged as the table judges.
+  // The Claims filter narrows the culprits as it does the table, by customer,
+  // and the customer in focus always passes it.
   const customers = useMemo(() => {
-    const listed = filterCustomers(snapshot?.customers, { search: deferredSearch, hideDemos });
+    const listed = filterCustomers(snapshot?.customers, {
+      search: deferredSearch,
+      hideDemos,
+      claim: claimFilter,
+      claimIds,
+      focusedWorkspaceId: selectedWorkspaceId,
+    });
     if (twFilter === 'all') return listed;
     const passing = filterReports(snapshot?.reports, { hideDemos: false, taskWolf: twFilter });
     return customersWithVisibleReports(listed, passing);
-  }, [snapshot, deferredSearch, hideDemos, twFilter]);
+  }, [snapshot, deferredSearch, hideDemos, twFilter, claimFilter, claimIds, selectedWorkspaceId]);
 
   const reports = useMemo(
     () =>
@@ -779,8 +817,21 @@ function MaintenanceDashboard() {
         sortKey,
         taskWolf: twFilter,
         workspaceId: selectedWorkspaceId,
+        claim: claimFilter,
+        claimIds,
       }),
-    [snapshot, deferredSearch, hideDemos, minFlows, status, sortKey, twFilter, selectedWorkspaceId],
+    [
+      snapshot,
+      deferredSearch,
+      hideDemos,
+      minFlows,
+      status,
+      sortKey,
+      twFilter,
+      selectedWorkspaceId,
+      claimFilter,
+      claimIds,
+    ],
   );
 
   // Tiles, the export and the Slack digest cover every visible report; only
@@ -818,6 +869,10 @@ function MaintenanceDashboard() {
     return () => clearTimeout(timer);
   }, [rescanAvailableAt]);
   const rescanWaiting = rescanAvailableAt > Date.now();
+  // What the claim labels count from. Each claims read the tab makes while
+  // visible (once a minute) redraws the page, and so does each status poll,
+  // which keeps "2 days left" and the like current.
+  const now = Date.now();
 
   const handleRescan = useCallback(async () => {
     // The button is off until then, so a click that gets here anyway asks for nothing.
@@ -851,6 +906,97 @@ function MaintenanceDashboard() {
       toast.error('Could not copy to the clipboard — select the table and copy instead.');
     }
   }, [reports, snapshot, toast]);
+
+  const claimList = claimsState.claims;
+  const saveClaim = claimsState.claim;
+  const dropClaim = claimsState.release;
+
+  /**
+   * A customer's name for a toast: the snapshot's, or the claim's when the
+   * snapshot does not list it (it has left, or its scan could not read it).
+   */
+  const customerName = useCallback(
+    (workspaceId, claim) =>
+      (snapshot?.customers || []).find((c) => c.workspaceId === workspaceId)?.name ||
+      claim?.workspaceName ||
+      workspaceId,
+    [snapshot],
+  );
+
+  // A claim refused because the server's snapshot differs from the page's is
+  // a cue to catch up with the server now. With none (it has restarted), the
+  // status route would only say so, since it never starts a scan, and nothing
+  // else would until someone opened the page or pressed Rescan; the click was
+  // the reader's own, so the page asks for the backlog, which starts the scan
+  // the claim is waiting on, and the rows stay on screen while it runs
+  // (whileBuilding). For a customer the server no longer lists, or could not
+  // read, a status check brings its newer snapshot now, not at the next poll.
+  const claimFailed = useCallback(
+    (err) => {
+      toast.error(err?.message || 'The claim could not be saved.');
+      if (err?.code === 'CLAIM_NO_SNAPSHOT') {
+        load();
+      } else if (err?.code === 'CLAIM_UNKNOWN_CUSTOMER' || err?.code === 'CLAIM_CUSTOMER_UNREAD') {
+        checkStatus(() => false);
+      }
+    },
+    [toast, load, checkStatus],
+  );
+
+  /**
+   * Claim a customer, or renew the viewer's claim on it; `note` undefined
+   * keeps the note. Resolves to the server's answer, or null when it failed,
+   * which the toast has said.
+   */
+  const handleClaim = useCallback(
+    async (workspaceId, note) => {
+      const held = (claimList || []).find((c) => c.workspaceId === workspaceId && c.mine);
+      const name = customerName(workspaceId, held);
+      try {
+        const res = await saveClaim(workspaceId, note, held ? 'renew' : 'claim');
+        const until = formatDate(res.claim?.expiresAt);
+        if (res.renewed) {
+          toast.success(`Renewed your claim on ${name} until ${until}.`);
+        } else {
+          const others = (res.claims || [])
+            .filter((c) => c.workspaceId === workspaceId && !c.mine)
+            .map((c) => c.claimer);
+          const also = others.length
+            ? ` ${listNames(others)} ${others.length === 1 ? 'is' : 'are'} on it too.`
+            : '';
+          toast.success(`Claimed ${name} until ${until}.${also}`);
+        }
+        return res;
+      } catch (err) {
+        claimFailed(err);
+        return null;
+      }
+    },
+    [claimList, saveClaim, customerName, claimFailed, toast],
+  );
+
+  const handleRenew = useCallback(
+    (workspaceId) => handleClaim(workspaceId, undefined),
+    [handleClaim],
+  );
+
+  /** Release a claim, the viewer's or (for an admin) someone else's. Resolves as handleClaim does. */
+  const handleRelease = useCallback(
+    async (workspaceId, claim) => {
+      try {
+        const res = await dropClaim(workspaceId, claim.userId);
+        const name = customerName(workspaceId, claim);
+        if (!res.released) toast.info('That claim had already lapsed or been released.');
+        else if (claim.mine) toast.success(`Released ${name}.`);
+        else toast.success(`Released ${claim.claimer}'s claim on ${name}.`);
+        return res;
+      } catch (err) {
+        claimFailed(err);
+        return null;
+      }
+    },
+    [dropClaim, customerName, claimFailed, toast],
+  );
 
   if (loading) {
     return (
@@ -975,8 +1121,8 @@ function MaintenanceDashboard() {
           <p>
             Every open maintenance report across QA Wolf, ranked by how long it has been sitting and
             by how many tests each customer has parked, with Task Wolf saying which bones are
-            blocked on the customer and which already have a QAE gnawing. Pick a free one, tell the
-            team, gnaw.
+            blocked on the customer and which already have a QAE gnawing. Pick a free one, claim it
+            so the team knows, gnaw.
           </p>
         </div>
         <div className="bone-actions">
@@ -1052,6 +1198,19 @@ function MaintenanceDashboard() {
       <TaskWolfTokenNotice token={payload?.taskWolfToken} taskWolf={taskWolf} />
       <TaskWolfPartialNotice taskWolf={taskWolf} />
       <TaskWolfNotFoundNotice taskWolf={taskWolf} />
+      <ClaimsNotice
+        loaded={claimsState.loaded}
+        error={claimsState.error}
+        checkedAt={claimsState.checkedAt}
+      />
+      <ClaimReminders
+        reminders={claimReminders(claimList || [], snapshot?.customers, now, snapshot?.errors)}
+        busy={claimsState.busy}
+        now={now}
+        onRenew={handleRenew}
+        onRelease={handleRelease}
+        onFocus={setSelectedWorkspaceId}
+      />
 
       <section className="bone-tiles">
         <Tile label="Customers with backlog" value={totals.customers.toLocaleString()} />
@@ -1122,6 +1281,18 @@ function MaintenanceDashboard() {
             </select>
           </label>
         ) : null}
+        {/* Not before claims have loaded: with none, "unclaimed" would keep
+            every customer, as the Task Wolf filter would before it answers. */}
+        {claimsState.loaded ? (
+          <label className="bone-select">
+            Claims
+            <select value={claimFilter} onChange={(e) => setClaimFilter(e.target.value)}>
+              <option value="all">all</option>
+              <option value="unclaimed">unclaimed only</option>
+              <option value="mine">mine only</option>
+            </select>
+          </label>
+        ) : null}
         {selectedCustomer ? (
           <button
             type="button"
@@ -1140,10 +1311,15 @@ function MaintenanceDashboard() {
             <h2>Largest culprits</h2>
             <span>
               flows parked in each customer&apos;s whole backlog · click a row to focus its reports
+              and claim it
             </span>
           </div>
           {culprits.length === 0 ? (
-            <p className="bone-empty">No customers match.</p>
+            <p className="bone-empty">
+              {claimFilter === 'mine'
+                ? 'You have no claims among these customers.'
+                : 'No customers match.'}
+            </p>
           ) : (
             <ol className="bone-bars">
               {culprits.map((c) => {
@@ -1163,6 +1339,7 @@ function MaintenanceDashboard() {
                           {c.name}
                         </span>
                         {c.isDemo ? <span className="bone-tag">demo</span> : null}
+                        <ClaimTag claims={claimsBy?.get(c.workspaceId)} now={now} />
                       </span>
                       <span className="bone-bar-track">
                         <span className="bone-bar-fill" style={{ width: `${width}%` }} />
@@ -1204,11 +1381,29 @@ function MaintenanceDashboard() {
               {reports.length.toLocaleString()} of{' '}
               {(snapshot?.reports || []).length.toLocaleString()} open reports
               {selectedCustomer ? ` · ${selectedCustomer.name}` : ''}
+              {claimFilter === 'unclaimed' ? ' · unclaimed only' : ''}
+              {claimFilter === 'mine' ? ' · your claims' : ''}
               {shownReports.length < reports.length
                 ? ` · first ${shownReports.length.toLocaleString()} shown`
                 : ''}
             </span>
           </div>
+          {selectedCustomer ? (
+            <ClaimCard
+              key={selectedCustomer.workspaceId}
+              customer={selectedCustomer}
+              claims={claimsBy?.get(selectedCustomer.workspaceId) ?? []}
+              loaded={claimsState.loaded}
+              error={claimsState.error}
+              claimDays={claimsState.claimDays}
+              noteMaxLength={claimsState.noteMaxLength}
+              busy={claimsState.busy}
+              now={now}
+              onClaim={handleClaim}
+              onRelease={handleRelease}
+              onRetry={claimsState.reload}
+            />
+          ) : null}
           <div className="bone-legend" aria-hidden="true">
             <span className="bone-legend-item bone-age--fresh">&lt; 30 d</span>
             <span className="bone-legend-item bone-age--aging">30–89 d</span>
@@ -1241,6 +1436,7 @@ function MaintenanceDashboard() {
                     <ReportRow
                       key={r.issueId}
                       row={r}
+                      claims={claimsBy?.get(r.workspaceId)}
                       showTaskWolf={Boolean(taskWolf?.enabled)}
                       askingTaskWolf={Boolean(taskWolf?.pending)}
                       onSelectCustomer={setSelectedWorkspaceId}
