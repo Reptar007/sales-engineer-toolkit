@@ -13,12 +13,13 @@
  *
  * 1. Task Wolf's customer `qawId` *is* the platform team id, which is the
  *    workspace id QA Wolf lists -- so no name matching is needed.
- * 2. The MCP's input schemas are read from the server at runtime
- *    (`tools/list`), not baked in. `pickArguments` fills whichever property
- *    names the schema actually declares, and the normalizers read the answer
- *    by tolerant key lookup, so a renamed field degrades to "unknown" rather
- *    than to a wrong number. `GET /api/maintenance-dashboard/taskwolf/customer/:id`
- *    shows the raw answer beside the normalized one for checking.
+ * 2. The arguments each tool is sent are fixed, as Task Wolf's schemas
+ *    declare them; a tool whose published schema (`tools/list`) no longer
+ *    declares one is reported rather than asked (`schemaDrift`). The
+ *    normalizers read the answer by tolerant key lookup, so a renamed field
+ *    degrades to "unknown" rather than to a wrong number.
+ *    `GET /api/maintenance-dashboard/taskwolf/customer/:id` shows the raw
+ *    answer beside the normalized one for checking.
  */
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -48,6 +49,10 @@ function findKey(obj, names) {
     if (hit) return hit;
   }
   return null;
+}
+
+function isNamed(names, key) {
+  return names.some((name) => name.toLowerCase() === key.toLowerCase());
 }
 
 function pick(obj, names) {
@@ -203,153 +208,41 @@ function flaggedCutShort(objects) {
   return objects.some((obj) => pickBoolean(obj, TRUNCATED_KEYS) === true);
 }
 
-/* ---------- arguments from the live schema ---------- */
-
-// Documented as the platform team id, so the workspace id is an exact match.
-const QAW_ID_ARG_NAMES = ['qawId', 'qaw_id'];
-// Id-shaped, but nothing says whose id: `teamId` may as well filter by QAE
-// team. Used only when the schema offers no customer name property.
-const OTHER_ID_ARG_NAMES = [
-  'teamId',
-  'team_id',
-  'workspaceId',
-  'workspace_id',
-  'customerId',
-  'customer_id',
-];
-// Named for the customer, so they resolve it server-side by name/slug.
-const CUSTOMER_NAME_ARG_NAMES = [
-  'customer',
-  'customerName',
-  'customer_name',
-  'customerSlug',
-  'customer_slug',
-  'slug',
-];
-// Free text: it takes a name, but may match titles or anything else, so it
-// narrows a list rather than picking the customer. Used only when nothing
-// else is offered, and never sent just because it is required.
-const TEXT_ARG_NAMES = ['query', 'name', 'team', 'search'];
-const LIMIT_ARG_NAMES = ['limit', 'pageSize', 'page_size', 'max', 'maxResults'];
+/* ---------- the arguments each tool is sent ---------- */
 
 /**
- * Ask for the longest list the schema allows when it declares a limit, so a
- * bounded answer is cut short as rarely as possible.
+ * `get_maintenance_status` for one customer. Its `customer` takes a name, a
+ * slug or a qawId, and the workspace id is the qawId: the one value Task Wolf
+ * matches exactly.
  */
-function withDeclaredLimit(properties, args) {
-  const limitKey = findKey(properties, LIMIT_ARG_NAMES);
-  if (!limitKey) return args;
-  const max = Number(properties[limitKey]?.maximum);
-  return { ...args, [limitKey]: Number.isFinite(max) && max > 0 ? Math.min(200, max) : 200 };
-}
-
-function isNamed(names, key) {
-  return names.some((name) => name.toLowerCase() === key.toLowerCase());
+export function maintenanceStatusArguments(workspaceId) {
+  return { customer: workspaceId };
 }
 
 /**
- * Build the `arguments` for a customer-scoped tool from its declared input
- * schema. `qawId` comes first (exact match on the platform team id), then a
- * customer name property (resolved server-side by name/slug), then any other
- * id-shaped one, then a free-text filter. A name property whose description
- * says it takes a qawId too ("Customer name, slug, or qawId") gets the
- * workspace id, the one value Task Wolf matches exactly. Customer-shaped
- * properties the schema lists as required are filled as well (free text is
- * not), and the list limit is set when the schema declares one.
- * Returns `null` when the schema offers nothing recognisable, so the caller
- * can report the schema instead of guessing.
- *
- * @returns {{ arguments: object, via: string } | null}
+ * `find_tasks` for one customer's maintenance tasks, the customer as above.
+ * No `statuses` is sent, so Task Wolf's default (open tasks) applies;
+ * `normalizeTasks` drops closed and other-type rows all the same.
  */
-export function pickCustomerArguments(inputSchema, workspace) {
-  const properties = isObject(inputSchema?.properties) ? inputSchema.properties : null;
-  const byName = workspace.slug || workspace.name || workspace.id;
-  if (!properties) {
-    // No schema published: the documented default is that customer names,
-    // slugs or ids all resolve.
-    return { arguments: { customer: byName }, via: 'customer' };
-  }
-  const takesQawId = (key) =>
-    Boolean(workspace.id) && /qawid/i.test(String(properties[key]?.description || ''));
-  const valueFor = (key) => {
-    if (!isNamed(CUSTOMER_NAME_ARG_NAMES, key) && !isNamed(TEXT_ARG_NAMES, key)) {
-      return workspace.id;
-    }
-    return takesQawId(key) ? workspace.id : byName;
-  };
-  const idKey = (names) => (workspace.id ? findKey(properties, names) : null);
-  const via =
-    idKey(QAW_ID_ARG_NAMES) ||
-    findKey(properties, CUSTOMER_NAME_ARG_NAMES) ||
-    idKey(OTHER_ID_ARG_NAMES) ||
-    findKey(properties, TEXT_ARG_NAMES);
-  if (!via) return null;
-
-  const args = { [via]: valueFor(via) };
-  const required = Array.isArray(inputSchema.required) ? inputSchema.required : [];
-  for (const key of required) {
-    if (typeof key !== 'string' || key in args) continue;
-    const customerShaped = [QAW_ID_ARG_NAMES, CUSTOMER_NAME_ARG_NAMES, OTHER_ID_ARG_NAMES].some(
-      (names) => isNamed(names, key),
-    );
-    // Left out, the call is refused for a missing argument.
-    if (customerShaped && valueFor(key)) args[key] = valueFor(key);
-  }
-  return { arguments: withDeclaredLimit(properties, args), via };
-}
-
-/** The enum a schema property declares, on itself or on its items; null when none. */
-function enumOptions(property) {
-  if (Array.isArray(property?.enum)) return property.enum;
-  if (Array.isArray(property?.items?.enum)) return property.items.enum;
-  return null;
+export function maintenanceTaskArguments(workspaceId) {
+  return { customer: workspaceId, types: ['testMaintenance'] };
 }
 
 /**
- * Arguments for `find_tasks` scoped to one customer's open maintenance tasks,
- * again by reading the schema: the type filter is only set when the schema
- * declares one (using its own enum spelling when it has one, and left out
- * when that enum has nothing like maintenance in it), and closed tasks are
- * excluded either through a declared flag or later in `normalizeTasks`, never
- * by guessing a status name.
+ * Why a tool would refuse the arguments above, going by the schema it
+ * publishes: the ones it no longer declares, beside the properties it does.
+ * Null when it declares them all, or publishes no properties to check. The
+ * caller reports this instead of asking. Names are matched exactly, not by the
+ * tolerant lookup the answers get: a server that declares `Customer` would
+ * refuse `customer`.
  */
-export function pickTaskArguments(inputSchema, workspace) {
-  const base = pickCustomerArguments(inputSchema, workspace);
-  if (!base) return null;
-  const properties = isObject(inputSchema?.properties) ? inputSchema.properties : {};
-  const args = { ...base.arguments };
-
-  const typeKey = findKey(properties, ['type', 'taskType', 'task_type', 'types', 'taskTypes']);
-  if (typeKey) {
-    const property = properties[typeKey];
-    const options = enumOptions(property);
-    // An enum without a maintenance type gets no guess: the server would
-    // refuse it. Every type comes back then, and `normalizeTasks` reads open
-    // rows it cannot tell apart as unknown, not as zero.
-    const value = options
-      ? options.find((o) => typeof o === 'string' && MAINTENANCE_TYPE_RE.test(o))
-      : 'maintenance';
-    if (value !== undefined) args[typeKey] = property?.type === 'array' ? [value] : value;
-  }
-
-  const openKey = findKey(properties, [
-    'openOnly',
-    'open_only',
-    'onlyOpen',
-    'excludeDone',
-    'exclude_done',
-  ]);
-  if (openKey) args[openKey] = true;
-  const includeDoneKey = findKey(properties, [
-    'includeDone',
-    'include_done',
-    'includeClosed',
-    'include_closed',
-  ]);
-  if (includeDoneKey) args[includeDoneKey] = false;
-
-  // The limit, when the schema declares one, came with the customer arguments.
-  return { arguments: args, via: base.via };
+export function schemaDrift(tool, inputSchema, args) {
+  const properties = inputSchema?.properties;
+  if (!isObject(properties)) return null;
+  const missing = Object.keys(args).filter((key) => !Object.hasOwn(properties, key));
+  if (missing.length === 0) return null;
+  const declared = Object.keys(properties).join(', ') || 'no properties';
+  return `No ${missing.join(' or ')} argument in the ${tool} schema (${declared}).`;
 }
 
 /* ---------- normalizing answers ---------- */
@@ -757,7 +650,7 @@ export function normalizeTask(item, now = Date.now()) {
 /**
  * `find_tasks` -> the open maintenance tasks for one customer. Closed and
  * non-maintenance rows are dropped here in case the server returned more than
- * the filter asked for (or the schema had no type filter to ask with).
+ * the filter asked for.
  *
  * Unknown (null) rather than "no open tasks": prose, JSON with no list in it
  * (`{ message: 'No customer matched' }`; only a stated zero counts without
@@ -793,10 +686,10 @@ export function normalizeTasks(raw, now = Date.now()) {
 /**
  * What a task list cut short states about the whole of it: `byStatus` counts
  * every status (the closed ones are left out here), and a bare `total` counts
- * open tasks, because `pickTaskArguments` sends no `statuses` and Task Wolf's
- * default is open tasks. Nothing is taken when those counts take in rows this
- * reading drops: another task type (in `byType`, or a row of one on the page),
- * or, for a bare total, a closed row on the page.
+ * open tasks, because `maintenanceTaskArguments` sends no `statuses` and Task
+ * Wolf's default is open tasks. Nothing is taken when those counts take in
+ * rows this reading drops: another task type (in `byType`, or a row of one on
+ * the page), or, for a bare total, a closed row on the page.
  */
 function statedTaskCounts(bounds, rows, total) {
   const countsUnder = (names) => bounds.map((obj) => pick(obj, names)).find(isObject) || null;

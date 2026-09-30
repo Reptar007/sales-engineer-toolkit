@@ -1,10 +1,10 @@
 /**
- * What Task Wolf adds to a report row and how its answers are read. The MCP's
- * schemas are read live, so the argument picker and the normalizers are
- * exercised against the shapes the server is documented to use
- * (`{ total, truncated, items }`, customer by name/slug/qawId) and against a
- * few plausible variants, so a renamed field degrades to "unknown" rather
- * than to a wrong count. The real server answers `get_maintenance_status` by
+ * What Task Wolf adds to a report row and how its answers are read. The
+ * arguments each tool is sent are fixed, and checked against the schema the
+ * tool publishes. The normalizers are exercised against the shapes the server
+ * is documented to use (`{ total, truncated, items }`) and against a few
+ * plausible variants, so a renamed field degrades to "unknown" rather than to
+ * a wrong count. The real server answers `get_maintenance_status` by
  * report (one entry per open report, its flows under it, the customer's flow
  * counts in a summary); those fixtures are invented in that shape.
  */
@@ -15,11 +15,12 @@ import {
   daysSince,
   extractItems,
   isCustomerNotFound,
+  maintenanceStatusArguments,
+  maintenanceTaskArguments,
   mergeTaskWolf,
   normalizeMaintenanceStatus,
   normalizeTasks,
-  pickCustomerArguments,
-  pickTaskArguments,
+  schemaDrift,
   summarizeTaskWolfCustomer,
 } from '../src/projects/maintenance-dashboard/taskWolfShape.js';
 import {
@@ -80,333 +81,85 @@ const twoReports = issueAnswer({
   ],
 });
 
-describe('pickCustomerArguments', () => {
-  test('prefers an id-shaped property (qawId is the platform team id)', () => {
-    const schema = {
-      type: 'object',
-      properties: { customer: { type: 'string' }, qawId: { type: 'string' } },
-    };
-    assert.deepEqual(pickCustomerArguments(schema, acme), {
-      arguments: { qawId: 'team-acme' },
-      via: 'qawId',
+describe('the arguments each tool is sent', () => {
+  const byQawId = { type: 'string', description: 'Customer name, slug, or qawId' };
+  // As Task Wolf declares them, cut down: find_tasks declares more filters.
+  const statusSchema = {
+    type: 'object',
+    properties: { customer: byQawId },
+    required: ['customer'],
+  };
+  const taskSchema = {
+    type: 'object',
+    properties: {
+      customer: byQawId,
+      assignee: { type: 'string' },
+      types: { type: 'array', items: { type: 'string', enum: ['testMaintenance', 'bug'] } },
+      overdue: { type: 'boolean' },
+    },
+  };
+
+  test('the customer by workspace id, which is its qawId, and find_tasks for maintenance only', () => {
+    assert.deepEqual(maintenanceStatusArguments('team-acme'), { customer: 'team-acme' });
+    assert.deepEqual(maintenanceTaskArguments('team-acme'), {
+      customer: 'team-acme',
+      types: ['testMaintenance'],
     });
   });
 
-  test('falls back to a name/slug property, and to `customer` when no schema is published', () => {
-    const schema = {
-      type: 'object',
-      properties: { customer: { type: 'string' }, days: { type: 'number' } },
-    };
-    assert.deepEqual(pickCustomerArguments(schema, acme), {
-      arguments: { customer: 'acme' },
-      via: 'customer',
-    });
-    assert.deepEqual(pickCustomerArguments({ type: 'object', properties: { query: {} } }, acme), {
-      arguments: { query: 'acme' },
-      via: 'query',
-    });
-    assert.deepEqual(pickCustomerArguments(null, acme), {
-      arguments: { customer: 'acme' },
-      via: 'customer',
-    });
-  });
-
-  test('gives up rather than guessing when nothing in the schema looks like a customer', () => {
+  test('a schema that declares every argument sent is no drift, nor is one with no properties', () => {
     assert.equal(
-      pickCustomerArguments({ type: 'object', properties: { suiteId: {} } }, acme),
+      schemaDrift('get_maintenance_status', statusSchema, maintenanceStatusArguments('team-acme')),
       null,
     );
-  });
-
-  test('asks for the longest list the schema allows, so answers are cut short less often', () => {
-    const schema = {
-      type: 'object',
-      properties: { qawId: { type: 'string' }, limit: { type: 'number', maximum: 500 } },
-    };
-    assert.deepEqual(pickCustomerArguments(schema, acme), {
-      arguments: { qawId: 'team-acme', limit: 200 },
-      via: 'qawId',
-    });
-    assert.deepEqual(
-      pickCustomerArguments(
-        { type: 'object', properties: { customer: {}, pageSize: { maximum: 50 } } },
-        acme,
-      ).arguments,
-      { customer: 'acme', pageSize: 50 },
-    );
-  });
-
-  test('qawId comes first, in either spelling, whatever else the schema declares', () => {
-    const schema = {
-      type: 'object',
-      properties: { teamId: {}, customer: {}, customerId: {}, qawId: {} },
-    };
-    assert.deepEqual(pickCustomerArguments(schema, acme), {
-      arguments: { qawId: 'team-acme' },
-      via: 'qawId',
-    });
-    assert.deepEqual(
-      pickCustomerArguments({ type: 'object', properties: { customer: {}, qaw_id: {} } }, acme),
-      { arguments: { qaw_id: 'team-acme' }, via: 'qaw_id' },
-    );
-  });
-
-  test('the documented `customer` beats any other id: `teamId` may be a QAE team filter', () => {
-    for (const idName of ['teamId', 'team_id', 'workspaceId', 'customerId', 'customer_id']) {
-      const schema = { type: 'object', properties: { [idName]: {}, customer: {} } };
-      assert.deepEqual(
-        pickCustomerArguments(schema, acme),
-        { arguments: { customer: 'acme' }, via: 'customer' },
-        idName,
-      );
-    }
-    assert.deepEqual(
-      pickCustomerArguments({ type: 'object', properties: { teamId: {}, slug: {} } }, acme),
-      { arguments: { slug: 'acme' }, via: 'slug' },
-    );
-  });
-
-  test('a name-shaped property is filled with the slug, then the name, then the id', () => {
-    const schema = { type: 'object', properties: { customerName: {}, teamId: {} } };
-    assert.deepEqual(pickCustomerArguments(schema, { id: 'team-acme', name: 'Acme' }).arguments, {
-      customerName: 'Acme',
-    });
-    assert.deepEqual(pickCustomerArguments(schema, { id: 'team-acme' }).arguments, {
-      customerName: 'team-acme',
-    });
-    // No id to give: qawId is passed over for the name-shaped property.
-    assert.deepEqual(
-      pickCustomerArguments(
-        { type: 'object', properties: { qawId: {}, customer: {} } },
-        { slug: 'acme', name: 'Acme' },
-      ),
-      { arguments: { customer: 'acme' }, via: 'customer' },
-    );
-  });
-
-  test('a name property that also takes a qawId gets the workspace id, which matches exactly', () => {
-    const schema = {
-      type: 'object',
-      properties: { customer: { type: 'string', description: 'Customer name, slug, or qawId' } },
-      required: ['customer'],
-    };
-    assert.deepEqual(pickCustomerArguments(schema, acme), {
-      arguments: { customer: 'team-acme' },
-      via: 'customer',
-    });
-    assert.deepEqual(
-      pickCustomerArguments(
-        { type: 'object', properties: { customer: { description: 'Name or QAWID' } } },
-        acme,
-      ).arguments,
-      { customer: 'team-acme' },
-    );
-    // No id to give, or a description that does not offer it: the slug, as before.
-    assert.deepEqual(pickCustomerArguments(schema, { slug: 'acme', name: 'Acme' }).arguments, {
-      customer: 'acme',
-    });
-    assert.deepEqual(
-      pickCustomerArguments(
-        { type: 'object', properties: { customer: { description: 'Customer name or slug' } } },
-        acme,
-      ).arguments,
-      { customer: 'acme' },
-    );
-  });
-
-  test('a free-text filter ranks after every id, and is never filled just because it is required', () => {
-    for (const [text, id] of [
-      ['query', 'customerId'],
-      ['search', 'workspaceId'],
-      ['name', 'teamId'],
-      ['team', 'team_id'],
-    ]) {
-      assert.deepEqual(
-        pickCustomerArguments({ type: 'object', properties: { [text]: {}, [id]: {} } }, acme),
-        { arguments: { [id]: 'team-acme' }, via: id },
-        text,
-      );
-    }
-    // Beside the customer, a text filter would only narrow the task list.
-    assert.deepEqual(
-      pickCustomerArguments(
-        {
-          type: 'object',
-          properties: { customer: {}, query: {} },
-          required: ['customer', 'query'],
-        },
-        acme,
-      ),
-      { arguments: { customer: 'acme' }, via: 'customer' },
-    );
-    // With no id to give, the text filter is still better than nothing.
-    assert.deepEqual(
-      pickCustomerArguments(
-        { type: 'object', properties: { search: {}, teamId: {} } },
-        { slug: 'acme' },
-      ),
-      { arguments: { search: 'acme' }, via: 'search' },
-    );
-  });
-
-  test('the other id-shaped names are used only when no customer name property is offered', () => {
-    assert.deepEqual(pickCustomerArguments({ type: 'object', properties: { teamId: {} } }, acme), {
-      arguments: { teamId: 'team-acme' },
-      via: 'teamId',
-    });
-    assert.deepEqual(
-      pickCustomerArguments(
-        { type: 'object', properties: { customer_id: {}, limit: { maximum: 50 } } },
-        acme,
-      ),
-      { arguments: { customer_id: 'team-acme', limit: 50 }, via: 'customer_id' },
-    );
     assert.equal(
-      pickCustomerArguments({ type: 'object', properties: { teamId: {} } }, { slug: 'acme' }),
+      schemaDrift('find_tasks', taskSchema, maintenanceTaskArguments('team-acme')),
       null,
     );
+    for (const schema of [null, undefined, {}, { type: 'object' }]) {
+      assert.equal(
+        schemaDrift('find_tasks', schema, maintenanceTaskArguments('team-acme')),
+        null,
+        JSON.stringify(schema),
+      );
+    }
   });
 
-  test('required customer-shaped properties the pick left empty are filled too', () => {
-    assert.deepEqual(
-      pickCustomerArguments(
-        {
-          type: 'object',
-          properties: { customer: {}, qawId: {}, status: {} },
-          required: ['customer', 'qawId', 'status'],
-        },
-        acme,
+  test('a schema that no longer declares an argument sent names it and what the schema declares', () => {
+    assert.equal(
+      schemaDrift(
+        'get_maintenance_status',
+        { type: 'object', properties: { qawId: { type: 'string' } }, required: ['qawId'] },
+        maintenanceStatusArguments('team-acme'),
       ),
-      { arguments: { qawId: 'team-acme', customer: 'acme' }, via: 'qawId' },
+      'No customer argument in the get_maintenance_status schema (qawId).',
     );
-    assert.deepEqual(
-      pickCustomerArguments(
-        {
-          type: 'object',
-          properties: { customer: {}, teamId: {}, limit: {} },
-          required: ['teamId', 'customer'],
-        },
-        acme,
+    assert.equal(
+      schemaDrift(
+        'find_tasks',
+        { type: 'object', properties: { customer: byQawId, taskType: { type: 'string' } } },
+        maintenanceTaskArguments('team-acme'),
       ),
-      { arguments: { customer: 'acme', teamId: 'team-acme', limit: 200 }, via: 'customer' },
+      'No types argument in the find_tasks schema (customer, taskType).',
     );
-    // Not required, not sent; and an id nobody has is not made up.
-    assert.deepEqual(
-      pickCustomerArguments(
-        { type: 'object', properties: { customer: {}, teamId: {} }, required: ['customer'] },
-        acme,
-      ).arguments,
-      { customer: 'acme' },
+    assert.equal(
+      schemaDrift(
+        'find_tasks',
+        { type: 'object', properties: {} },
+        maintenanceTaskArguments('team-acme'),
+      ),
+      'No customer or types argument in the find_tasks schema (no properties).',
     );
-    assert.deepEqual(
-      pickCustomerArguments(
-        {
-          type: 'object',
-          properties: { customer: {}, teamId: {} },
-          required: ['customer', 'teamId'],
-        },
-        { slug: 'acme' },
-      ).arguments,
-      { customer: 'acme' },
+    // Property names are matched exactly, as JSON Schema does: a server that
+    // declares `Customer` would refuse `customer`.
+    assert.equal(
+      schemaDrift(
+        'get_maintenance_status',
+        { type: 'object', properties: { Customer: {} } },
+        maintenanceStatusArguments('team-acme'),
+      ),
+      'No customer argument in the get_maintenance_status schema (Customer).',
     );
-  });
-});
-
-describe('pickTaskArguments', () => {
-  test("sets the type filter in the schema's own spelling and caps the limit", () => {
-    const schema = {
-      type: 'object',
-      properties: {
-        customer: { type: 'string' },
-        taskType: { type: 'string', enum: ['creation', 'test-maintenance', 'outline'] },
-        limit: { type: 'number', maximum: 100 },
-        includeDone: { type: 'boolean' },
-      },
-    };
-    assert.deepEqual(pickTaskArguments(schema, acme), {
-      arguments: { customer: 'acme', taskType: 'test-maintenance', limit: 100, includeDone: false },
-      via: 'customer',
-    });
-  });
-
-  test('an array-typed filter gets an array, and no type property means no guess', () => {
-    const schema = {
-      type: 'object',
-      properties: { qawId: {}, types: { type: 'array', items: { enum: ['maintenance', 'bug'] } } },
-    };
-    assert.deepEqual(pickTaskArguments(schema, acme).arguments, {
-      qawId: 'team-acme',
-      types: ['maintenance'],
-    });
-    assert.deepEqual(
-      pickTaskArguments({ type: 'object', properties: { customer: {} } }, acme).arguments,
-      {
-        customer: 'acme',
-      },
-    );
-  });
-
-  test('a type enum with no maintenance-like member gets no guessed value', () => {
-    const schema = {
-      type: 'object',
-      properties: {
-        customer: { type: 'string' },
-        type: { type: 'string', enum: ['bug', 'creation', 'outline'] },
-        includeDone: { type: 'boolean' },
-      },
-    };
-    assert.deepEqual(pickTaskArguments(schema, acme), {
-      arguments: { customer: 'acme', includeDone: false },
-      via: 'customer',
-    });
-    assert.deepEqual(
-      pickTaskArguments(
-        {
-          type: 'object',
-          properties: { customer: {}, types: { type: 'array', items: { enum: ['bug'] } } },
-        },
-        acme,
-      ).arguments,
-      { customer: 'acme' },
-    );
-  });
-
-  test('a type property with no enum at all is still asked for maintenance', () => {
-    assert.deepEqual(
-      pickTaskArguments(
-        { type: 'object', properties: { customer: {}, type: { type: 'string' } } },
-        acme,
-      ).arguments,
-      { customer: 'acme', type: 'maintenance' },
-    );
-  });
-
-  test('find_tasks as Task Wolf declares it: the customer by workspace id, its maintenance type', () => {
-    const schema = {
-      type: 'object',
-      properties: {
-        customer: { type: 'string', description: 'Customer name, slug, or qawId' },
-        team: { type: 'string', description: 'QA team name or numeric team id' },
-        assignee: { type: 'string' },
-        unassigned: { type: 'boolean' },
-        statuses: {
-          type: 'array',
-          items: { type: 'string', enum: ['blocked', 'done', 'inProgress', 'toDo', 'scheduled'] },
-        },
-        types: {
-          type: 'array',
-          items: {
-            type: 'string',
-            enum: ['testCreation', 'testMaintenance', 'maintenanceReport', 'softMaintenance'],
-          },
-        },
-        overdue: { type: 'boolean' },
-      },
-    };
-    assert.deepEqual(pickTaskArguments(schema, acme), {
-      arguments: { customer: 'team-acme', types: ['testMaintenance'] },
-      via: 'customer',
-    });
   });
 });
 
@@ -914,15 +667,8 @@ describe('normalizeTasks', () => {
   });
 
   test('open tasks all of types that do not read as maintenance are unknown, not zero', () => {
-    // find_tasks declares no maintenance type, so it was asked for every type.
-    const schema = {
-      type: 'object',
-      properties: {
-        customer: { type: 'string' },
-        type: { type: 'string', enum: ['bug', 'upkeep', 'feature'] },
-      },
-    };
-    assert.deepEqual(pickTaskArguments(schema, acme).arguments, { customer: 'acme' });
+    // Asked for maintenance tasks, it sent open tasks none of whose types reads
+    // as maintenance: its word for maintenance may be one this does not know.
     const everyType = normalizeTasks(
       {
         items: [

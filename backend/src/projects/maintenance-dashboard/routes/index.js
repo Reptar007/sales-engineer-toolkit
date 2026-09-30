@@ -144,10 +144,11 @@ router.get('/taskwolf', authenticateToken, requireRole('admin'), async (req, res
 });
 
 // GET /api/maintenance-dashboard/taskwolf/customer/:workspaceId
-// Live, uncached: the arguments derived from each tool's schema, the raw
-// answer and the normalized reading for one customer. The workspace id goes to
-// Task Wolf as its qawId; `?slug=` / `?name=` only matter for a tool that takes
-// a name instead. Admin-only: it asks Task Wolf on the server's token.
+// Live, uncached: each tool's schema, the arguments it is sent, the raw answer
+// and the normalized reading for one customer. The workspace id goes to Task
+// Wolf as its qawId, in `customer`; the slug and name, when the snapshot has
+// the customer, only label the answer. Admin-only: it asks Task Wolf on the
+// server's token.
 router.get(
   '/taskwolf/customer/:workspaceId',
   authenticateToken,
@@ -155,11 +156,7 @@ router.get(
   async (req, res) => {
     const { workspaceId } = req.params;
     const cached = findCachedCustomer(workspaceId);
-    const workspace = {
-      id: workspaceId,
-      slug: cached?.slug || String(req.query.slug || ''),
-      name: cached?.name || String(req.query.name || ''),
-    };
+    const workspace = { id: workspaceId, slug: cached?.slug || '', name: cached?.name || '' };
     try {
       const result = await probeTaskWolfCustomer(workspace);
       return res.json(result);

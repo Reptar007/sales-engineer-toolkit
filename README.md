@@ -267,9 +267,8 @@ the page disables Rescan until then, beside a snapshot or on the page that says 
 - **GET** `/api/maintenance-dashboard/taskwolf` (admin only) – is Task Wolf connected, and
   which tools (with input schemas) its MCP offers. `?refresh=1` re-reads the tool list.
 - **GET** `/api/maintenance-dashboard/taskwolf/customer/:workspaceId` (admin only) – live probe
-  for one customer: the arguments derived from each tool's schema, the raw answer and the
-  normalized reading side by side. The workspace id is sent as Task Wolf's `qawId`; `?slug=` /
-  `?name=` only matter for a tool that takes a name instead.
+  for one customer: each tool's input schema, the arguments it is sent, the raw answer and the
+  normalized reading side by side.
 
 `MAINTENANCE_DASHBOARD_EXCLUDED_SLUGS` (default `figma`, comma-separated, matched by slug only)
 drops workspaces from the backlog entirely: they are not scanned. A workspace with no slug is
@@ -296,19 +295,19 @@ maintenance tasks and their QAE). Task Wolf answers per open maintenance report,
 blocked flag, its blocker, the QAEs on its tasks and the flows it parks, and each is matched to
 its QA Wolf report by issue id (then by report number). Each report then reads **blocked**,
 **actionable**, or unknown, with the blocker and the QAEs already on it, and the page can filter
-to actionable bones only. The customer is matched by `qawId`, which is the workspace id: a tool
-whose schema takes `qawId`, or whose customer argument says it accepts one (Task Wolf's does), is
-sent the workspace id. Otherwise a customer-name argument (`customer` when the tool publishes no
-schema) is sent the workspace slug, which Task Wolf resolves by name; an id-shaped one such as
-`teamId` is used only when no name argument is offered. A customer Task Wolf has no record of
-("No customer matched", a former customer most often) is counted in
-`snapshot.taskWolf.customersNotInTaskWolf`, not treated as a failure, and its reports stay
-unknown; when that is most of the customers asked, the page warns instead of hinting, since that
-many former customers is unlikely. The MCP's input schemas are read live and the answers are
-read by tolerant key lookup (`backend/src/projects/maintenance-dashboard/taskWolfShape.js`);
-if the Task Wolf column looks wrong, hit the probe endpoint above and compare `raw` with
-`normalized`. Without a token, or with an expired one, the platform data still stands and the
-page says what is missing.
+to actionable bones only. The arguments are fixed: `get_maintenance_status` is sent
+`{ customer: <workspace id> }` and `find_tasks` is sent
+`{ customer: <workspace id>, types: ["testMaintenance"] }`. The workspace id is Task Wolf's
+`qawId`, which its `customer` argument takes. A tool whose published schema no longer declares
+`customer` (or, for `find_tasks`, `types`) is not asked: each customer's entry in
+`snapshot.taskWolf.errors` names the tool and the properties its schema does declare. A
+customer Task Wolf has no record of ("No customer matched", a former customer most often) is
+counted in `snapshot.taskWolf.customersNotInTaskWolf`, not treated as a failure, and its reports
+stay unknown; when that is most of the customers asked, the page warns instead of hinting, since
+that many former customers is unlikely. The answers are read by tolerant key lookup
+(`backend/src/projects/maintenance-dashboard/taskWolfShape.js`); if the Task Wolf column looks
+wrong, hit the probe endpoint above and compare `raw` with `normalized`. Without a token, or
+with an expired one, the platform data still stands and the page says what is missing.
 
 What Task Wolf did not say stays unknown: a `null` in the snapshot is never a zero, and a report
 Task Wolf does not list reads `taskWolf.blocked: null`, whatever the customer's counts say. (An

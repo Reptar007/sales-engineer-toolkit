@@ -539,14 +539,38 @@ describe('scanMaintenanceBacklog: nothing but failures', () => {
   });
 });
 
+// The two tools as Task Wolf declares them, cut down: find_tasks declares more filters.
+const byQawId = { type: 'string', description: 'Customer name, slug, or qawId' };
+const maintenanceStatusTool = {
+  name: 'get_maintenance_status',
+  inputSchema: { type: 'object', properties: { customer: byQawId }, required: ['customer'] },
+};
+const findTasksTool = {
+  name: 'find_tasks',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      customer: byQawId,
+      types: { type: 'array', items: { type: 'string', enum: ['testMaintenance', 'bug'] } },
+    },
+  },
+};
+
+// Task Wolf is asked by workspace id; the fake knows each customer by slug:
+// `ws-2` is `two`, as in `workspaces`, and `ws-<slug>` is `<slug>`.
+const slugById = new Map(workspaces.map((w) => [w.id, w.slug]));
+const slugOf = (workspaceId) => slugById.get(workspaceId) ?? workspaceId.replace(/^ws-/, '');
+
 /**
- * A fake Task Wolf MCP: offers the two tools with a `customer` argument and
- * answers per customer slug. `failing` slugs throw; `failWith` decides per
- * call and hands back the error to throw, or nothing; `answerWith` does the
- * same for the answer, in place of the canned one; `authFailAfter` turns the
- * token stale after that many calls. `onCall` runs as each call arrives, and a
- * call waits for `gate` before it is answered; a function `gate` is asked per
- * call and may hand back a promise to hold just that customer.
+ * A fake Task Wolf MCP: offers the two tools and answers per customer. Every
+ * option below is handed the customer's slug (see `slugOf`), and each entry of
+ * `calls` carries it beside the arguments sent.
+ * `failing` slugs throw; `failWith` decides per call and hands back the error
+ * to throw, or nothing; `answerWith` does the same for the answer, in place
+ * of the canned one; `authFailAfter` turns the token stale after that many
+ * calls. `onCall` runs as each call arrives, and a call waits for `gate`
+ * before it is answered; a function `gate` is asked per call and may hand
+ * back a promise to hold just that customer.
  */
 function fakeTaskWolf({
   failing = new Set(),
@@ -558,39 +582,25 @@ function fakeTaskWolf({
   gate = null,
 } = {}) {
   const calls = [];
-  const catalog = tools || [
-    {
-      name: 'get_maintenance_status',
-      inputSchema: { type: 'object', properties: { customer: { type: 'string' } } },
-    },
-    {
-      name: 'find_tasks',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          customer: { type: 'string' },
-          type: { type: 'string', enum: ['maintenance', 'creation'] },
-        },
-      },
-    },
-  ];
+  const catalog = tools || [maintenanceStatusTool, findTasksTool];
   return {
     calls,
     baseUrl: 'https://tw.test/mcp',
     getServerInfo: () => ({ name: 'fake-task-wolf' }),
     listTools: async () => catalog,
     callTool: async (name, args) => {
-      calls.push({ name, args });
-      onCall(name, args);
-      if (gate) await (typeof gate === 'function' ? gate(args.customer, name) : gate);
+      const customer = slugOf(args.customer);
+      calls.push({ name, args, customer });
+      onCall(name, customer);
+      if (gate) await (typeof gate === 'function' ? gate(customer, name) : gate);
       if (calls.length > authFailAfter) throw new TaskWolfAuthError();
-      if (failing.has(args.customer)) throw new Error(`${name} timed out for ${args.customer}`);
-      const failure = failWith(args.customer, name);
+      if (failing.has(customer)) throw new Error(`${name} timed out for ${customer}`);
+      const failure = failWith(customer, name);
       if (failure) throw failure;
-      const answer = answerWith(args.customer, name);
+      const answer = answerWith(customer, name);
       if (answer !== undefined) return answer;
       if (name === 'get_maintenance_status') {
-        if (args.customer === 'two') {
+        if (customer === 'two') {
           return {
             total: 2,
             truncated: false,
@@ -603,7 +613,7 @@ function fakeTaskWolf({
         return { total: 0, truncated: false, items: [] };
       }
       if (name === 'find_tasks') {
-        if (args.customer === 'two') {
+        if (customer === 'two') {
           return {
             total: 1,
             items: [{ id: 't1', type: 'maintenance', status: 'open', assignee: 'Kalley' }],
@@ -651,12 +661,13 @@ describe('scanMaintenanceBacklog + Task Wolf', () => {
       onProgress: (p) => progress.push(p),
       now: () => NOW,
     });
-    // One customer has backlog (Figma is excluded), so two tool calls.
+    // One customer has backlog (Figma is excluded), so two tool calls, each
+    // naming the customer by workspace id.
     assert.deepEqual(
       taskWolf.calls.map((c) => [c.name, c.args]),
       [
-        ['get_maintenance_status', { customer: 'two' }],
-        ['find_tasks', { customer: 'two', type: 'maintenance' }],
+        ['get_maintenance_status', { customer: 'ws-2' }],
+        ['find_tasks', { customer: 'ws-2', types: ['testMaintenance'] }],
       ],
     );
     const two = snapshot.customers[0];
@@ -766,11 +777,7 @@ describe('scanMaintenanceBacklog + Task Wolf', () => {
   });
 
   test('a tools/list with junk in it is read around, not thrown over', async () => {
-    const findTasks = {
-      name: 'find_tasks',
-      inputSchema: { type: 'object', properties: { customer: { type: 'string' } } },
-    };
-    const junk = fakeTaskWolf({ tools: [null, 'get_maintenance_status', 7, findTasks] });
+    const junk = fakeTaskWolf({ tools: [null, 'get_maintenance_status', 7, findTasksTool] });
     const snapshot = await enrichWithTaskWolf(platformSnapshot(['two']), {
       client: junk,
       now: () => NOW,
@@ -802,19 +809,67 @@ describe('scanMaintenanceBacklog + Task Wolf', () => {
     assert.equal(probed.tools.tasks.normalized.tasks.length, 1);
   });
 
-  test('a schema with no recognisable customer argument is reported with its property names', async () => {
+  test('a schema that no longer declares an argument sent is reported with its property names, not asked', async () => {
+    const noTypes = {
+      name: 'find_tasks',
+      inputSchema: { type: 'object', properties: { customer: byQawId, taskType: {} } },
+    };
     const tools = [
       {
         name: 'get_maintenance_status',
         inputSchema: { type: 'object', properties: { suiteId: {} } },
       },
+      noTypes,
     ];
-    const snapshot = await enrichWithTaskWolf(
-      { customers: [{ workspaceId: 'ws-2', name: 'Two', slug: 'two' }], reports: [], totals: {} },
-      { client: fakeTaskWolf({ tools }), now: () => NOW },
+    const taskWolf = fakeTaskWolf({ tools });
+    const snapshot = await enrichWithTaskWolf(platformSnapshot(['two']), {
+      client: taskWolf,
+      now: () => NOW,
+    });
+    assert.equal(taskWolf.calls.length, 0);
+    assert.deepEqual(
+      snapshot.taskWolf.errors.map((e) => [e.tool, e.message]),
+      [
+        [
+          'get_maintenance_status',
+          'No customer argument in the get_maintenance_status schema (suiteId).',
+        ],
+        ['find_tasks', 'No types argument in the find_tasks schema (customer, taskType).'],
+      ],
     );
-    assert.equal(snapshot.taskWolf.errors.length, 1);
-    assert.match(snapshot.taskWolf.errors[0].message, /suiteId/);
+
+    // The tool that still declares its arguments is asked as before.
+    const half = fakeTaskWolf({ tools: [maintenanceStatusTool, noTypes] });
+    const answered = await enrichWithTaskWolf(platformSnapshot(['two']), {
+      client: half,
+      now: () => NOW,
+    });
+    assert.deepEqual(
+      half.calls.map((c) => c.name),
+      ['get_maintenance_status'],
+    );
+    assert.equal(answered.customers[0].taskWolf.blockedFlows, 1);
+    assert.deepEqual(
+      answered.taskWolf.errors.map((e) => e.tool),
+      ['find_tasks'],
+    );
+
+    // The probe says the same, beside the schema and the arguments it would send.
+    const probed = await probeTaskWolfCustomer(
+      { id: 'ws-2', slug: 'two', name: 'Two' },
+      { client: half, now: () => NOW },
+    );
+    assert.equal(
+      probed.tools.tasks.error,
+      'No types argument in the find_tasks schema (customer, taskType).',
+    );
+    assert.deepEqual(probed.tools.tasks.inputSchema, noTypes.inputSchema);
+    assert.deepEqual(probed.tools.tasks.arguments, {
+      customer: 'ws-2',
+      types: ['testMaintenance'],
+    });
+    assert.equal('raw' in probed.tools.tasks, false);
+    assert.ok(!half.calls.some((c) => c.name === 'find_tasks'));
   });
 
   test('the probe returns schema, arguments, raw and normalized side by side', async () => {
@@ -823,7 +878,12 @@ describe('scanMaintenanceBacklog + Task Wolf', () => {
       { client: fakeTaskWolf(), now: () => NOW },
     );
     assert.equal(result.tools.maintenance.offered, true);
-    assert.deepEqual(result.tools.maintenance.arguments, { customer: 'two' });
+    assert.deepEqual(result.tools.maintenance.inputSchema, maintenanceStatusTool.inputSchema);
+    assert.deepEqual(result.tools.maintenance.arguments, { customer: 'ws-2' });
+    assert.deepEqual(result.tools.tasks.arguments, {
+      customer: 'ws-2',
+      types: ['testMaintenance'],
+    });
     assert.equal(result.tools.maintenance.raw.total, 2);
     assert.equal(result.tools.maintenance.normalized.blockedFlows, 1);
     assert.equal(result.tools.tasks.normalized.tasks.length, 1);
@@ -940,8 +1000,8 @@ describe('enrichWithTaskWolf: a Task Wolf that refuses or stops answering', () =
   });
 
   test('customers no call went out for do not count toward the cut-off', async () => {
-    // Neither schema names anything to pick the customer by, so nobody is
-    // asked anything: no timeout was paid, and nothing says Task Wolf is down.
+    // Neither schema declares the customer argument, so nobody is asked
+    // anything: no timeout was paid, and nothing says Task Wolf is down.
     const tools = ['get_maintenance_status', 'find_tasks'].map((name) => ({
       name,
       inputSchema: { type: 'object', properties: { suiteId: {} } },
@@ -960,7 +1020,7 @@ describe('enrichWithTaskWolf: a Task Wolf that refuses or stops answering', () =
     assert.equal(snapshot.taskWolf.error.code, 'TW_ABORTED');
     assert.match(
       snapshot.taskWolf.error.message,
-      /^Task Wolf answered for none of the 12 customers asked\. First failure \(who-0\): No customer argument recognised in the get_maintenance_status schema \(suiteId\)\.$/,
+      /^Task Wolf answered for none of the 12 customers asked\. First failure \(who-0\): No customer argument in the get_maintenance_status schema \(suiteId\)\.$/,
     );
   });
 
@@ -1087,7 +1147,7 @@ describe('enrichWithTaskWolf: a Task Wolf that refuses or stops answering', () =
     );
     // Every customer asked is either answered or listed; only ok-11 is neither.
     assert.equal(taskWolf.calls.length, 22);
-    assert.ok(!taskWolf.calls.some((c) => c.args.customer === 'ok-11'));
+    assert.ok(!taskWolf.calls.some((c) => c.customer === 'ok-11'));
     assert.equal(snapshot.taskWolf.customersAnswered, 3);
     assert.deepEqual(
       snapshot.customers.filter((c) => c.taskWolf).map((c) => c.slug),
@@ -1104,8 +1164,8 @@ describe('enrichWithTaskWolf: a Task Wolf that refuses or stops answering', () =
     const taskWolf = fakeTaskWolf({
       gate: (customer) => (held.has(customer) ? gate : undefined),
       // The first customer's second call is where the budget runs out.
-      onCall: (name, args) => {
-        if (args.customer === 'two' && name === 'find_tasks') clock += 16 * 60 * 1000;
+      onCall: (name, customer) => {
+        if (customer === 'two' && name === 'find_tasks') clock += 16 * 60 * 1000;
       },
     });
     const progress = [];
@@ -1129,7 +1189,7 @@ describe('enrichWithTaskWolf: a Task Wolf that refuses or stops answering', () =
       'The Task Wolf pass ran past its 15-minute budget, so it stopped with 2 of 6 customers left.',
     );
     assert.equal(taskWolf.calls.length, 8);
-    assert.ok(!taskWolf.calls.some((c) => c.args.customer.startsWith('late')));
+    assert.ok(!taskWolf.calls.some((c) => c.customer.startsWith('late')));
     assert.equal(snapshot.taskWolf.customersAnswered, 4);
     assert.equal(snapshot.customers[0].taskWolf.blockedFlows, 1);
     assert.equal(progress.at(-1).scanned, 4);
@@ -1151,7 +1211,7 @@ describe('enrichWithTaskWolf: a Task Wolf that refuses or stops answering', () =
       { client: taskWolf, concurrency: 4, onProgress: (p) => progress.push(p), now: () => NOW },
     );
     await until(() =>
-      taskWolf.calls.some((c) => c.args.customer === 'expired' && c.name === 'find_tasks'),
+      taskWolf.calls.some((c) => c.customer === 'expired' && c.name === 'find_tasks'),
     );
     // Let the 401 settle before anything held comes back.
     await new Promise((resolve) => setImmediate(resolve));
@@ -1162,7 +1222,7 @@ describe('enrichWithTaskWolf: a Task Wolf that refuses or stops answering', () =
       code: 'TW_AUTH',
       message: new TaskWolfAuthError().message,
     });
-    assert.ok(!taskWolf.calls.some((c) => c.args.customer.startsWith('late')));
+    assert.ok(!taskWolf.calls.some((c) => c.customer.startsWith('late')));
     // The three held answers, and the half expired gave before its 401.
     assert.equal(snapshot.taskWolf.customersAnswered, 4);
     assert.equal(snapshot.customers[0].taskWolf.blockedFlows, 1);
@@ -1185,8 +1245,8 @@ describe('enrichWithTaskWolf: a Task Wolf that refuses or stops answering', () =
     const { gate, open } = makeGate();
     const taskWolf = fakeTaskWolf({
       gate: (customer) => (customer === 'held-1' ? gate : undefined),
-      onCall: (name, args) => {
-        if (args.customer === 'two' && name === 'find_tasks') clock += 16 * 60 * 1000;
+      onCall: (name, customer) => {
+        if (customer === 'two' && name === 'find_tasks') clock += 16 * 60 * 1000;
       },
       failWith: (customer) => (customer === 'held-1' ? new TaskWolfAuthError() : null),
     });
@@ -1203,7 +1263,7 @@ describe('enrichWithTaskWolf: a Task Wolf that refuses or stops answering', () =
     const snapshot = await pass;
     assert.equal(snapshot.taskWolf.error.code, 'TW_AUTH');
     assert.equal(snapshot.taskWolf.customersAnswered, 1);
-    assert.ok(!taskWolf.calls.some((c) => c.args.customer.startsWith('late')));
+    assert.ok(!taskWolf.calls.some((c) => c.customer.startsWith('late')));
   });
 
   test('at concurrency 4, a cut-off with nobody left to ask stops nothing', async () => {
@@ -1356,7 +1416,7 @@ describe('enrichWithTaskWolf: a customer Task Wolf has no record of', () => {
     assert.deepEqual(snapshot.taskWolf.error, {
       code: 'TW_ABORTED',
       message:
-        'Task Wolf has no record of any of the 12 customers asked, so the customer argument it is sent is probably wrong. First (gone-0): get_maintenance_status was sent customer "gone-0".',
+        'Task Wolf has no record of any of the 12 customers asked, so the customer argument it is sent is probably wrong. First (gone-0): get_maintenance_status was sent customer "ws-gone-0".',
     });
     assert.deepEqual(snapshot.taskWolf.errors, []);
     assert.equal(snapshot.taskWolf.customersNotInTaskWolf, 12);
@@ -1478,17 +1538,8 @@ describe('enrichWithTaskWolf: a customer Task Wolf has no record of', () => {
   });
 
   test('a pass in which it knows no one names the argument sent; one former customer, or one known, is clean', async () => {
-    const byQawId = {
-      type: 'object',
-      properties: { customer: { type: 'string', description: 'Customer name, slug, or qawId' } },
-      required: ['customer'],
-    };
-    const tools = [
-      { name: 'get_maintenance_status', inputSchema: byQawId },
-      { name: 'find_tasks', inputSchema: byQawId },
-    ];
     const nobody = await enrichWithTaskWolf(platformSnapshot(slugs('gone', 3)), {
-      client: fakeTaskWolf({ tools, failWith: noSuchCustomer }),
+      client: fakeTaskWolf({ failWith: noSuchCustomer }),
       concurrency: 1,
       now: () => NOW,
     });

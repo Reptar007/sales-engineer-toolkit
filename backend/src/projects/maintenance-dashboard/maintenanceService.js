@@ -44,11 +44,12 @@ import {
 } from './taskWolfMcpClient.js';
 import {
   isCustomerNotFound,
+  maintenanceStatusArguments,
+  maintenanceTaskArguments,
   mergeTaskWolf,
   normalizeMaintenanceStatus,
   normalizeTasks,
-  pickCustomerArguments,
-  pickTaskArguments,
+  schemaDrift,
   summarizeTaskWolfCustomer,
 } from './taskWolfShape.js';
 
@@ -209,11 +210,12 @@ export async function mapWithConcurrency(items, limit, worker, onSettled) {
  * `authError`, beside whatever half had already answered, so the caller can
  * stop asking without losing it. `calls` counts the tool calls that went out,
  * so the caller can tell "every call failed" from "one half is missing".
+ * A tool whose schema no longer declares the arguments it is sent is not
+ * asked: that goes in `errors`, naming what the schema does declare.
  * A tool that answers it has no such customer is not a failure: it goes in
- * `notFound`, not in `errors`, with the argument it was sent.
+ * `notFound`, not in `errors`, with the customer value it was sent.
  */
 async function queryTaskWolfCustomer(client, schemas, customer, now) {
-  const workspace = { id: customer.workspaceId, slug: customer.slug, name: customer.name };
   const result = {
     maintenance: null,
     tasks: null,
@@ -227,7 +229,7 @@ async function queryTaskWolfCustomer(client, schemas, customer, now) {
     {
       tool: TASK_WOLF_MAINTENANCE_TOOL,
       schema: schemas.maintenance,
-      pick: pickCustomerArguments,
+      args: maintenanceStatusArguments(customer.workspaceId),
       apply: (raw) => {
         result.maintenance = normalizeMaintenanceStatus(raw, now);
         return result.maintenance;
@@ -236,7 +238,7 @@ async function queryTaskWolfCustomer(client, schemas, customer, now) {
     {
       tool: TASK_WOLF_TASKS_TOOL,
       schema: schemas.tasks,
-      pick: pickTaskArguments,
+      args: maintenanceTaskArguments(customer.workspaceId),
       apply: (raw) => {
         result.tasks = normalizeTasks(raw, now);
         return result.tasks;
@@ -246,19 +248,14 @@ async function queryTaskWolfCustomer(client, schemas, customer, now) {
 
   for (const attempt of attempts) {
     if (attempt.schema === undefined) continue; // the server does not offer this tool
-    const picked = attempt.pick(attempt.schema, workspace);
-    if (!picked) {
-      result.errors.push({
-        tool: attempt.tool,
-        message: `No customer argument recognised in the ${attempt.tool} schema (${Object.keys(
-          attempt.schema?.properties || {},
-        ).join(', ')}).`,
-      });
+    const drift = schemaDrift(attempt.tool, attempt.schema, attempt.args);
+    if (drift) {
+      result.errors.push({ tool: attempt.tool, message: drift });
       continue;
     }
     result.calls += 1;
     try {
-      const normalized = attempt.apply(await client.callTool(attempt.tool, picked.arguments));
+      const normalized = attempt.apply(await client.callTool(attempt.tool, attempt.args));
       if (normalized === null) {
         // Prose, or JSON with no count and no items in it.
         result.errors.push({
@@ -270,11 +267,7 @@ async function queryTaskWolfCustomer(client, schemas, customer, now) {
       // "No customer matched": a former customer, most often. Task Wolf
       // answered; it just has nothing on this one.
       if (isCustomerNotFound(error)) {
-        result.notFound.push({
-          tool: attempt.tool,
-          via: picked.via,
-          value: picked.arguments[picked.via],
-        });
+        result.notFound.push({ tool: attempt.tool, value: attempt.args.customer });
         continue;
       }
       result.errors.push({
@@ -509,12 +502,12 @@ export async function enrichWithTaskWolf(
   // is what a customer argument it no longer takes looks like. One customer on
   // its own may well be a former one.
   if (!meta.error && others === 0 && notInTaskWolf > 1) {
-    const { customer, tool, via, value } = firstNotFound;
+    const { customer, tool, value } = firstNotFound;
     meta.error = {
       code: 'TW_ABORTED',
       message: `Task Wolf has no record of any of the ${notInTaskWolf} customers asked, so the customer argument it is sent is probably wrong. First (${
         customer.name || customer.workspaceId
-      }): ${tool} was sent ${via} ${JSON.stringify(value)}.`,
+      }): ${tool} was sent customer ${JSON.stringify(value)}.`,
     };
   }
   return finish();
@@ -527,9 +520,10 @@ export function defaultTaskWolfClient() {
 
 /**
  * Diagnostics: what Task Wolf answers for one customer, live and uncached --
- * the schema each tool declares, the arguments we derived from it, the raw
- * answer and the normalized reading side by side. This is how to check the
- * field mapping in `taskWolfShape.js` against the real server.
+ * the schema each tool declares, the arguments it is sent, the raw answer and
+ * the normalized reading side by side. This is how to check the field mapping
+ * in `taskWolfShape.js` against the real server. A tool whose schema no
+ * longer declares those arguments is not asked, as in the pass.
  */
 export async function probeTaskWolfCustomer(
   workspace,
@@ -541,27 +535,33 @@ export async function probeTaskWolfCustomer(
   const tools = await client.listTools();
   const out = { workspace, serverInfo: client.getServerInfo?.() || null, tools: {} };
   const plan = [
-    ['maintenance', TASK_WOLF_MAINTENANCE_TOOL, pickCustomerArguments, normalizeMaintenanceStatus],
-    ['tasks', TASK_WOLF_TASKS_TOOL, pickTaskArguments, normalizeTasks],
+    [
+      'maintenance',
+      TASK_WOLF_MAINTENANCE_TOOL,
+      maintenanceStatusArguments,
+      normalizeMaintenanceStatus,
+    ],
+    ['tasks', TASK_WOLF_TASKS_TOOL, maintenanceTaskArguments, normalizeTasks],
   ];
-  for (const [key, name, pick, normalize] of plan) {
+  for (const [key, name, argumentsFor, normalize] of plan) {
     const tool = findToolIn(tools, name);
     if (!tool) {
       out.tools[key] = { tool: name, offered: false };
       continue;
     }
-    const picked = pick(tool.inputSchema || null, workspace);
+    const args = argumentsFor(workspace.id);
     const entry = {
       tool: name,
       offered: true,
       inputSchema: tool.inputSchema || null,
-      arguments: picked?.arguments || null,
+      arguments: args,
     };
-    if (!picked) {
-      entry.error = 'No customer argument recognised in the schema.';
+    const drift = schemaDrift(name, tool.inputSchema, args);
+    if (drift) {
+      entry.error = drift;
     } else {
       try {
-        entry.raw = await client.callTool(name, picked.arguments);
+        entry.raw = await client.callTool(name, args);
         entry.normalized = normalize(entry.raw, now());
       } catch (error) {
         if (error.code === 'TW_AUTH') throw error;
