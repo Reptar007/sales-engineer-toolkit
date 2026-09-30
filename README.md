@@ -223,9 +223,10 @@ The backend provides a REST API for ratio estimation:
 
 ### Maintenance Dashboard (Bone Pile)
 
-Read-only view of every customer's open QA Wolf maintenance reports, ranked by
-age and by how many tests each customer has parked. Backed by one background
-scan of every workspace on QA Wolf's public API, using `QAW_BEARER_TOKEN`: one
+A view of every customer's open QA Wolf maintenance reports, ranked by age and by how many tests
+each customer has parked. The page changes nothing in QA Wolf or Task Wolf; claims (see below) are
+the one thing it writes, to this app's own database. Backed by one background scan of every
+workspace on QA Wolf's public API, using `QAW_BEARER_TOKEN`: one
 `GET /api/v0/identity/organizations` for the workspace list, then the tRPC procedure
 `public.issue.find` per workspace. The key must be a QA Wolf admin's or employee's, since
 only that reach lists every customer's workspace. Cached in memory for
@@ -375,6 +376,55 @@ while the first scan runs, and on the page that says a scan failed. Once Task Wo
 the token (`TW_AUTH`), the page gives that notice alone, telling whoever runs the server the
 same and naming both settings, `TASK_WOLF_MCP_TOKEN_EXPIRES_ON` whether or not it is set, with
 no expiry warning beside it.
+
+**Claims.** An SE claims a customer so the team can see it is taken. Several SEs may claim the same
+customer, each with their own claim and an optional one-line note of up to 140 characters
+("Rebuilding checkout flows"). A claim lapses `MAINTENANCE_DASHBOARD_CLAIM_DAYS` (default 14, at
+most 90) days after it was made or last renewed; renewing restarts the count. Changing the setting
+affects only new claims and renewals, since each claim stores when it lapses. Claims are stored in
+the `maintenance_claims` table, not in the snapshot, so they survive restarts and deploys; lapsed
+ones stop counting on every read and are deleted on the next write, so nothing runs on a schedule.
+Only a customer in the current snapshot can be claimed. A workspace whose reports the scan could not
+read is missing from the snapshot too, though its backlog may not have cleared, so a claim already
+on it can still be renewed, and a new one waits for a scan that reads it. Releasing always works,
+after a restart and for a customer that has since left the backlog. The server starts no scan when
+it restarts, so until someone asks for the backlog nothing can be claimed; a page left open that is
+refused for this asks for the backlog itself, which starts the scan, and you claim once it has
+finished. Any signed-in user can claim. A user releases only their own claim, and an admin anyone's.
+Names show as first name plus last initial ("Robin V."), never an email. A deactivated user's claims
+are hidden, and a deleted user's are removed with them. The page asks for claims every minute while
+the tab is visible and at once when you come back to it, and never rescans for them. It shows them
+on the culprits, in the report table and in the focused customer's card, where they are claimed,
+renewed and released, and it reminds you of your own claims that are about to lapse, whose workspace
+this scan could not read, or whose customer has left the snapshot. The Claims filter (all /
+unclaimed only / mine only) narrows the culprits and the table alike, and never hides the customer
+in focus, so claiming it under "unclaimed only" or releasing it under "mine only" leaves it on
+screen. Claims are not in the CSV export or the Slack digest.
+
+- **GET** `/api/maintenance-dashboard/claims` – every live claim, on every customer, as the caller
+  sees it: `{ claims, claimDays, noteMaxLength }`, each claim
+  `{ workspaceId, workspaceName, userId, claimer, note, claimedAt, expiresAt, mine, canRelease }`,
+  oldest first; `mine` and `canRelease` are worked out for the caller. Claims on customers no
+  longer in the snapshot are listed too. It reads the database and never starts a scan.
+- **PUT** `/api/maintenance-dashboard/claims/:workspaceId` – claim the customer, or renew the
+  caller's own claim on it, for `claimDays` from now. Body `{ note? }`: left out, the note stays as
+  it is (none on a new claim); `null` or blank clears it; text replaces it, put on one line. Answers
+  the list with the caller's `claim` and `renewed`. 400 `CLAIM_NOTE_INVALID` for a note over 140
+  characters or not text; 409 `CLAIM_NO_SNAPSHOT` while the server has no snapshot (after a
+  restart, until a GET of `/api/maintenance-dashboard` has started a scan and it has published
+  one; this route starts none); 404 `CLAIM_UNKNOWN_CUSTOMER` for a workspace not in the snapshot;
+  409 `CLAIM_CUSTOMER_UNREAD` for a new claim on a workspace whose reports the scan could not read
+  (a claim already on it is renewed).
+- **DELETE** `/api/maintenance-dashboard/claims/:workspaceId/:userId` – release a claim: the
+  caller's own, or anyone's for an admin (403 `CLAIM_NOT_YOURS` otherwise). Releasing a claim that
+  is not there (released or lapsed) answers 200 with `released: false`.
+
+A database failure on any of the three answers 500 `CLAIMS_UNAVAILABLE` with a fixed message; the
+details are logged, not sent. Deploying: the release phase (`prisma migrate deploy`) creates the
+table. Locally, run `npx prisma generate` and `npx prisma migrate deploy` in `backend/`, which adds
+the table to `backend/prisma/dev.db` (the SQLite schema's one database). That file is tracked, so
+leave the change out of your commits; `git checkout -- backend/prisma/dev.db`, with the backend
+stopped, puts it back as committed, without the table.
 
 ### Environment Variables
 
