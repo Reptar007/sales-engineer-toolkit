@@ -1057,7 +1057,7 @@ function MaintenanceDashboard() {
         <header className="bone-header">
           <div>
             <div className="bone-overline">BONE PILE</div>
-            <h1>Maintenance backlog</h1>
+            <h1>Maintenance Backlog</h1>
             <p>First scan of every workspace. The page fills in when it finishes.</p>
           </div>
         </header>
@@ -1117,7 +1117,7 @@ function MaintenanceDashboard() {
       <header className="bone-header">
         <div>
           <div className="bone-overline">BONE PILE</div>
-          <h1>Maintenance backlog</h1>
+          <h1>Maintenance Backlog</h1>
           <p>
             Every open maintenance report across QA Wolf, ranked by how long it has been sitting and
             by how many tests each customer has parked, with Task Wolf saying which bones are
