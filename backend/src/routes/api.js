@@ -1,6 +1,7 @@
 import express from 'express';
 import ratioEstimatorRoutes from '../projects/ratio-estimator/routes/index.js';
 import flowDocRoutes from '../projects/flow-doc-generator/routes/index.js';
+import maintenanceDashboardRoutes from '../projects/maintenance-dashboard/routes/index.js';
 import healthRoutes from './health.js';
 import authRoutes from './auth.js';
 import salesforceRoutes from '../projects/salesforce/index.js';
@@ -31,6 +32,7 @@ router.use('/opps', oppsRoutes);
 // Mount project-specific routes
 router.use('/ratio-estimator', ratioEstimatorRoutes);
 router.use('/flow-doc', flowDocRoutes);
+router.use('/maintenance-dashboard', maintenanceDashboardRoutes);
 router.use('/health', healthRoutes);
 router.use('/salesforce', salesforceRoutes);
 
@@ -46,6 +48,7 @@ router.get('/', (req, res) => {
       salesforce: '/api/salesforce',
       'ratio-estimator': '/api/ratio-estimator',
       'flow-doc': '/api/flow-doc',
+      'maintenance-dashboard': '/api/maintenance-dashboard',
       health: '/api/health',
       dashboard: '/api/dashboard',
       integrations: '/api/integrations',

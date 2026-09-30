@@ -35,7 +35,13 @@ async function apiRequest(endpoint, options = {}) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      const error = new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      // Routes that tag their failures send a machine-readable `code` too, and
+      // some say more beside it, so the whole answer rides along as `body`.
+      error.status = response.status;
+      error.code = errorData.code || null;
+      error.body = errorData;
+      throw error;
     }
 
     return await response.json();
@@ -385,6 +391,39 @@ export async function setCarrAttribution(opportunityId, salesEngineerId, oppName
     method: 'PUT',
     body: JSON.stringify({ salesEngineerId: salesEngineerId || null, oppName }),
   });
+}
+
+/**
+ * The maintenance backlog across every QA Wolf workspace the server's key can
+ * see. Answers `{ status: 'ready', snapshot, builtAt, stale, refreshing,
+ * refreshError, rescanAvailableAt }` from the server cache, or `{ status:
+ * 'building', progress, refreshError }` while the first scan runs -- poll
+ * until it is ready. `refreshError` is the last failed scan until one works,
+ * retries included. Both carry `taskWolfToken`, `{ expiresOn, daysLeft,
+ * state }` or null: where the server's Task Wolf token stands against the
+ * expiry date set for it. A failed scan with no snapshot to answer throws,
+ * with `code`, and the error's `body` says when it failed, when a rescan may
+ * start and where the token stands (`failedAt`, `rescanAvailableAt`,
+ * `taskWolfToken`).
+ *
+ * @param {{ refresh?: boolean }} [options] `refresh` starts a rescan in the
+ *   background, once `rescanAvailableAt` has passed; the stale snapshot keeps
+ *   answering until it lands. Refused, it is a plain GET, which rebuilds a
+ *   snapshot past the cache window.
+ */
+export async function fetchMaintenanceDashboard({ refresh = false } = {}) {
+  return apiRequest(`/maintenance-dashboard${refresh ? '?refresh=1' : ''}`);
+}
+
+/**
+ * Where the maintenance backlog stands, without the snapshot: `{ status,
+ * builtAt, stale, refreshing, progress, refreshError, rescanAvailableAt,
+ * taskWolfToken, error }`, always HTTP 200. It never starts a scan, so it is
+ * what the page polls; the full payload is worth fetching only when `builtAt`
+ * or `refreshing` says it has changed.
+ */
+export async function fetchMaintenanceStatus() {
+  return apiRequest('/maintenance-dashboard/status');
 }
 
 /** Dashboard: today’s calendar events (Google Calendar when configured). */

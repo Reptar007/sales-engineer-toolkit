@@ -221,6 +221,161 @@ The backend provides a REST API for ratio estimation:
 - **POST** `/api/ratio-estimator/estimate/postprocess` – Post-processing
 - **POST** `/api/ratio-estimator/estimate/fix-rejections` – Fix rejections (planned)
 
+### Maintenance Dashboard (Bone Pile)
+
+Read-only view of every customer's open QA Wolf maintenance reports, ranked by
+age and by how many tests each customer has parked. Backed by one background
+scan of every workspace on QA Wolf's public API, using `QAW_BEARER_TOKEN`: one
+`GET /api/v0/identity/organizations` for the workspace list, then the tRPC procedure
+`public.issue.find` per workspace. The key must be a QA Wolf admin's or employee's, since
+only that reach lists every customer's workspace. Cached in memory for
+`MAINTENANCE_DASHBOARD_CACHE_TTL_MINUTES` (default 6 h).
+
+- **GET** `/api/maintenance-dashboard` – `{ status: 'ready', snapshot, builtAt, stale, refreshing, refreshError, rescanAvailableAt }`
+  from the cache, or `{ status: 'building', progress, refreshError }` while the first scan runs
+  (poll until ready). `?refresh=1` asks for a rescan in the background (see rescan limits below). A scan that fails outright
+  is not restarted by the next GET: with no snapshot the route answers
+  `{ status: 'error', error, code, failedAt, rescanAvailableAt, taskWolfToken }` (500 `QAW_CONFIG` for a missing key, 401 `QAW_AUTH` for a
+  rejected one, 502 when QA Wolf is unreachable or answers 403, `QAW_FORBIDDEN`); with one,
+  the stale snapshot keeps answering and `refreshError` (`{ code, message, failedAt }`) says
+  why the rebuild failed. A plain GET retries after
+  `MAINTENANCE_DASHBOARD_RETRY_COOLDOWN_SECONDS` (default 60), and so does `?refresh=1`; a
+  rescan asked for before then is refused, and `rescanAvailableAt` says when one may start, with
+  or without a snapshot.
+  While the retry runs, the failure stays in `refreshError` (beside `building` when there is no
+  snapshot yet) and the page says a retry is running; a retry that fails replaces it, and it
+  clears once a scan publishes a snapshot.
+  One workspace failing, a 403 included, is tallied in `snapshot.errors` and the scan goes on.
+  A scan in which every workspace failed, or the first 20 to answer all did, or whose workspace
+  list has no workspace carrying an id, fails outright (502) and leaves the last
+  snapshot in place. Every answer, ready, building or error, carries `taskWolfToken` (see the
+  Task Wolf token below).
+- **GET** `/api/maintenance-dashboard/status` – what the page polls while a scan runs:
+  `{ status, builtAt, stale, refreshing, progress, refreshError, rescanAvailableAt, taskWolfToken, error }`, never the snapshot.
+  Always 200, a failed scan included (`error` is `{ code, message, failedAt }`), and it never
+  starts a scan. Fetch the full payload when `builtAt` moves or `refreshing` turns false.
+- **POST** `/api/maintenance-dashboard/refresh` – start a rescan, or join the one running (202).
+  Asked for too soon after the last scan it answers 429 `RESCAN_TOO_SOON` with `Retry-After`.
+
+Rescan limits: each full scan is about 2,000 QA Wolf calls, so a forced rescan (the Rescan
+button, `?refresh=1`, `POST /refresh`) starts only once
+`MAINTENANCE_DASHBOARD_MIN_RESCAN_MINUTES` (default 15) have passed since the last snapshot and,
+while a failure stands, the retry cool-down since it. Only one scan runs per process at a time; a
+request made during one joins it. `rescanAvailableAt` in `GET /` and `/status` says when the
+next forced rescan may start (null when it may start now), a failed scan's answer included, and
+the page disables Rescan until then, beside a snapshot or on the page that says the scan failed.
+A `?refresh=1` that is refused is still a GET: a snapshot past the cache window is rebuilt as a
+plain GET would rebuild it, which happens when `MAINTENANCE_DASHBOARD_CACHE_TTL_MINUTES` is
+shorter than the minimum gap.
+
+- **GET** `/api/maintenance-dashboard/taskwolf` (admin only) – is Task Wolf connected, and
+  which tools (with input schemas) its MCP offers. `?refresh=1` re-reads the tool list.
+  `tokenExpiry` (`{ expiresOn, daysLeft, state, message }`, beside a failure too) says where the
+  token stands against `TASK_WOLF_MCP_TOKEN_EXPIRES_ON`, and `message` says when that setting is
+  missing or not a date.
+- **GET** `/api/maintenance-dashboard/taskwolf/customer/:workspaceId` (admin only) – live probe
+  for one customer: each tool's input schema, the arguments it is sent, the raw answer and the
+  normalized reading side by side.
+
+`MAINTENANCE_DASHBOARD_EXCLUDED_SLUGS` (default `figma`, comma-separated, matched by slug only)
+drops workspaces from the backlog entirely: they are not scanned. A workspace with no slug is
+never dropped, whatever its name. Set it to `none` to leave nothing out. Demo/sandbox
+workspaces are flagged and hidden by a toggle on the page.
+
+A workspace's open reports are read 100 at a time, for at most 50 pages (5,000 reports). When
+QA Wolf still hands back a cursor after the 50th, the scan asks for one report behind it. If
+none comes back, the 5,000 are the whole list. If one does, the workspace is cut short. If that
+question fails (other than on a rejected key, which fails the scan), the scan cannot tell, and
+treats the workspace as cut short too: QA Wolf may have no more reports for it, but what was read
+is a lower bound either way, and the page and the Slack digest below still say it has more. A
+workspace cut short is not a failure: what was read counts, its customer row carries
+`reportsTruncated: true`, and it is listed in `snapshot.truncatedWorkspaces`
+(`{ workspaceId, workspaceName, reportsRead }`) and counted in
+`snapshot.totals.workspacesTruncated`. The page warns that its other reports are not listed, so
+its counts and its oldest age are lower bounds, and its row among the culprits marks each of
+them "+" (flows, reports and oldest age). The Slack digest says the same, and marks the same,
+wherever that customer has a report on screen.
+
+**Task Wolf.** With `TASK_WOLF_MCP_TOKEN` set (a `twmcp_…` token from
+[Task Wolf → Settings → Connect Claude](https://www.task-wolf.com/settings/connect-claude),
+90-day life; see the Task Wolf token below for whose it should be), the scan makes a second
+pass over every customer with backlog through the
+[Task Wolf MCP](https://www.task-wolf.com/docs/users/automation/mcp/user-guide.html):
+`get_maintenance_status` (open maintenance with real blocked status) and `find_tasks` (open
+maintenance tasks and their QAE). Task Wolf answers per open maintenance report, each with its
+blocked flag, its blocker, the QAEs on its tasks and the flows it parks, and each is matched to
+its QA Wolf report by issue id (then by report number). Each report then reads **blocked**,
+**actionable**, or unknown, with the blocker and the QAEs already on it, and the page can filter
+to actionable bones only. The arguments are fixed: `get_maintenance_status` is sent
+`{ customer: <workspace id> }` and `find_tasks` is sent
+`{ customer: <workspace id>, types: ["testMaintenance"] }`. The workspace id is Task Wolf's
+`qawId`, which its `customer` argument takes. Each tool's published schema is checked once per
+pass. A tool whose schema no longer declares `customer` (or, for `find_tasks`, `types`) is
+treated as one the server does not offer: it is asked about no customer,
+`snapshot.taskWolf.tools` marks it `false`, and `snapshot.taskWolf.schemaDrift`
+(`[{ tool, message }]`) names it once, with the properties its schema does declare; the page
+says what that leaves unknown. With neither tool left to ask, the pass fails under `TW_TOOLS`.
+The probe endpoint checks each schema the same way for the one customer it asks. A
+customer Task Wolf has no record of ("No customer matched", a former customer most often) is
+counted in `snapshot.taskWolf.customersNotInTaskWolf`, not treated as a failure, and its reports
+stay unknown; when that is most of the customers asked, the page warns instead of hinting, since
+that many former customers is unlikely. The answers are read by tolerant key lookup
+(`backend/src/projects/maintenance-dashboard/taskWolfShape.js`); if the Task Wolf column looks
+wrong, hit the probe endpoint above and compare `raw` with `normalized`. Without a token, or
+with an expired one, the platform data still stands and the page says what is missing.
+
+What Task Wolf did not say stays unknown: a `null` in the snapshot is never a zero, and a report
+Task Wolf does not list reads `taskWolf.blocked: null`, whatever the customer's counts say. (An
+answer that lists flows rather than reports is read flow by flow: there a report whose flows it
+did not list is settled only by the customer's own counts, when they are exact rather than floors,
+about more than zero flows, and say none of the customer's flows are blocked, or none are free,
+and a report that parks no flows reads `null` too.) An answer with no count and no items in it puts the
+customer in `snapshot.taskWolf.errors` instead of giving a verdict.
+When a list came back cut short (flagged `truncated` / `hasMore`, or shorter than the total
+stated beside it) and Task Wolf stated no blocked or actionable count, the customer's
+`taskWolf.partial` is `true` and its `blockedFlows` / `actionableFlows` are floors ("at least",
+a floor of zero being `null`); `snapshot.taskWolf.customersPartial` counts those customers.
+The customer's `taskWolf.truncated` is `true` when those counts are floors or Task Wolf flagged a
+list as cut short (a task list shorter than its stated total counts as flagged), so it can be
+`true` beside exact counts. A report's `taskWolf.blockedFlowIds` / `freeFlowIds` name which of
+its own flows Task Wolf listed as blocked / free (`null`, like its counts, when only `find_tasks`
+answered). A report's `taskWolf.assignees`
+are the QAEs on that report only (on its own tasks, or its own flows in an answer by flow); the
+QAEs with an open maintenance task for the customer,
+which may be about another report, are in `taskWolf.customerAssignees`.
+
+The pass never holds the backlog back. On the first scan the platform snapshot is published
+before the pass starts, with `snapshot.taskWolf.pending: true`, and replaced when the pass
+ends; a rescan keeps the snapshot already there until the new one is complete. One customer
+failing, a 403 included, is listed in `snapshot.taskWolf.errors` and the pass goes on (only a
+401 stops it on sight, under `TW_AUTH`, keeping every answer already given). When Task Wolf
+stops answering, the pass stops too, keeps what it
+gathered and says so in `snapshot.taskWolf.error` (`TW_ABORTED`): after
+`TASK_WOLF_MAX_CONSECUTIVE_FAILURES` customers in a row (default 8) got nothing but network errors,
+timeouts, unreadable answers or error statuses other than 401 (5xx, 429 and 403 included), or
+once it has run for `TASK_WOLF_PASS_BUDGET_MINUTES` (default 15). A pass that
+ran to its end without an answer for a single customer, those Task Wolf has no record of aside,
+is reported under the same code, and so is one in which Task Wolf had no record of any of the
+customers asked (more than one): that is a customer argument it no longer takes, and the error
+names the first customer and the argument it was sent.
+
+**The Task Wolf token.** Task Wolf answers the server as whoever owns `TASK_WOLF_MCP_TOKEN`, so
+the token's owner decides what the Task Wolf column can see. Production should run on a team or
+service token, not one person's; until one exists it runs on a personal token. Tokens last 90
+days from minting. Set `TASK_WOLF_MCP_TOKEN_EXPIRES_ON` to the day the token expires, as
+`YYYY-MM-DD`: 90 days after it was minted (a token minted on 2026-01-01 expires on 2026-04-01).
+From 14 days before that date the page warns when the token expires and in how many days, and
+tells whoever runs the server to mint a new one and update both settings; from the day after,
+it says the token has expired. The date is a calendar day counted in UTC, and the token counts
+as working through it. `GET /` (ready, building or error) and `/status` carry `taskWolfToken`:
+`{ expiresOn, daysLeft, state }`, with `state` one of `ok`, `expiring`, `expired` or `invalid`,
+or null when no date or no token is set. A value that is not a real `YYYY-MM-DD` date is
+`invalid`: the page ignores it and `GET /taskwolf` reports it. The page warns beside a snapshot,
+while the first scan runs, and on the page that says a scan failed. Once Task Wolf has rejected
+the token (`TW_AUTH`), the page gives that notice alone, telling whoever runs the server the
+same and naming both settings, `TASK_WOLF_MCP_TOKEN_EXPIRES_ON` whether or not it is set, with
+no expiry warning beside it.
+
 ### Environment Variables
 
 The backend looks for environment variables in this order:
@@ -283,6 +438,9 @@ git push heroku main
 - Backend uses Express.js with CORS enabled
 - All API routes are prefixed (e.g., `/estimate/initial`)
 - Non-API routes serve the React app
+- The Bone Pile's Task Wolf column sees what the owner of `TASK_WOLF_MCP_TOKEN` can see, so set a
+  team or service token there, not one person's, and set `TASK_WOLF_MCP_TOKEN_EXPIRES_ON` each
+  time the token is replaced (tokens last 90 days; see the Task Wolf token above)
 
 ## 🧹 Pre-Commit Automation
 

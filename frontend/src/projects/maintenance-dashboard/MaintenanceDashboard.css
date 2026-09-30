@@ -1,0 +1,758 @@
+/*
+ * Bone Pile (maintenance backlog) — dark navy + coral, matching Spoils and
+ * the Salesforce pages: translucent surfaces over the app's midnight-navy
+ * canvas, white text with rgba grey for supporting copy, coral reserved for
+ * the brand accent, the one primary action and the single-series bars.
+ *
+ * Colour carries meaning in exactly one place: the age of a report is a
+ * four-step tint of one hue (coral), lightest for fresh, deepest for
+ * 180 days and up. The day count is always printed beside it, so nothing
+ * depends on reading the tint. Everything else stays neutral.
+ *
+ * Every selector is scoped under `.bone-pile`.
+ */
+
+.bone-pile {
+  width: 100%;
+  color: var(--white);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* =========================
+ * Header, status, actions
+ * ========================= */
+
+.bone-pile .bone-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bone-pile .bone-overline {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--coral);
+  margin-bottom: 0.5rem;
+}
+
+/* App.less gives bare h1 a gradient fill; state the colour so this page's
+   title matches the other analytics pages instead of inheriting it. */
+.bone-pile .bone-header h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin: 0 0 0.4rem 0;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--white);
+  background: none;
+  -webkit-text-fill-color: var(--white);
+}
+
+.bone-pile .bone-header p {
+  margin: 0;
+  max-width: 64ch;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.95rem;
+}
+
+.bone-pile .bone-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.bone-pile .bone-btn {
+  flex-shrink: 0;
+  background: var(--coral);
+  color: #12131a;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.15rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+
+.bone-pile .bone-btn:hover {
+  filter: brightness(1.08);
+}
+
+.bone-pile .bone-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+  filter: none;
+}
+
+.bone-pile .bone-btn--ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--white);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.bone-pile .bone-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.bone-pile .bone-status-live {
+  color: var(--coral);
+}
+
+.bone-pile .bone-warning {
+  border: 1px solid rgba(255, 176, 32, 0.4);
+  background: rgba(255, 176, 32, 0.1);
+  color: #ffd79a;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  font-size: 0.9rem;
+  /* An upstream message can carry a URL; break it rather than the page. */
+  overflow-wrap: anywhere;
+}
+
+.bone-pile .bone-warning a,
+.bone-pile .bone-hint a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.bone-pile .bone-warning code,
+.bone-pile .bone-hint code {
+  font-size: 0.85em;
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Quiet, not alarming: Task Wolf is optional, the platform data still stands. */
+.bone-pile .bone-hint {
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.62);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+}
+
+/* =========================
+ * Scan progress
+ * ========================= */
+
+.bone-pile .bone-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bone-pile .bone-progress-track {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.bone-pile .bone-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--coral);
+  transition: width 0.4s ease;
+}
+
+.bone-pile .bone-progress-text {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* =========================
+ * Stat tiles
+ * ========================= */
+
+.bone-pile .bone-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.9rem;
+}
+
+.bone-pile .bone-tile {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+}
+
+.bone-pile .bone-tile-label {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 0.35rem;
+}
+
+.bone-pile .bone-tile-value {
+  font-size: 1.85rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.bone-pile .bone-tile-sub {
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* =========================
+ * Toolbar
+ * ========================= */
+
+.bone-pile .bone-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.bone-pile .bone-search {
+  flex: 1 1 260px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 0.55rem 0.8rem;
+  color: var(--white);
+  font-size: 0.9rem;
+}
+
+.bone-pile .bone-search::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.bone-pile .bone-checkbox,
+.bone-pile .bone-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.bone-pile .bone-select select {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  color: var(--white);
+  font-size: 0.85rem;
+}
+
+.bone-pile .bone-select select option {
+  color: #12131a;
+}
+
+.bone-pile .bone-chip-clear {
+  background: rgba(255, 107, 74, 0.14);
+  border: 1px solid rgba(255, 107, 74, 0.5);
+  color: var(--white);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  /* The focused customer's name, as its customer wrote it. */
+  overflow-wrap: anywhere;
+}
+
+/* =========================
+ * Panels
+ * ========================= */
+
+.bone-pile .bone-columns {
+  display: grid;
+  grid-template-columns: minmax(280px, 2fr) minmax(0, 5fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* Beside the sidebar and the culprits, the table only has room for its eight
+   columns on a ~1900px screen. Below that the culprits stack on top and the
+   table takes the full width. */
+@media (max-width: 1800px) {
+  .bone-pile .bone-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bone-pile .bone-panel {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 1.15rem 1.25rem;
+  min-width: 0;
+}
+
+.bone-pile .bone-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.bone-pile .bone-panel-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* The table's heading repeats the focused customer's name. */
+.bone-pile .bone-panel-head span {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.55);
+  overflow-wrap: anywhere;
+}
+
+.bone-pile .bone-empty {
+  margin: 0;
+  padding: 1rem 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.bone-pile .bone-link {
+  margin-top: 0.75rem;
+  background: none;
+  border: none;
+  color: var(--coral);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.bone-pile .bone-tag {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  vertical-align: middle;
+}
+
+/* =========================
+ * Culprit bars — one series, brand hue, value at the tip
+ * ========================= */
+
+.bone-pile .bone-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* Stacked, the culprits run across the page in columns, so the list stays a
+   short strip above the table instead of a screen and a half of bars. */
+@media (max-width: 1800px) {
+  .bone-pile .bone-bars {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    column-gap: 0.85rem;
+  }
+}
+
+.bone-pile .bone-bar-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.2rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem;
+  color: var(--white);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.bone-pile .bone-bar-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.bone-pile .bone-bar-row--active {
+  border-color: rgba(255, 107, 74, 0.6);
+  background: rgba(255, 107, 74, 0.08);
+}
+
+/* The name gives way to the demo tag: a long name is cut short (its title
+   attribute has all of it), the tag beside it never is. */
+.bone-pile .bone-bar-head {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.bone-pile .bone-bar-head .bone-tag {
+  flex: 0 0 auto;
+}
+
+.bone-pile .bone-bar-name {
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The bars are scaled to the track less this padding, which is the room the
+   value needs past the tip of the longest bar (five digits and its margin),
+   so the value of a full-width bar still lands inside the row. */
+.bone-pile .bone-bar-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 18px;
+  padding-right: 3.5rem;
+}
+
+.bone-pile .bone-bar-fill {
+  display: block;
+  height: 14px;
+  background: var(--coral);
+  border-radius: 0 4px 4px 0;
+  flex: 0 0 auto;
+}
+
+.bone-pile .bone-bar-value {
+  flex: 0 0 auto;
+  margin-left: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Names the QAEs as Task Wolf does, which may be one long token. */
+.bone-pile .bone-bar-meta {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  overflow-wrap: anywhere;
+}
+
+/* =========================
+ * Age legend + table
+ * ========================= */
+
+.bone-pile .bone-legend {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.bone-pile .bone-legend-item {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border-left: 3px solid transparent;
+}
+
+.bone-pile .bone-table-wrap {
+  overflow-x: auto;
+}
+
+.bone-pile .bone-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.bone-pile .bone-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+}
+
+.bone-pile .bone-table td {
+  padding: 0.6rem 0.65rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: top;
+}
+
+.bone-pile .bone-table tbody tr {
+  border-left: 3px solid transparent;
+}
+
+.bone-pile .bone-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.bone-pile .bone-age-days {
+  display: block;
+  font-weight: 700;
+}
+
+.bone-pile .bone-age-words {
+  display: block;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Sequential tint: one hue, four steps, deeper = older. */
+.bone-pile .bone-age--fresh {
+  border-left-color: rgba(255, 107, 74, 0.15);
+}
+
+.bone-pile .bone-age--aging {
+  border-left-color: rgba(255, 107, 74, 0.4);
+  background: rgba(255, 107, 74, 0.03);
+}
+
+.bone-pile .bone-age--old {
+  border-left-color: rgba(255, 107, 74, 0.7);
+  background: rgba(255, 107, 74, 0.06);
+}
+
+.bone-pile .bone-age--ancient {
+  border-left-color: rgba(255, 107, 74, 1);
+  background: rgba(255, 107, 74, 0.1);
+}
+
+.bone-pile .bone-customer {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--white);
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.bone-pile .bone-customer:hover {
+  text-decoration: underline;
+}
+
+/* Names, descriptions and blocker titles are written by customers and may be
+   one long unbroken token (a URL). `anywhere`, not `break-word`: only
+   `anywhere` lowers the min-content width the table lays its columns out by,
+   so only it keeps the columns to the right of the report on screen. */
+.bone-pile .bone-customer,
+.bone-pile .bone-report,
+.bone-pile .bone-description,
+.bone-pile .bone-tw-qae,
+.bone-pile .bone-tw-blocker {
+  overflow-wrap: anywhere;
+}
+
+.bone-pile .bone-report {
+  color: var(--white);
+  text-decoration: none;
+}
+
+.bone-pile a.bone-report:hover {
+  color: var(--coral);
+}
+
+.bone-pile .bone-description {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 60ch;
+}
+
+/* On the stacked layout a long description is held to two lines so one
+   report can't take a quarter of the screen; the full text is its tooltip. */
+@media (max-width: 1800px) {
+  .bone-pile .bone-description {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+}
+
+.bone-pile .bone-healed {
+  display: block;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.bone-pile .bone-priority {
+  text-transform: capitalize;
+}
+
+/* Under 1400px eight columns no longer fit, so the table drops to six:
+   Opened goes (Age already says it, and keeps the date as its tooltip),
+   Priority folds in under Status, and the cells give up a little side
+   padding. All of it goes to the Report column. */
+.bone-pile .bone-priority-folded {
+  display: none;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+}
+
+@media (max-width: 1400px) {
+  .bone-pile .bone-col-priority,
+  .bone-pile .bone-col-opened {
+    display: none;
+  }
+
+  .bone-pile .bone-priority-folded {
+    display: block;
+  }
+
+  .bone-pile .bone-table th,
+  .bone-pile .bone-table td {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+/* =========================
+ * Task Wolf column — a status, so it gets the status colours (amber for
+ * blocked, green for free) and always a word beside the glyph.
+ * ========================= */
+
+.bone-pile .bone-tw {
+  white-space: nowrap;
+}
+
+.bone-pile .bone-tw-badge {
+  display: inline-block;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.bone-pile .bone-tw-badge--blocked {
+  color: #ffd79a;
+  border-color: rgba(255, 176, 32, 0.45);
+  background: rgba(255, 176, 32, 0.12);
+}
+
+.bone-pile .bone-tw-badge--actionable {
+  color: #b7f0c8;
+  border-color: rgba(76, 217, 123, 0.4);
+  background: rgba(76, 217, 123, 0.1);
+}
+
+.bone-pile .bone-tw-badge--unknown {
+  color: rgba(255, 255, 255, 0.35);
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+}
+
+/* Task Wolf has not answered yet: no verdict, not even "unknown". Muted as
+   far as a customer-level QAE and no further, so it reads on a tinted row. */
+.bone-pile .bone-tw-asking {
+  font-size: 0.75rem;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.bone-pile .bone-tw-qae,
+.bone-pile .bone-tw-blocker {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.55);
+  max-width: 22ch;
+  white-space: normal;
+}
+
+/* A QAE who has a task for the customer, not for this report: a step quieter
+   than one who is on it, and no further, so it still reads on a tinted row.
+   The words say which it is; the colour only backs them up. */
+.bone-pile .bone-tw-qae--customer {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.bone-pile .bone-tw-blocker {
+  font-style: italic;
+}
+
+/* =========================
+ * Loading / error
+ * ========================= */
+
+.bone-pile .bone-loading,
+.bone-pile .bone-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 4rem 1rem;
+  text-align: center;
+}
+
+.bone-pile .bone-loading h2,
+.bone-pile .bone-error h2 {
+  margin: 0;
+  color: var(--white);
+  background: none;
+  -webkit-text-fill-color: var(--white);
+}
+
+.bone-pile .bone-loading p,
+.bone-pile .bone-error p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* A failed scan quotes the upstream body, which may be JSON with nowhere to
+   break; `anywhere` keeps it inside the measure, as in .bone-warning. */
+.bone-pile .bone-error p {
+  max-width: 34rem;
+  overflow-wrap: anywhere;
+}
+
+.bone-pile .bone-error .bone-error-hint {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.bone-pile .bone-spinner {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--coral);
+  animation: bone-spin 0.9s linear infinite;
+}
+
+@keyframes bone-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

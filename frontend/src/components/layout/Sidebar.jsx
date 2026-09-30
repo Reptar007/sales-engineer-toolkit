@@ -19,6 +19,7 @@ import {
   GoChevronDown,
   GoBookmark,
   GoPeople,
+  GoTools,
 } from 'react-icons/go';
 
 /**
@@ -28,11 +29,13 @@ import {
 // sidebar without touching the project registry (which other surfaces consume).
 const PROJECT_LABEL_OVERRIDES = {
   'flow-doc-generator': 'Howl Sheet',
+  'maintenance-dashboard': 'Bone Pile',
 };
 
 const PROJECT_ICON_OVERRIDES = {
   'flow-doc-generator': <GoFile />,
   'salesforce-metrics': <GoGoal />,
+  'maintenance-dashboard': <GoTools />,
 };
 
 // Projects intentionally hidden from the sidebar even though they're still
