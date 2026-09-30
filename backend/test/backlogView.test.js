@@ -13,10 +13,12 @@ import {
   customerReportsLabel,
   customersWithVisibleReports,
   describeScanError,
+  describeTaskWolfTokenExpiry,
   describeTruncatedWorkspaces,
   filterCustomers,
   filterReports,
   floorMark,
+  formatCalendarDay,
   formatDate,
   localIsoDate,
   reportsToCsv,
@@ -830,6 +832,102 @@ describe('taskWolfNotFoundLevel', () => {
         pass({ customersQueried: 5, customersNotInTaskWolf: 2, error: { code: 'TW_ABORTED' } }),
       ),
       'hint',
+    );
+  });
+});
+
+describe('formatCalendarDay', () => {
+  test('prints the day named wherever the viewer is, as the page prints any date', () => {
+    // Held against local noon of the same day put through the page's own
+    // formatter, so the locale does not matter; UTC midnight read as local
+    // time would be the 11th in the Americas.
+    const sameDayAsPage = (day, [year, month, date]) =>
+      formatCalendarDay(day) === formatDate(new Date(year, month - 1, date, 12));
+    for (const timeZone of ['America/Los_Angeles', 'Asia/Tokyo', 'UTC']) {
+      inTimeZone(timeZone, () => {
+        assert.ok(sameDayAsPage('2026-10-12', [2026, 10, 12]), timeZone);
+        assert.ok(!sameDayAsPage('2026-10-12', [2026, 10, 11]), timeZone);
+        assert.ok(sameDayAsPage('2028-02-29', [2028, 2, 29]), timeZone);
+      });
+    }
+  });
+
+  test('prints nothing for anything but a real YYYY-MM-DD', () => {
+    for (const day of [
+      null,
+      undefined,
+      '',
+      'soon',
+      '2026-10-12T00:00:00Z',
+      '2026-13-01',
+      '2026-02-30',
+      20261012,
+    ]) {
+      assert.equal(formatCalendarDay(day), '', String(day));
+    }
+  });
+});
+
+describe('describeTaskWolfTokenExpiry', () => {
+  const day = formatCalendarDay('2026-10-12');
+  const token = (state, daysLeft) => ({ expiresOn: '2026-10-12', daysLeft, state });
+  const pass = (error = null) => ({ enabled: true, pending: false, error });
+
+  test('says when a token that is expiring runs out, counting the days to it', () => {
+    assert.equal(
+      describeTaskWolfTokenExpiry(token('expiring', 14), pass()),
+      `The Task Wolf token expires on ${day} (in 14 days).`,
+    );
+    assert.equal(
+      describeTaskWolfTokenExpiry(token('expiring', 2), pass()),
+      `The Task Wolf token expires on ${day} (in 2 days).`,
+    );
+    assert.equal(
+      describeTaskWolfTokenExpiry(token('expiring', 1), pass()),
+      `The Task Wolf token expires on ${day} (tomorrow).`,
+    );
+    // The token works through its last day, so on it the token is not yet expired.
+    assert.equal(
+      describeTaskWolfTokenExpiry(token('expiring', 0), pass()),
+      `The Task Wolf token expires on ${day} (today).`,
+    );
+  });
+
+  test('says when an expired token ran out', () => {
+    assert.equal(
+      describeTaskWolfTokenExpiry(token('expired', -1), pass()),
+      `The Task Wolf token expired on ${day}.`,
+    );
+    assert.equal(
+      describeTaskWolfTokenExpiry(token('expired', -30), null),
+      `The Task Wolf token expired on ${day}.`,
+    );
+  });
+
+  test('says nothing with time to spare, no date, or a date the server could not read', () => {
+    assert.equal(describeTaskWolfTokenExpiry(token('ok', 15), pass()), '');
+    assert.equal(
+      describeTaskWolfTokenExpiry({ expiresOn: null, daysLeft: null, state: 'invalid' }, pass()),
+      '',
+    );
+    assert.equal(describeTaskWolfTokenExpiry(null, pass()), '');
+    assert.equal(describeTaskWolfTokenExpiry(undefined, undefined), '');
+    // An expiring token without its count of days is not guessed at.
+    assert.equal(describeTaskWolfTokenExpiry(token('expiring', null), pass()), '');
+  });
+
+  test('leaves it to the notice that Task Wolf rejected the token, and to no other failure', () => {
+    const rejected = pass({ code: 'TW_AUTH', message: 'invalid or expired' });
+    assert.equal(describeTaskWolfTokenExpiry(token('expired', -1), rejected), '');
+    assert.equal(describeTaskWolfTokenExpiry(token('expiring', 3), rejected), '');
+    const stopped = pass({ code: 'TW_ABORTED', message: 'Task Wolf stopped answering.' });
+    assert.equal(
+      describeTaskWolfTokenExpiry(token('expired', -1), stopped),
+      `The Task Wolf token expired on ${day}.`,
+    );
+    assert.equal(
+      describeTaskWolfTokenExpiry(token('expiring', 3), { ...pass(), pending: true }),
+      `The Task Wolf token expires on ${day} (in 3 days).`,
     );
   });
 });

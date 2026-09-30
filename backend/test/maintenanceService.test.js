@@ -2403,6 +2403,7 @@ describe('getMaintenanceStatus', () => {
     'rescanAvailableAt',
     'stale',
     'status',
+    'taskWolfToken',
   ];
 
   test('with nothing cached and nothing running it says so, and starts nothing', () => {
@@ -2415,6 +2416,7 @@ describe('getMaintenanceStatus', () => {
         progress: null,
         refreshError: null,
         rescanAvailableAt: null,
+        taskWolfToken: null,
         error: { code: 'NO_SNAPSHOT', message: 'No snapshot available.' },
       });
     }
@@ -2450,6 +2452,7 @@ describe('getMaintenanceStatus', () => {
       status: 'building',
       progress: status.progress,
       refreshError: null,
+      taskWolfToken: null,
     });
 
     open();
@@ -2469,6 +2472,7 @@ describe('getMaintenanceStatus', () => {
       progress: null,
       refreshError: null,
       rescanAvailableAt: new Date(Date.parse(full.builtAt) + getMinRescanMs()).toISOString(),
+      taskWolfToken: null,
       error: null,
     });
     assert.ok(JSON.stringify(status).length < 300);
@@ -2533,6 +2537,7 @@ describe('getMaintenanceStatus', () => {
         progress: null,
         refreshError: null,
         rescanAvailableAt: null,
+        taskWolfToken: null,
         error: null,
       });
     }
@@ -2559,6 +2564,103 @@ describe('getMaintenanceStatus', () => {
       assert.deepEqual(status.refreshError, full.refreshError);
       assert.equal(status.refreshError.code, 'QAW_AUTH');
     }
+  });
+});
+
+describe('the Task Wolf token’s expiry in the answers', () => {
+  const expiresOn = (value) => {
+    process.env.TASK_WOLF_MCP_TOKEN_EXPIRES_ON = value;
+  };
+
+  beforeEach(() => {
+    resetMaintenanceCache();
+    mock.method(console, 'error', () => {});
+    // The scans here are handed their clients; the token is only there to be dated.
+    process.env.TASK_WOLF_MCP_TOKEN = 'tw-test-token';
+  });
+
+  afterEach(() => {
+    mock.restoreAll();
+    delete process.env.TASK_WOLF_MCP_TOKEN;
+    delete process.env.TASK_WOLF_MCP_TOKEN_EXPIRES_ON;
+    resetSharedTaskWolfClient();
+  });
+
+  test('building and ready, GET / and /status carry it as of the request', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
+    // NOW is 2026-09-28, so the 12th of October is 14 days off.
+    expiresOn('2026-10-12');
+    const expiring = { expiresOn: '2026-10-12', daysLeft: 14, state: 'expiring' };
+    const { gate, open } = makeGate();
+    const client = fakeClient();
+    const building = startRefresh({
+      client: {
+        listWorkspaces: client.listWorkspaces,
+        listOpenMaintenanceReports: async (workspaceId) => {
+          await gate;
+          return client.listOpenMaintenanceReports(workspaceId);
+        },
+      },
+      taskWolfClient: null,
+    });
+    await until(() => getMaintenanceStatus().progress.total === 3);
+    assert.equal(getMaintenanceDashboard().status, 'building');
+    assert.deepEqual(getMaintenanceDashboard().taskWolfToken, expiring);
+    assert.deepEqual(getMaintenanceStatus().taskWolfToken, expiring);
+
+    open();
+    await building;
+    assert.equal(getMaintenanceDashboard().status, 'ready');
+    assert.deepEqual(getMaintenanceDashboard().taskWolfToken, expiring);
+
+    // Worked out on each request, not when the snapshot was built.
+    expiresOn('2026-10-13');
+    assert.deepEqual(getMaintenanceDashboard().taskWolfToken, {
+      expiresOn: '2026-10-13',
+      daysLeft: 15,
+      state: 'ok',
+    });
+    expiresOn('2026-09-27');
+    for (const answer of [getMaintenanceDashboard(), getMaintenanceStatus()]) {
+      assert.deepEqual(answer.taskWolfToken, {
+        expiresOn: '2026-09-27',
+        daysLeft: -1,
+        state: 'expired',
+      });
+    }
+  });
+
+  test('is null with no date or no token, and invalid, with nothing repeated, for a date it cannot read', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
+    await startRefresh({ client: fakeClient(), taskWolfClient: null });
+    assert.equal(getMaintenanceDashboard().taskWolfToken, null);
+    assert.equal(getMaintenanceStatus().taskWolfToken, null);
+
+    expiresOn('2026-10-12');
+    delete process.env.TASK_WOLF_MCP_TOKEN;
+    assert.equal(getMaintenanceDashboard().taskWolfToken, null);
+    assert.equal(getMaintenanceStatus().taskWolfToken, null);
+
+    process.env.TASK_WOLF_MCP_TOKEN = 'tw-test-token';
+    expiresOn('12 Oct 2026');
+    const invalid = { expiresOn: null, daysLeft: null, state: 'invalid' };
+    assert.deepEqual(getMaintenanceDashboard().taskWolfToken, invalid);
+    assert.deepEqual(getMaintenanceStatus().taskWolfToken, invalid);
+  });
+
+  test('rides along /status whatever the status, and keeps it small', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
+    expiresOn('2026-10-12');
+    // Nothing cached and nothing running.
+    const nothing = getMaintenanceStatus();
+    assert.equal(nothing.error.code, 'NO_SNAPSHOT');
+    assert.equal(nothing.taskWolfToken.state, 'expiring');
+
+    await startRefresh({ client: fakeClient(), taskWolfClient: fakeTaskWolf() });
+    const ready = getMaintenanceStatus();
+    assert.equal(ready.status, 'ready');
+    assert.deepEqual(Object.keys(ready.taskWolfToken).sort(), ['daysLeft', 'expiresOn', 'state']);
+    assert.ok(JSON.stringify(ready).length < 300, JSON.stringify(ready));
   });
 });
 
@@ -2696,6 +2798,84 @@ describe('the routes', () => {
       assert.equal(res.body.code, 'TW_TOOL', failing);
       assert.equal(res.body.error, `Task Wolf MCP ${failing}: Internal error`, failing);
     }
+  });
+
+  test('/taskwolf reports the token’s expiry, and says when its date is missing or unreadable', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
+    const tripwire = globalThis.fetch;
+    t.after(() => {
+      globalThis.fetch = tripwire;
+      delete process.env.TASK_WOLF_MCP_TOKEN;
+      delete process.env.TASK_WOLF_MCP_TOKEN_EXPIRES_ON;
+      resetSharedTaskWolfClient();
+    });
+    const getTaskWolf = routeHandler('get', '/taskwolf');
+    const ask = async () => {
+      resetSharedTaskWolfClient();
+      const res = fakeRes();
+      await getTaskWolf({ query: {} }, res);
+      return res;
+    };
+
+    // No token: nothing to date, and the route's own message says what to set.
+    process.env.TASK_WOLF_MCP_TOKEN_EXPIRES_ON = '2026-10-12';
+    const unconfigured = await ask();
+    assert.equal(unconfigured.body.configured, false);
+    assert.deepEqual(unconfigured.body.tokenExpiry, {
+      expiresOn: null,
+      daysLeft: null,
+      state: 'none',
+      message: null,
+    });
+
+    // A fetch that plays a Task Wolf that answers: nothing leaves the process.
+    let status = 200;
+    globalThis.fetch = async (url, init) => {
+      const { id } = JSON.parse(init.body);
+      if (status !== 200) return new Response('', { status });
+      if (id === undefined) return new Response(null, { status: 202 });
+      const reply = { jsonrpc: '2.0', id, result: { serverInfo: { name: 'fake' }, tools: [] } };
+      return new Response(JSON.stringify(reply), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+    process.env.TASK_WOLF_MCP_TOKEN = 'tw-test-token';
+
+    const dated = await ask();
+    assert.equal(dated.statusCode, 200);
+    assert.equal(dated.body.configured, true);
+    assert.deepEqual(dated.body.tokenExpiry, {
+      expiresOn: '2026-10-12',
+      daysLeft: 14,
+      state: 'expiring',
+      message: null,
+    });
+
+    process.env.TASK_WOLF_MCP_TOKEN_EXPIRES_ON = '2026/10/12';
+    const unreadable = (await ask()).body.tokenExpiry;
+    assert.equal(unreadable.state, 'invalid');
+    assert.equal(unreadable.expiresOn, null);
+    assert.match(unreadable.message, /TASK_WOLF_MCP_TOKEN_EXPIRES_ON is not a YYYY-MM-DD date/);
+    assert.ok(!JSON.stringify(unreadable).includes('2026/10/12'));
+
+    delete process.env.TASK_WOLF_MCP_TOKEN_EXPIRES_ON;
+    const undated = (await ask()).body.tokenExpiry;
+    assert.equal(undated.state, 'none');
+    assert.match(undated.message, /TASK_WOLF_MCP_TOKEN_EXPIRES_ON is not set/);
+
+    // Beside a rejected token too, which is when it matters most.
+    process.env.TASK_WOLF_MCP_TOKEN_EXPIRES_ON = '2026-09-27';
+    status = 401;
+    const rejected = await ask();
+    assert.equal(rejected.statusCode, 401);
+    assert.equal(rejected.body.code, 'TW_AUTH');
+    assert.deepEqual(rejected.body.tokenExpiry, {
+      expiresOn: '2026-09-27',
+      daysLeft: -1,
+      state: 'expired',
+      message: null,
+    });
   });
 
   test("the Task Wolf diagnostics routes are admin-only; the page's routes are not", () => {

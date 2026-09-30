@@ -4,7 +4,9 @@
  * Task Wolf (the Dragons' internal ops tool) exposes its read-only tools over
  * MCP's Streamable HTTP transport: JSON-RPC 2.0 posted to one URL, answered as
  * plain JSON or as a short server-sent-event stream, authenticated with a
- * personal bearer token minted in Task Wolf -> Settings -> Connect Claude.
+ * bearer token minted in Task Wolf -> Settings -> Connect Claude. The token's
+ * owner decides what Task Wolf will tell the server, and it lasts 90 days
+ * (see getTaskWolfTokenExpiry).
  * The same server backs the `task-wolf` MCP in Claude Code / Claude Desktop;
  * nothing here is specific to this page except the client name.
  *
@@ -82,6 +84,58 @@ export function getTaskWolfToken(env = process.env) {
     );
   }
   return token;
+}
+
+/**
+ * TASK_WOLF_MCP_TOKEN_EXPIRES_ON as set, trimmed, or null when unset. Tokens
+ * last 90 days from minting, and Task Wolf does not say when one runs out, so
+ * this is how the server knows. Whether it is a date at all is
+ * getTaskWolfTokenExpiry's to say.
+ */
+export function getTaskWolfTokenExpiresOn(env = process.env) {
+  return (env.TASK_WOLF_MCP_TOKEN_EXPIRES_ON || '').trim() || null;
+}
+
+// How many days before the token's expiry date the page starts to warn.
+export const TOKEN_EXPIRY_WARNING_DAYS = 14;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A YYYY-MM-DD that names a real day, as ms at its UTC midnight; null for anything else. */
+function parseCalendarDay(text) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (!match) return null;
+  const [, year, month, day] = match.map(Number);
+  const ms = Date.UTC(year, month - 1, day);
+  // Date.UTC rolls 2026-02-30 over into March; a day that does not exist is not a date.
+  return new Date(ms).toISOString().slice(0, 10) === text ? ms : null;
+}
+
+/**
+ * Where the Task Wolf token stands against TASK_WOLF_MCP_TOKEN_EXPIRES_ON,
+ * worked out on every call so a changed setting or a new day counts at once.
+ * The date is a calendar day and the token is taken to work through it:
+ * `daysLeft` counts whole UTC days from today to it, 0 on the day itself. It
+ * is `expiring` from TOKEN_EXPIRY_WARNING_DAYS before the date through the
+ * date, and `expired` from the day after. `none` with no date or no token to
+ * date; `invalid` for a value that is not a real YYYY-MM-DD, which is never
+ * echoed back, in case a token was pasted into the wrong setting.
+ *
+ * @returns {{ expiresOn: string|null, daysLeft: number|null, state: 'none'|'ok'|'expiring'|'expired'|'invalid' }}
+ */
+export function getTaskWolfTokenExpiry(env = process.env, now = Date.now()) {
+  const expiresOn = getTaskWolfTokenExpiresOn(env);
+  if (!expiresOn || !isTaskWolfConfigured(env)) {
+    return { expiresOn: null, daysLeft: null, state: 'none' };
+  }
+  const expiryDay = parseCalendarDay(expiresOn);
+  if (expiryDay === null) return { expiresOn: null, daysLeft: null, state: 'invalid' };
+  const today = Math.floor(now / DAY_MS) * DAY_MS;
+  const daysLeft = Math.round((expiryDay - today) / DAY_MS);
+  let state = 'ok';
+  if (daysLeft < 0) state = 'expired';
+  else if (daysLeft <= TOKEN_EXPIRY_WARNING_DAYS) state = 'expiring';
+  return { expiresOn, daysLeft, state };
 }
 
 /**

@@ -399,9 +399,11 @@ export async function setCarrAttribution(opportunityId, salesEngineerId, oppName
  * refreshError, rescanAvailableAt }` from the server cache, or `{ status:
  * 'building', progress, refreshError }` while the first scan runs -- poll
  * until it is ready. `refreshError` is the last failed scan until one works,
- * retries included. A failed scan with no snapshot to answer throws, with
- * `code`, and the error's `body` says when it failed and when a rescan may
- * start (`failedAt`, `rescanAvailableAt`).
+ * retries included. Both carry `taskWolfToken`, `{ expiresOn, daysLeft,
+ * state }` or null: where the server's Task Wolf token stands against the
+ * expiry date set for it. A failed scan with no snapshot to answer throws,
+ * with `code`, and the error's `body` says when it failed and when a rescan
+ * may start (`failedAt`, `rescanAvailableAt`).
  *
  * @param {{ refresh?: boolean }} [options] `refresh` starts a rescan in the
  *   background, once `rescanAvailableAt` has passed; the stale snapshot keeps
@@ -414,9 +416,9 @@ export async function fetchMaintenanceDashboard({ refresh = false } = {}) {
 /**
  * Where the maintenance backlog stands, without the snapshot: `{ status,
  * builtAt, stale, refreshing, progress, refreshError, rescanAvailableAt,
- * error }`, always HTTP 200. It never starts a scan, so it is what the page
- * polls; the full payload is worth fetching only when `builtAt` or
- * `refreshing` says it has changed.
+ * taskWolfToken, error }`, always HTTP 200. It never starts a scan, so it is
+ * what the page polls; the full payload is worth fetching only when `builtAt`
+ * or `refreshing` says it has changed.
  */
 export async function fetchMaintenanceStatus() {
   return apiRequest('/maintenance-dashboard/status');

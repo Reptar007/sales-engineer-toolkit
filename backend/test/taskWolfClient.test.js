@@ -7,11 +7,14 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  TOKEN_EXPIRY_WARNING_DAYS,
   TaskWolfAuthError,
   TaskWolfForbiddenError,
   TaskWolfToolError,
   createTaskWolfClient,
   getTaskWolfMcpUrl,
+  getTaskWolfTokenExpiresOn,
+  getTaskWolfTokenExpiry,
   isTaskWolfConfigured,
   parseSseBody,
   parseToolResult,
@@ -152,6 +155,126 @@ describe('config', () => {
     );
     assert.equal(isTaskWolfConfigured({}), false);
     assert.equal(isTaskWolfConfigured({ TASK_WOLF_MCP_TOKEN: ' twmcp_x ' }), true);
+  });
+
+  test('the expiry date is read as set, trimmed, and null when unset', () => {
+    assert.equal(getTaskWolfTokenExpiresOn({}), null);
+    assert.equal(getTaskWolfTokenExpiresOn({ TASK_WOLF_MCP_TOKEN_EXPIRES_ON: '   ' }), null);
+    assert.equal(
+      getTaskWolfTokenExpiresOn({ TASK_WOLF_MCP_TOKEN_EXPIRES_ON: ' 2026-10-12 ' }),
+      '2026-10-12',
+    );
+    // Not a date, but it is what was set; the expiry is what calls it invalid.
+    assert.equal(
+      getTaskWolfTokenExpiresOn({ TASK_WOLF_MCP_TOKEN_EXPIRES_ON: 'next month' }),
+      'next month',
+    );
+  });
+});
+
+describe('getTaskWolfTokenExpiry', () => {
+  const env = (expiresOn) => ({
+    TASK_WOLF_MCP_TOKEN: 'twmcp_test',
+    TASK_WOLF_MCP_TOKEN_EXPIRES_ON: expiresOn,
+  });
+  const at = (t, iso) => t.mock.timers.enable({ apis: ['Date'], now: Date.parse(iso) });
+
+  test('warns from 14 days out through the day itself, and is expired from the next day', (t) => {
+    assert.equal(TOKEN_EXPIRY_WARNING_DAYS, 14);
+    const cases = [
+      ['2026-09-27T00:00:00.000Z', 15, 'ok'],
+      ['2026-09-27T23:59:59.999Z', 15, 'ok'],
+      ['2026-09-28T00:00:00.000Z', 14, 'expiring'],
+      ['2026-10-11T12:00:00.000Z', 1, 'expiring'],
+      // The token works through the day it expires on.
+      ['2026-10-12T00:00:00.000Z', 0, 'expiring'],
+      ['2026-10-12T23:59:59.999Z', 0, 'expiring'],
+      ['2026-10-13T00:00:00.000Z', -1, 'expired'],
+      ['2026-12-01T09:00:00.000Z', -50, 'expired'],
+    ];
+    for (const [now, daysLeft, state] of cases) {
+      at(t, now);
+      assert.deepEqual(
+        getTaskWolfTokenExpiry(env('2026-10-12')),
+        { expiresOn: '2026-10-12', daysLeft, state },
+        now,
+      );
+      t.mock.timers.reset();
+    }
+  });
+
+  test('counts days in UTC, whatever the time of day where the server is', (t) => {
+    // The zone is set here, since CI runs in UTC, where local midnight is UTC's.
+    const zone = process.env.TZ;
+    t.after(() => {
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
+    });
+    // 8 PM on the 12th in Chicago is already the 13th in UTC.
+    process.env.TZ = 'America/Chicago';
+    at(t, '2026-10-13T01:00:00.000Z');
+    assert.equal(getTaskWolfTokenExpiry(env('2026-10-12')).state, 'expired');
+    t.mock.timers.reset();
+    // And 1 AM on the 13th in Tokyo is still the 12th.
+    process.env.TZ = 'Asia/Tokyo';
+    at(t, '2026-10-12T16:00:00.000Z');
+    assert.equal(getTaskWolfTokenExpiry(env('2026-10-12')).daysLeft, 0);
+  });
+
+  test('is none with no date, or no token to date', (t) => {
+    at(t, '2026-09-28T18:00:00.000Z');
+    const none = { expiresOn: null, daysLeft: null, state: 'none' };
+    assert.deepEqual(getTaskWolfTokenExpiry({}), none);
+    assert.deepEqual(getTaskWolfTokenExpiry({ TASK_WOLF_MCP_TOKEN: 'twmcp_test' }), none);
+    assert.deepEqual(getTaskWolfTokenExpiry(env('  ')), none);
+    assert.deepEqual(
+      getTaskWolfTokenExpiry({ TASK_WOLF_MCP_TOKEN_EXPIRES_ON: '2026-10-12' }),
+      none,
+    );
+  });
+
+  test('is invalid for anything but a real YYYY-MM-DD, and never repeats what was set', (t) => {
+    at(t, '2026-09-28T18:00:00.000Z');
+    const invalid = { expiresOn: null, daysLeft: null, state: 'invalid' };
+    for (const value of [
+      'next month',
+      'twmcp_pasted_in_the_wrong_place',
+      '10/12/2026',
+      '2026-10-12T00:00:00Z',
+      '20261012',
+      '2026-1-5',
+      '2026-13-01',
+      '2026-02-30',
+      '2026-02-29',
+    ]) {
+      assert.deepEqual(getTaskWolfTokenExpiry(env(value)), invalid, value);
+    }
+    // A leap day is a day.
+    assert.equal(getTaskWolfTokenExpiry(env('2028-02-29')).state, 'ok');
+    assert.equal(getTaskWolfTokenExpiry(env(' 2026-10-12 ')).expiresOn, '2026-10-12');
+  });
+
+  test('reads the environment on every call, not once', (t) => {
+    at(t, '2026-09-28T18:00:00.000Z');
+    const names = ['TASK_WOLF_MCP_TOKEN', 'TASK_WOLF_MCP_TOKEN_EXPIRES_ON'];
+    const saved = names.map((name) => [name, process.env[name]]);
+    t.after(() => {
+      for (const [name, value] of saved) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    });
+    process.env.TASK_WOLF_MCP_TOKEN = 'twmcp_test';
+    process.env.TASK_WOLF_MCP_TOKEN_EXPIRES_ON = '2026-10-12';
+    assert.equal(getTaskWolfTokenExpiry().state, 'expiring');
+    process.env.TASK_WOLF_MCP_TOKEN_EXPIRES_ON = '2026-12-27';
+    assert.deepEqual(getTaskWolfTokenExpiry(), {
+      expiresOn: '2026-12-27',
+      daysLeft: 90,
+      state: 'ok',
+    });
+    delete process.env.TASK_WOLF_MCP_TOKEN_EXPIRES_ON;
+    assert.equal(getTaskWolfTokenExpiry().state, 'none');
   });
 });
 

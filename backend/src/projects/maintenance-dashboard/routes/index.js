@@ -24,7 +24,11 @@ import {
   probeTaskWolfCustomer,
   requestRescan,
 } from '../maintenanceService.js';
-import { getTaskWolfMcpUrl, isTaskWolfConfigured } from '../taskWolfMcpClient.js';
+import {
+  getTaskWolfMcpUrl,
+  getTaskWolfTokenExpiry,
+  isTaskWolfConfigured,
+} from '../taskWolfMcpClient.js';
 
 const router = express.Router();
 
@@ -50,6 +54,24 @@ export function statusForError(error) {
   return 500;
 }
 
+/**
+ * The token's expiry as the admin route reports it: what the page is told,
+ * and a sentence where the setting needs looking at, since the page says
+ * nothing of a date it cannot read, or of none.
+ */
+function tokenExpiryReport() {
+  const expiry = getTaskWolfTokenExpiry();
+  let message = null;
+  if (expiry.state === 'invalid') {
+    message =
+      'TASK_WOLF_MCP_TOKEN_EXPIRES_ON is not a YYYY-MM-DD date, so the page gives no warning before the token expires.';
+  } else if (expiry.state === 'none' && isTaskWolfConfigured()) {
+    message =
+      'TASK_WOLF_MCP_TOKEN_EXPIRES_ON is not set, so the page gives no warning before the token expires.';
+  }
+  return { ...expiry, message };
+}
+
 /** A failure as the routes answer it; `extra` is what a route says beside it. */
 function sendError(res, error, fallback, extra = {}) {
   return res.status(statusForError(error)).json({
@@ -68,9 +90,11 @@ function sendError(res, error, fallback, extra = {}) {
 // the first scan. With no snapshot and a failed scan it answers `{ status:
 // 'error', error, code, failedAt, rescanAvailableAt }` under the matching HTTP
 // status until the cool-down passes. `refreshError` stays while the retry runs
-// and clears once a scan publishes a snapshot. `?refresh=1` asks for a rescan
-// in the background, which starts only once `rescanAvailableAt` has passed;
-// the answer is the same either way.
+// and clears once a scan publishes a snapshot. The ready and building answers
+// carry `taskWolfToken`, `{ expiresOn, daysLeft, state }` or null, from
+// TASK_WOLF_MCP_TOKEN_EXPIRES_ON. `?refresh=1` asks for a rescan in the
+// background, which starts only once `rescanAvailableAt` has passed; the
+// answer is the same either way.
 router.get('/', authenticateToken, (req, res) => {
   const refresh = req.query.refresh === '1' || req.query.refresh === 'true';
   const result = getMaintenanceDashboard({ refresh });
@@ -85,9 +109,9 @@ router.get('/', authenticateToken, (req, res) => {
 
 // GET /api/maintenance-dashboard/status
 // What the page polls while a scan runs: `{ status, builtAt, stale,
-// refreshing, progress, refreshError, rescanAvailableAt, error }` and never the
-// snapshot, which is megabytes at production size. Always 200, a failed scan
-// included (it is in `error`, as `{ code, message, failedAt }`, or in
+// refreshing, progress, refreshError, rescanAvailableAt, taskWolfToken, error }`
+// and never the snapshot, which is megabytes at production size. Always 200,
+// a failed scan included (it is in `error`, as `{ code, message, failedAt }`, or in
 // `refreshError` beside a snapshot or a retry that is running), and it never
 // starts a scan. Fetch the full payload above when `builtAt` moves or
 // `refreshing` turns false.
@@ -115,14 +139,18 @@ router.post('/refresh', authenticateToken, (req, res) => {
 // GET /api/maintenance-dashboard/taskwolf -- is Task Wolf wired up, and what
 // does its MCP offer? Lists the server's tools with their input schemas (live,
 // one `tools/list`), which is the first thing to look at when the Task Wolf
-// column is empty.
+// column is empty. `tokenExpiry` (`{ expiresOn, daysLeft, state, message }`)
+// says where the token stands against TASK_WOLF_MCP_TOKEN_EXPIRES_ON, beside
+// a failure too, and `message` says when that setting is missing or unreadable.
 router.get('/taskwolf', authenticateToken, requireRole('admin'), async (req, res) => {
+  const tokenExpiry = tokenExpiryReport();
   if (!isTaskWolfConfigured()) {
     return res.json({
       configured: false,
       baseUrl: getTaskWolfMcpUrl(),
       message:
         'TASK_WOLF_MCP_TOKEN is not set. Mint one in Task Wolf -> Settings -> Connect Claude.',
+      tokenExpiry,
     });
   }
   try {
@@ -132,6 +160,7 @@ router.get('/taskwolf', authenticateToken, requireRole('admin'), async (req, res
       configured: true,
       baseUrl: client.baseUrl,
       serverInfo: client.getServerInfo(),
+      tokenExpiry,
       tools: tools.map((t) => ({
         name: t.name,
         description: t.description || '',
@@ -139,7 +168,7 @@ router.get('/taskwolf', authenticateToken, requireRole('admin'), async (req, res
       })),
     });
   } catch (error) {
-    return sendError(res, error, 'Task Wolf could not be reached.');
+    return sendError(res, error, 'Task Wolf could not be reached.', { tokenExpiry });
   }
 });
 

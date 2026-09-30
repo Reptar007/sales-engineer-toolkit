@@ -53,6 +53,25 @@ export function localIsoDate(date = new Date()) {
   return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}`;
 }
 
+/**
+ * A 'YYYY-MM-DD' calendar day as formatDate words a date, or '' for anything
+ * else. The day is read and printed in UTC, so it is the day named wherever
+ * the viewer is; `new Date('2026-10-12')` is UTC midnight, which is still the
+ * 11th in the Americas.
+ */
+export function formatCalendarDay(day) {
+  if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return '';
+  const date = new Date(`${day}T00:00:00.000Z`);
+  // The parser rolls 2026-02-30 over into March; a day that does not exist is not printed.
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== day) return '';
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
 const STATUS_LABELS = {
   pending: 'Pending',
   inProgress: 'In progress',
@@ -294,6 +313,27 @@ export function taskWolfNotFoundLevel(taskWolf) {
   const queried = isCount(taskWolf.customersQueried) ? taskWolf.customersQueried : 0;
   if (taskWolf.error?.code === 'TW_ABORTED' && count >= queried) return null;
   return count > 1 && count * 2 > queried ? 'warning' : 'hint';
+}
+
+/**
+ * When the server's Task Wolf token runs out, in one sentence, from the
+ * `taskWolfToken` the server answers (`{ expiresOn, daysLeft, state }`), or
+ * '' with nothing to warn of: more than two weeks left, no date, or a date
+ * the server could not read. Nothing either where Task Wolf has already
+ * rejected the token (a TW_AUTH pass error), whose own notice says the same.
+ * The date is the last day the token works, so on it the token is expiring
+ * "today", not expired.
+ */
+export function describeTaskWolfTokenExpiry(token, taskWolf) {
+  if (taskWolf?.error?.code === 'TW_AUTH') return '';
+  const day = formatCalendarDay(token?.expiresOn);
+  if (!day) return '';
+  if (token.state === 'expired') return `The Task Wolf token expired on ${day}.`;
+  if (token.state !== 'expiring' || !isCount(token.daysLeft)) return '';
+  let when = `in ${token.daysLeft} days`;
+  if (token.daysLeft === 0) when = 'today';
+  else if (token.daysLeft === 1) when = 'tomorrow';
+  return `The Task Wolf token expires on ${day} (${when}).`;
 }
 
 /**

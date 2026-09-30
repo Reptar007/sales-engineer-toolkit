@@ -248,9 +248,10 @@ only that reach lists every customer's workspace. Cached in memory for
   One workspace failing, a 403 included, is tallied in `snapshot.errors` and the scan goes on.
   A scan in which every workspace failed, or the first 20 to answer all did, or whose workspace
   list has no workspace carrying an id, fails outright (502) and leaves the last
-  snapshot in place.
+  snapshot in place. The ready and building answers carry `taskWolfToken` (see the Task Wolf
+  token below).
 - **GET** `/api/maintenance-dashboard/status` – what the page polls while a scan runs:
-  `{ status, builtAt, stale, refreshing, progress, refreshError, rescanAvailableAt, error }`, never the snapshot.
+  `{ status, builtAt, stale, refreshing, progress, refreshError, rescanAvailableAt, taskWolfToken, error }`, never the snapshot.
   Always 200, a failed scan included (`error` is `{ code, message, failedAt }`), and it never
   starts a scan. Fetch the full payload when `builtAt` moves or `refreshing` turns false.
 - **POST** `/api/maintenance-dashboard/refresh` – start a rescan, or join the one running (202).
@@ -266,6 +267,9 @@ the page disables Rescan until then, beside a snapshot or on the page that says 
 
 - **GET** `/api/maintenance-dashboard/taskwolf` (admin only) – is Task Wolf connected, and
   which tools (with input schemas) its MCP offers. `?refresh=1` re-reads the tool list.
+  `tokenExpiry` (`{ expiresOn, daysLeft, state, message }`, beside a failure too) says where the
+  token stands against `TASK_WOLF_MCP_TOKEN_EXPIRES_ON`, and `message` says when that setting is
+  missing or not a date.
 - **GET** `/api/maintenance-dashboard/taskwolf/customer/:workspaceId` (admin only) – live probe
   for one customer: each tool's input schema, the arguments it is sent, the raw answer and the
   normalized reading side by side.
@@ -286,9 +290,10 @@ its counts and its oldest age are lower bounds, and its row among the culprits m
 them "+" (flows, reports and oldest age). The Slack digest says the same, and marks the same,
 wherever that customer has a report on screen.
 
-**Task Wolf.** With `TASK_WOLF_MCP_TOKEN` set (a personal `twmcp_…` token from
+**Task Wolf.** With `TASK_WOLF_MCP_TOKEN` set (a `twmcp_…` token from
 [Task Wolf → Settings → Connect Claude](https://www.task-wolf.com/settings/connect-claude),
-90-day life), the scan makes a second pass over every customer with backlog through the
+90-day life; see the Task Wolf token below for whose it should be), the scan makes a second
+pass over every customer with backlog through the
 [Task Wolf MCP](https://www.task-wolf.com/docs/users/automation/mcp/user-guide.html):
 `get_maintenance_status` (open maintenance with real blocked status) and `find_tasks` (open
 maintenance tasks and their QAE). Task Wolf answers per open maintenance report, each with its
@@ -343,6 +348,21 @@ ran to its end without an answer for a single customer, those Task Wolf has no r
 is reported under the same code, and so is one in which Task Wolf had no record of any of the
 customers asked (more than one): that is a customer argument it no longer takes, and the error
 names the first customer and the argument it was sent.
+
+**The Task Wolf token.** Task Wolf answers the server as whoever owns `TASK_WOLF_MCP_TOKEN`, so
+the token's owner decides what the Task Wolf column can see. Production should run on a team or
+service token, not one person's; until one exists it runs on a personal token. Tokens last 90
+days from minting. Set `TASK_WOLF_MCP_TOKEN_EXPIRES_ON` to the day the token expires, as
+`YYYY-MM-DD`: 90 days after it was minted (a token minted on 2026-01-01 expires on 2026-04-01).
+From 14 days before that date the page warns when the token expires and in how many days, and
+tells whoever runs the server to mint a new one and update both settings; from the day after,
+it says the token has expired. The date is a calendar day counted in UTC, and the token counts
+as working through it. `GET /` (ready and building) and `/status` carry `taskWolfToken`:
+`{ expiresOn, daysLeft, state }`, with `state` one of `ok`, `expiring`, `expired` or `invalid`,
+or null when no date or no token is set. A value that is not a real `YYYY-MM-DD` date is
+`invalid`: the page ignores it and `GET /taskwolf` reports it. Once Task Wolf has rejected the
+token (`TW_AUTH`), the page gives that notice alone, telling whoever runs the server the same
+and naming both settings, with no expiry warning beside it.
 
 ### Environment Variables
 
@@ -406,6 +426,9 @@ git push heroku main
 - Backend uses Express.js with CORS enabled
 - All API routes are prefixed (e.g., `/estimate/initial`)
 - Non-API routes serve the React app
+- The Bone Pile's Task Wolf column sees what the owner of `TASK_WOLF_MCP_TOKEN` can see, so set a
+  team or service token there, not one person's, and set `TASK_WOLF_MCP_TOKEN_EXPIRES_ON` each
+  time the token is replaced (tokens last 90 days; see the Task Wolf token above)
 
 ## 🧹 Pre-Commit Automation
 

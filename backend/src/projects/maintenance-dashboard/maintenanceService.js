@@ -40,6 +40,7 @@ import {
 import {
   TaskWolfConfigError,
   getSharedTaskWolfClient,
+  getTaskWolfTokenExpiry,
   isTaskWolfConfigured,
 } from './taskWolfMcpClient.js';
 import {
@@ -886,6 +887,17 @@ function failureAnswer() {
 }
 
 /**
+ * The Task Wolf token's expiry as an answer carries it, in `taskWolfToken`:
+ * `{ expiresOn, daysLeft, state }` as of this request, or null with no date
+ * to go by. A date that could not be read is `invalid`, which the page
+ * ignores and the admin route explains.
+ */
+function taskWolfTokenAnswer(now) {
+  const expiry = getTaskWolfTokenExpiry(process.env, now);
+  return expiry.state === 'none' ? null : expiry;
+}
+
+/**
  * What the page asks for. Answers straight from cache when it is fresh enough,
  * starts a rebuild otherwise, and never blocks on the scan itself. A rebuild
  * that failed is not restarted until the cool-down passes, and `refresh` goes
@@ -894,10 +906,11 @@ function failureAnswer() {
  * inside the cool-down still says when one may start; with one it rides along
  * as `refreshError` beside the stale snapshot. While a retry runs it stays in
  * `refreshError`, beside the snapshot or beside `building` when there is none,
- * until a scan publishes a snapshot.
+ * until a scan publishes a snapshot. Both of those answers carry
+ * `taskWolfToken`, so the page can warn before the token runs out.
  *
  * @param {{ refresh?: boolean }} [options]
- * @returns {{ status: 'ready'|'building'|'error', snapshot?: object, stale?: boolean, progress?: object, refreshError?: object|null, rescanAvailableAt?: string|null, error?: object }}
+ * @returns {{ status: 'ready'|'building'|'error', snapshot?: object, stale?: boolean, progress?: object, refreshError?: object|null, rescanAvailableAt?: string|null, taskWolfToken?: object|null, error?: object }}
  */
 export function getMaintenanceDashboard({ refresh = false } = {}) {
   const now = Date.now();
@@ -918,12 +931,18 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
       refreshError: failureAnswer(),
       rescanAvailableAt: rescanAvailableAt(now),
       cacheTtlMinutes: Math.round(getCacheTtlMs() / 60000),
+      taskWolfToken: taskWolfTokenAnswer(now),
     };
   }
 
   // Checked before the failure: a first scan being retried is building.
   if (state.building) {
-    return { status: 'building', progress: state.progress, refreshError: failureAnswer() };
+    return {
+      status: 'building',
+      progress: state.progress,
+      refreshError: failureAnswer(),
+      taskWolfToken: taskWolfTokenAnswer(now),
+    };
   }
 
   return {
@@ -942,12 +961,14 @@ export function getMaintenanceDashboard({ refresh = false } = {}) {
  * failed (a process nobody has asked yet) it answers `error` / `NO_SNAPSHOT`.
  * A failure that still stands is `refreshError` beside `ready`, or beside
  * `building` while a first scan is retried, as in `getMaintenanceDashboard`;
- * with neither, it is `error`, with when it failed.
+ * with neither, it is `error`, with when it failed. `taskWolfToken` rides
+ * along whatever the status, so a page left open learns of an expiry too.
  *
- * @returns {{ status: 'ready'|'building'|'error', builtAt: string|null, stale: boolean, refreshing: boolean, progress: object|null, refreshError: object|null, rescanAvailableAt: string|null, error: { code: string, message: string, failedAt?: string }|null }}
+ * @returns {{ status: 'ready'|'building'|'error', builtAt: string|null, stale: boolean, refreshing: boolean, progress: object|null, refreshError: object|null, rescanAvailableAt: string|null, taskWolfToken: { expiresOn: string|null, daysLeft: number|null, state: string }|null, error: { code: string, message: string, failedAt?: string }|null }}
  */
 export function getMaintenanceStatus() {
   const refreshing = Boolean(state.building);
+  const now = Date.now();
   const answer = {
     status: 'error',
     builtAt: null,
@@ -955,14 +976,15 @@ export function getMaintenanceStatus() {
     refreshing,
     progress: state.progress,
     refreshError: null,
-    rescanAvailableAt: rescanAvailableAt(Date.now()),
+    rescanAvailableAt: rescanAvailableAt(now),
+    taskWolfToken: taskWolfTokenAnswer(now),
     error: null,
   };
 
   if (state.snapshot) {
     answer.status = 'ready';
     answer.builtAt = new Date(state.builtAt).toISOString();
-    answer.stale = Date.now() - state.builtAt > getCacheTtlMs();
+    answer.stale = now - state.builtAt > getCacheTtlMs();
     answer.refreshError = failureAnswer();
   } else if (refreshing) {
     answer.status = 'building';

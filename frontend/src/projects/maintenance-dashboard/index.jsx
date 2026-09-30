@@ -16,6 +16,7 @@ import {
   customersWithVisibleReports,
   describeAge,
   describeScanError,
+  describeTaskWolfTokenExpiry,
   describeTruncatedWorkspaces,
   downloadText,
   filterCustomers,
@@ -186,10 +187,11 @@ function reportQaeKnown(taskWolf) {
 
 /**
  * One line about the Task Wolf pass: how much of the backlog it covered, or
- * why it is missing. A stale token is the one failure an SE can fix alone,
- * so it says exactly where to go.
+ * why it is missing. A rejected token says who can renew it and exactly
+ * where, as TaskWolfTokenNotice does, and names the expiry date setting too
+ * when the server has one (`token`: see TaskWolfTokenNotice).
  */
-function TaskWolfNotice({ taskWolf }) {
+function TaskWolfNotice({ taskWolf, token }) {
   if (!taskWolf) return null;
   if (taskWolf.pending) {
     return (
@@ -217,12 +219,19 @@ function TaskWolfNotice({ taskWolf }) {
   if (taskWolf.error?.code === 'TW_AUTH') {
     return (
       <div className="bone-warning">
-        Task Wolf rejected the MCP token (they last 90 days). Mint a new one at{' '}
+        Task Wolf rejected the MCP token (they last 90 days). Whoever runs the server should mint a
+        new one at{' '}
         <a href={TASK_WOLF_CONNECT_URL} target="_blank" rel="noreferrer noopener">
           Task Wolf → Settings → Connect Claude
         </a>
-        , update <code>TASK_WOLF_MCP_TOKEN</code>, and rescan. Blocked status below is{' '}
-        {taskWolf.customersAnswered ? 'partial' : 'missing'}.
+        , update <code>TASK_WOLF_MCP_TOKEN</code>
+        {token ? (
+          <>
+            {' '}
+            and <code>TASK_WOLF_MCP_TOKEN_EXPIRES_ON</code>
+          </>
+        ) : null}
+        , and rescan. Blocked status below is {taskWolf.customersAnswered ? 'partial' : 'missing'}.
       </div>
     );
   }
@@ -266,6 +275,28 @@ function TaskWolfNotice({ taskWolf }) {
         </div>
       ) : null}
     </>
+  );
+}
+
+/**
+ * The server's Task Wolf token runs out soon, or has, by the date set beside
+ * it (`token`, the server's `taskWolfToken`). The server runs on one token,
+ * so only whoever runs it can renew it. Said once: where Task Wolf has
+ * already rejected the token, TaskWolfNotice says so instead
+ * (describeTaskWolfTokenExpiry).
+ */
+function TaskWolfTokenNotice({ token, taskWolf }) {
+  const lead = describeTaskWolfTokenExpiry(token, taskWolf);
+  if (!lead) return null;
+  return (
+    <div className="bone-warning">
+      {lead} Whoever runs the server should mint a new one at{' '}
+      <a href={TASK_WOLF_CONNECT_URL} target="_blank" rel="noreferrer noopener">
+        Task Wolf → Settings → Connect Claude
+      </a>{' '}
+      and update <code>TASK_WOLF_MCP_TOKEN</code> and <code>TASK_WOLF_MCP_TOKEN_EXPIRES_ON</code>
+      {token.state === 'expired' ? '.' : ' before then.'}
+    </div>
   );
 }
 
@@ -430,12 +461,19 @@ const ReportRow = memo(function ReportRow({ row, showTaskWolf, askingTaskWolf, o
  * first scan, or the first one since it restarted. A snapshot already on
  * screen stays there, marked as being rescanned, until the new one lands.
  * `refreshError` is the failed scan this one retries, as the server reports
- * it, and null when nothing failed before it.
+ * it, and null when nothing failed before it. `taskWolfToken` is the token's
+ * expiry as of this answer.
  */
-function whileBuilding(held, { progress, refreshError }) {
+function whileBuilding(held, { progress, refreshError, taskWolfToken }) {
   const failure = refreshError || null;
+  const token = taskWolfToken || null;
   if (held?.status !== 'ready') {
-    return { status: 'building', progress: progress || null, refreshError: failure };
+    return {
+      status: 'building',
+      progress: progress || null,
+      refreshError: failure,
+      taskWolfToken: token,
+    };
   }
   return {
     ...held,
@@ -443,6 +481,7 @@ function whileBuilding(held, { progress, refreshError }) {
     refreshing: true,
     progress: progress || null,
     refreshError: failure,
+    taskWolfToken: token,
   };
 }
 
@@ -540,9 +579,12 @@ function MaintenanceDashboard() {
     // wait; an answer that said nothing of it leaves what the page knew. A
     // snapshot already on screen stays. A failed scan is the server's latest
     // word, so it replaces the failure the server reported before; a request
-    // of the page's own leaves that up.
+    // of the page's own leaves that up. Where the Task Wolf token stands goes
+    // the same way: an answer that says (`taskWolfToken`) replaces what the
+    // snapshot was told, and one that does not leaves it.
     const scanFailed = isScanFailure(failure);
     const said = failure?.rescanAvailableAt;
+    const token = failure?.taskWolfToken;
     setPayload((prev) =>
       prev?.status === 'ready'
         ? {
@@ -551,6 +593,7 @@ function MaintenanceDashboard() {
             progress: null,
             refreshError: scanFailed ? null : prev.refreshError,
             rescanAvailableAt: said === undefined ? prev.rescanAvailableAt : said,
+            taskWolfToken: token === undefined ? prev.taskWolfToken : token,
           }
         : null,
     );
@@ -619,18 +662,28 @@ function MaintenanceDashboard() {
         return;
       }
       // Beside a failure, as beside a snapshot, the answer says when a rescan
-      // may start, and Rescan follows it.
+      // may start, and Rescan follows it, and where the Task Wolf token stands,
+      // which a snapshot still on screen takes up.
       if (answer.status !== 'ready') {
         if (idle && answer.error?.code === 'NO_SNAPSHOT') {
           // The server restarted and nobody has asked it for a scan yet. Nothing
           // failed; what is on screen is simply no longer what it would answer.
           setPayload((prev) =>
             prev?.status === 'ready'
-              ? { ...prev, stale: true, rescanAvailableAt: answer.rescanAvailableAt || null }
+              ? {
+                  ...prev,
+                  stale: true,
+                  rescanAvailableAt: answer.rescanAvailableAt || null,
+                  taskWolfToken: answer.taskWolfToken || null,
+                }
               : prev,
           );
         } else {
-          fail({ ...answer.error, rescanAvailableAt: answer.rescanAvailableAt });
+          fail({
+            ...answer.error,
+            rescanAvailableAt: answer.rescanAvailableAt,
+            taskWolfToken: answer.taskWolfToken || null,
+          });
         }
         return;
       }
@@ -654,6 +707,7 @@ function MaintenanceDashboard() {
               progress: answer.progress || null,
               refreshError: answer.refreshError || null,
               rescanAvailableAt: answer.rescanAvailableAt || null,
+              taskWolfToken: answer.taskWolfToken || null,
             }
           : prev,
       );
@@ -843,6 +897,7 @@ function MaintenanceDashboard() {
           </div>
         </header>
         {payload.refreshError ? <RefreshFailed failure={payload.refreshError} retrying /> : null}
+        <TaskWolfTokenNotice token={payload.taskWolfToken} />
         <ScanProgress progress={payload.progress} />
       </div>
     );
@@ -972,7 +1027,8 @@ function MaintenanceDashboard() {
 
       {truncatedLabel ? <div className="bone-warning">{truncatedLabel}</div> : null}
 
-      <TaskWolfNotice taskWolf={taskWolf} />
+      <TaskWolfNotice taskWolf={taskWolf} token={payload?.taskWolfToken} />
+      <TaskWolfTokenNotice token={payload?.taskWolfToken} taskWolf={taskWolf} />
       <TaskWolfPartialNotice taskWolf={taskWolf} />
       <TaskWolfNotFoundNotice taskWolf={taskWolf} />
 
