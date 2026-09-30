@@ -24,8 +24,10 @@ export class ClaimError extends Error {
  * null, and text that is only whitespace, clear it. Control characters and
  * line breaks become spaces and runs of whitespace one space, so a note never
  * spans lines on the page, and a NUL, which Postgres text refuses, never
- * reaches the database. The length is counted after that, in UTF-16 units as
- * the page's input counts it, so the page can never send a note refused here.
+ * reaches the database. A lone UTF-16 surrogate (half an emoji, from text cut
+ * mid-pair), which Prisma's query engine refuses, becomes U+FFFD, one unit
+ * for one. The length is counted after that, in UTF-16 units as the page's
+ * input counts it, so the page can never send a note refused here.
  */
 export function normalizeClaimNote(value) {
   if (value === undefined) return undefined;
@@ -34,6 +36,7 @@ export function normalizeClaimNote(value) {
     throw new ClaimError('CLAIM_NOTE_INVALID', 'A note must be text.');
   }
   const note = value
+    .toWellFormed()
     .replace(/\p{Cc}/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();

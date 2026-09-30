@@ -2427,6 +2427,25 @@ describe('isClaimExpiring', () => {
     assert.equal(expiring(-CLAIM_HOUR), true);
     assert.equal(isClaimExpiring(claim({ expiresAt: 'soon' }), CLAIM_NOW), false);
   });
+
+  test('is half the claim period left when that is shorter, so a claim just made is not expiring', () => {
+    const expiring = (ms, claimDays) =>
+      isClaimExpiring(claim({ expiresAt: inFuture(ms) }), CLAIM_NOW, claimDays);
+    // Made or renewed just now, for 1 or 2 days, as the server dates it.
+    assert.equal(expiring(CLAIM_DAY, 1), false);
+    assert.equal(expiring(2 * CLAIM_DAY, 2), false);
+    assert.equal(expiring(12 * CLAIM_HOUR, 1), true);
+    assert.equal(expiring(12 * CLAIM_HOUR + 1, 1), false);
+    assert.equal(expiring(CLAIM_DAY, 2), true);
+    assert.equal(expiring(CLAIM_DAY + 1, 2), false);
+    assert.equal(expiring(36 * CLAIM_HOUR, 3), true);
+    assert.equal(expiring(36 * CLAIM_HOUR + 1, 3), false);
+    // From 4 days up, or with the period not known, 48 hours.
+    for (const claimDays of [4, 14, 90, null, undefined]) {
+      assert.equal(expiring(48 * CLAIM_HOUR, claimDays), true, String(claimDays));
+      assert.equal(expiring(48 * CLAIM_HOUR + 1, claimDays), false, String(claimDays));
+    }
+  });
 });
 
 describe('claimTag', () => {
@@ -2466,6 +2485,17 @@ describe('claimTag', () => {
     });
     assert.equal(theirs.text, 'Sam K.');
     assert.equal(theirs.expiring, false);
+  });
+
+  test('does not call the viewer’s claim just made for a short claim period expiring', () => {
+    const fresh = claim({ claimedAt: inFuture(0), expiresAt: inFuture(2 * CLAIM_DAY) });
+    const tag = claimTag([fresh], { now: CLAIM_NOW, claimDays: 2 });
+    assert.equal(tag.text, 'You');
+    assert.equal(tag.expiring, false);
+    // Half its period on, it is.
+    const later = claimTag([fresh], { now: CLAIM_NOW + CLAIM_DAY, claimDays: 2 });
+    assert.equal(later.text, 'You · 1 day left');
+    assert.equal(later.expiring, true);
   });
 
   test('lists every claimer in the title, with their note', () => {
@@ -2547,5 +2577,16 @@ describe('claimReminders', () => {
     );
     // Without the errors it would read as gone.
     assert.equal(claimReminders([onTidewater], customers, CLAIM_NOW)[0].kind, 'gone');
+  });
+
+  test('do not remind the viewer to renew a claim just made for a short claim period', () => {
+    const customers = [customer({ workspaceId: 'ws-1', name: 'Harbor Lane' })];
+    const fresh = claim({ claimedAt: inFuture(0), expiresAt: inFuture(CLAIM_DAY) });
+    assert.deepEqual(claimReminders([fresh], customers, CLAIM_NOW, [], 1), []);
+    const later = claimReminders([fresh], customers, CLAIM_NOW + 12 * CLAIM_HOUR, [], 1);
+    assert.deepEqual(
+      later.map(({ kind, name }) => [kind, name]),
+      [['expiring', 'Harbor Lane']],
+    );
   });
 });

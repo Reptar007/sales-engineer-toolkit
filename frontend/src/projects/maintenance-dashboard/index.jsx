@@ -1204,7 +1204,13 @@ function MaintenanceDashboard() {
         checkedAt={claimsState.checkedAt}
       />
       <ClaimReminders
-        reminders={claimReminders(claimList || [], snapshot?.customers, now, snapshot?.errors)}
+        reminders={claimReminders(
+          claimList || [],
+          snapshot?.customers,
+          now,
+          snapshot?.errors,
+          claimsState.claimDays,
+        )}
         busy={claimsState.busy}
         now={now}
         onRenew={handleRenew}
@@ -1339,7 +1345,11 @@ function MaintenanceDashboard() {
                           {c.name}
                         </span>
                         {c.isDemo ? <span className="bone-tag">demo</span> : null}
-                        <ClaimTag claims={claimsBy?.get(c.workspaceId)} now={now} />
+                        <ClaimTag
+                          claims={claimsBy?.get(c.workspaceId)}
+                          now={now}
+                          claimDays={claimsState.claimDays}
+                        />
                       </span>
                       <span className="bone-bar-track">
                         <span className="bone-bar-fill" style={{ width: `${width}%` }} />

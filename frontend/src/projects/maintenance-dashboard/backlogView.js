@@ -528,8 +528,18 @@ export function customersWithVisibleReports(customers, reports) {
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-// A claim this close to lapsing is flagged, and its owner reminded to renew.
+// A claim this close to lapsing is flagged, and its owner reminded to renew,
+// or half the claim period when that is shorter (claimExpiringMs).
 const CLAIM_EXPIRING_MS = 48 * HOUR_MS;
+
+/**
+ * How close to lapsing a claim is flagged, for claims that last `claimDays`:
+ * 48 hours, or half the period when that is shorter, so a claim just made or
+ * renewed is never already lapsing. 48 hours for a period not known.
+ */
+function claimExpiringMs(claimDays) {
+  return claimDays > 0 ? Math.min(CLAIM_EXPIRING_MS, (claimDays * DAY_MS) / 2) : CLAIM_EXPIRING_MS;
+}
 
 /** A time as ms, or NaN for a missing or unreadable one (`new Date(null)` is 1970). */
 function timeOf(value) {
@@ -587,27 +597,31 @@ export function claimTimeLeft(expiresAt, now) {
   return hours >= 1 ? `${hours} h left` : 'under an hour left';
 }
 
-/** Whether a claim has 48 hours or less left at `now` (ms). */
-export function isClaimExpiring(claim, now) {
+/**
+ * Whether a claim has 48 hours or less left at `now` (ms), or half of
+ * `claimDays`, the server's claim period, when that is shorter.
+ */
+export function isClaimExpiring(claim, now, claimDays = null) {
   const at = timeOf(claim?.expiresAt);
-  return !Number.isNaN(at) && at - now <= CLAIM_EXPIRING_MS;
+  return !Number.isNaN(at) && at - now <= claimExpiringMs(claimDays);
 }
 
 /**
  * The tag a customer's claims (from claimsByWorkspace) get beside its name, or
  * null for none: `text` is "You" or the first claimer, then "+N" for the
  * others; `title` has a line per claimer, with their note. Given `now`, the
- * viewer's own claim says how long it has left once it is expiring, in the
- * text, and every line of the title says how long each has; without it the
- * tag says nothing that goes stale, for a row that is not redrawn as time passes.
+ * viewer's own claim says how long it has left once it is expiring (for the
+ * claim period `claimDays`), in the text, and every line of the title says
+ * how long each has; without it the tag says nothing that goes stale, for a
+ * row that is not redrawn as time passes.
  */
-export function claimTag(claims, { now = null } = {}) {
+export function claimTag(claims, { now = null, claimDays = null } = {}) {
   const list = claims || [];
   if (!list.length) return null;
   const mine = list.find((c) => c.mine) || null;
   const who = (c) => (c.mine ? 'You' : c.claimer);
   const timed = now !== null;
-  const expiring = timed && Boolean(mine) && isClaimExpiring(mine, now);
+  const expiring = timed && Boolean(mine) && isClaimExpiring(mine, now, claimDays);
   let text = who(mine || list[0]);
   if (list.length > 1) text += ` +${list.length - 1}`;
   if (expiring) text += ` · ${claimTimeLeft(mine.expiresAt, now)}`;
@@ -623,15 +637,16 @@ export function claimTag(claims, { now = null } = {}) {
 
 /**
  * The viewer's claims that need a hand, soonest to lapse first: `expiring`
- * for one on a customer in the snapshot with 48 hours or less left; `unread`
- * for one on a workspace the snapshot's scan could not read (in `unread`,
- * the snapshot's `errors`), whose backlog may still be there and whose claim
- * can still be renewed; and `gone` for one whose customer is in neither (its
- * backlog cleared, most often). The last two show nowhere else on the page,
- * so they are listed however long they have left, named as the claim was
- * last, since the snapshot does not name them.
+ * for one on a customer in the snapshot that isClaimExpiring, for the claim
+ * period `claimDays`; `unread` for one on a workspace the snapshot's scan
+ * could not read (in `unread`, the snapshot's `errors`), whose backlog may
+ * still be there and whose claim can still be renewed; and `gone` for one
+ * whose customer is in neither (its backlog cleared, most often). The last
+ * two show nowhere else on the page, so they are listed however long they
+ * have left, named as the claim was last, since the snapshot does not name
+ * them.
  */
-export function claimReminders(claims, customers, now, unread = []) {
+export function claimReminders(claims, customers, now, unread = [], claimDays = null) {
   const listed = new Map((customers || []).map((c) => [c.workspaceId, c]));
   const failed = new Map((unread || []).map((e) => [e.workspaceId, e]));
   const reminders = [];
@@ -639,7 +654,7 @@ export function claimReminders(claims, customers, now, unread = []) {
     if (!claim.mine) continue;
     const customer = listed.get(claim.workspaceId);
     if (customer) {
-      if (isClaimExpiring(claim, now)) {
+      if (isClaimExpiring(claim, now, claimDays)) {
         reminders.push({ kind: 'expiring', claim, name: customer.name });
       }
       continue;

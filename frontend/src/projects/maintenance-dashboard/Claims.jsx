@@ -32,12 +32,13 @@ const dayCount = (days) => `${days} ${days === 1 ? 'day' : 'days'}`;
 /**
  * Who has claimed a customer, as a small tag beside its name, or nothing for
  * nobody. Given `now`, the viewer's own claim says how long it has left once
- * it is close to lapsing; a row redrawn only when its claims change is given
- * none, so it never shows a time gone stale. The hidden words make a row
- * button's accessible name read "… claimed by You".
+ * it is close to lapsing, for the claim period `claimDays`; a row redrawn
+ * only when its claims change is given none, so it never shows a time gone
+ * stale. The hidden words make a row button's accessible name read "…
+ * claimed by You".
  */
-export function ClaimTag({ claims, now = null }) {
-  const tag = claimTag(claims, { now });
+export function ClaimTag({ claims, now = null, claimDays = null }) {
+  const tag = claimTag(claims, { now, claimDays });
   if (!tag) return null;
   return (
     <span
@@ -143,7 +144,7 @@ export function ClaimCard({
             <span className="bone-claim-who">{claim.mine ? 'You' : claim.claimer}</span>
             <span
               className={`bone-claim-when${
-                isClaimExpiring(claim, now) ? ' bone-claim-when--expiring' : ''
+                isClaimExpiring(claim, now, claimDays) ? ' bone-claim-when--expiring' : ''
               }`}
               title={`Expires ${formatDateTime(claim.expiresAt)}`}
             >

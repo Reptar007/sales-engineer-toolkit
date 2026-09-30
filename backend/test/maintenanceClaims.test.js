@@ -299,6 +299,22 @@ describe('normalizeClaimNote', () => {
     assert.equal(normalizeClaimNote(spaced).length, 140);
   });
 
+  test('mends a lone surrogate, which the database client refuses, and keeps the length', () => {
+    // Half an emoji, as a script or a client that cut a string mid-pair sends it.
+    for (const [value, want] of [
+      ['fixing \uD83D login', 'fixing � login'],
+      ['fixing \uDE00 login', 'fixing � login'],
+      ['fixing \uD83D', 'fixing �'],
+    ]) {
+      const note = normalizeClaimNote(value);
+      assert.equal(note, want, JSON.stringify(value));
+      assert.ok(note.isWellFormed(), JSON.stringify(value));
+    }
+    // A whole pair is kept.
+    assert.equal(normalizeClaimNote('fixing 😀 login'), 'fixing 😀 login');
+    assert.equal(normalizeClaimNote(`${'x'.repeat(139)}\uD83D`).length, 140);
+  });
+
   test('refuses a note that is not text', () => {
     for (const value of [42, { text: NOTE }, [NOTE], true]) {
       assert.throws(
@@ -858,6 +874,16 @@ describe('the claim routes', () => {
     assert.equal(unknown.statusCode, 404);
     assert.equal(unknown.body.code, 'CLAIM_UNKNOWN_CUSTOMER');
     assert.deepEqual(fake.rows, [], 'nothing was written');
+  });
+
+  test('PUT hands the database a note with a lone surrogate mended, which it would refuse as sent', async () => {
+    await scan();
+    const res = await put(ROBIN, 'ws-1', JSON.parse('{"note":"fixing \\ud83d login"}'));
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.claim.note, 'fixing � login');
+    const [written] = upserts();
+    assert.ok(written.create.note.isWellFormed());
+    assert.ok(written.update.note.isWellFormed());
   });
 
   test('PUT on a customer the scan could not read renews a claim on it, and refuses a new one (409)', async () => {
