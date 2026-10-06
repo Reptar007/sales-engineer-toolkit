@@ -426,6 +426,50 @@ export async function fetchMaintenanceStatus() {
   return apiRequest('/maintenance-dashboard/status');
 }
 
+/**
+ * Every live claim on a Bone Pile customer, as the signed-in user sees it:
+ * `{ claims, claimDays, noteMaxLength }`, each claim `{ workspaceId,
+ * workspaceName, userId, claimer, note, claimedAt, expiresAt, mine,
+ * canRelease }`. Read from the database apart from the snapshot, so it is
+ * cheap to poll and starts nothing.
+ */
+export async function fetchMaintenanceClaims() {
+  return apiRequest('/maintenance-dashboard/claims');
+}
+
+/**
+ * Claim a Bone Pile customer, or renew the signed-in user's claim on it.
+ * `note` left out keeps the note already there (none on a new claim);
+ * JSON.stringify drops `note: undefined`, which is how "keep it" is sent.
+ * null or '' clears it. Answers the claims list, with the caller's `claim`
+ * and whether it was `renewed`; throws with `code` when refused
+ * (CLAIM_NOTE_INVALID, CLAIM_NO_SNAPSHOT, CLAIM_UNKNOWN_CUSTOMER).
+ *
+ * @param {string} workspaceId
+ * @param {{ note?: string|null }} [options]
+ */
+export async function claimMaintenanceCustomer(workspaceId, { note } = {}) {
+  return apiRequest(`/maintenance-dashboard/claims/${encodeURIComponent(workspaceId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ note }),
+  });
+}
+
+/**
+ * Release a claim on a Bone Pile customer: the signed-in user's own, or
+ * anyone's for an admin (403 CLAIM_NOT_YOURS otherwise). Answers the claims
+ * list with `released`, false when the claim was already gone.
+ *
+ * @param {string} workspaceId
+ * @param {string} userId whose claim it is
+ */
+export async function releaseMaintenanceClaim(workspaceId, userId) {
+  return apiRequest(
+    `/maintenance-dashboard/claims/${encodeURIComponent(workspaceId)}/${encodeURIComponent(userId)}`,
+    { method: 'DELETE' },
+  );
+}
+
 /** Dashboard: today’s calendar events (Google Calendar when configured). */
 export async function fetchDashboardCalendar() {
   return apiRequest('/dashboard/calendar');

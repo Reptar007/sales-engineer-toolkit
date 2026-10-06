@@ -1,17 +1,22 @@
 /**
  * Maintenance dashboard ("Bone Pile") -- routes.
  *
- * Read-only view of every customer's open QA Wolf maintenance reports, ranked
- * so an SE with a free afternoon can pick the oldest backlog or the customer
+ * The page lists every customer's open QA Wolf maintenance reports, ranked so
+ * an SE with a free afternoon can pick the oldest backlog or the customer
  * with the most tests parked, with Task Wolf's view (blocked vs actionable,
- * which QAE is already on it) folded in when a Task Wolf MCP token is set.
+ * which QAE is already on it) folded in when a Task Wolf MCP token is set,
+ * and who on the team has claimed which customer.
  * Mounted at /api/maintenance-dashboard.
  *
- * The page's routes are authenticated, not role-gated: the page changes
- * nothing in QA Wolf or Task Wolf, and the whole point is that any SE can look
- * for work. The two Task Wolf diagnostics routes are admin-only, because they
- * ask Task Wolf live, on the server's token, about any customer named in the
- * path, and hand back the raw answer.
+ * It changes nothing in QA Wolf or Task Wolf. Claims are the one thing it
+ * writes, to this app's own database.
+ *
+ * The page's routes are authenticated, not role-gated: the whole point is that
+ * any SE can look for work and claim it. A user releases only their own claim,
+ * and an admin anyone's; claimService checks that, because the route is open
+ * to the claim's owner, whoever they are. The two Task Wolf diagnostics routes
+ * are admin-only, because they ask Task Wolf live, on the server's token,
+ * about any customer named in the path, and hand back the raw answer.
  */
 import express from 'express';
 import { authenticateToken } from '../../../middleware/auth.js';
@@ -29,6 +34,8 @@ import {
   getTaskWolfTokenExpiry,
   isTaskWolfConfigured,
 } from '../taskWolfMcpClient.js';
+import { claimCustomer, listClaims, releaseClaim } from '../claimService.js';
+import { ClaimError } from '../claimShape.js';
 
 const router = express.Router();
 
@@ -51,6 +58,13 @@ export function statusForError(error) {
   ) {
     return 502;
   }
+  if (error?.code === 'CLAIM_NOTE_INVALID') return 400;
+  if (error?.code === 'CLAIM_NOT_YOURS') return 403;
+  if (error?.code === 'CLAIM_UNKNOWN_CUSTOMER') return 404;
+  // The server has no snapshot yet (it has just restarted), so it cannot say
+  // who the customers are, or its scan could not read this one; the same
+  // request works once a scan has.
+  if (error?.code === 'CLAIM_NO_SNAPSHOT' || error?.code === 'CLAIM_CUSTOMER_UNREAD') return 409;
   return 500;
 }
 
@@ -80,6 +94,17 @@ function sendError(res, error, fallback, extra = {}) {
     code: error?.code || null,
     ...extra,
   });
+}
+
+/**
+ * A claim route's failure. A ClaimError says what was wrong; anything else is
+ * the database, whose message (table and constraint names) is logged, never
+ * sent.
+ */
+function sendClaimError(res, error, fallback) {
+  if (error instanceof ClaimError) return sendError(res, error, fallback);
+  console.error('Bone Pile claims failed:', error);
+  return sendError(res, new ClaimError('CLAIMS_UNAVAILABLE', fallback), fallback);
 }
 
 // GET /api/maintenance-dashboard
@@ -136,6 +161,58 @@ router.post('/refresh', authenticateToken, (req, res) => {
     });
   }
   return res.status(202).json({ refreshing: true });
+});
+
+// GET /api/maintenance-dashboard/claims
+// Every live claim, on every customer, as the caller sees it: `{ claims,
+// claimDays, noteMaxLength }`, each claim `{ workspaceId, workspaceName,
+// userId, claimer, note, claimedAt, expiresAt, mine, canRelease }`, oldest
+// first. Read from the database every time, apart from the snapshot: it never
+// starts a scan and never waits on one, so the page can poll it, and a claim
+// shows for everyone on their next poll. Claims on customers that have left
+// the snapshot are listed too. A database failure is 500 CLAIMS_UNAVAILABLE.
+router.get('/claims', authenticateToken, async (req, res) => {
+  try {
+    return res.json(await listClaims(req.user));
+  } catch (error) {
+    return sendClaimError(res, error, 'Claims could not be read.');
+  }
+});
+
+// PUT /api/maintenance-dashboard/claims/:workspaceId -- claim a customer, or
+// renew the caller's own claim on it, for claimDays from now. Body `{ note? }`:
+// left out, the note stays as it is (none on a new claim); null or blank
+// clears it; text replaces it, put on one line, at most 140 characters (400
+// CLAIM_NOTE_INVALID past that). Only a customer in the server's snapshot can
+// be claimed: 409 CLAIM_NO_SNAPSHOT while there is none (after a restart,
+// until GET / has started a scan and it has published one), 404
+// CLAIM_UNKNOWN_CUSTOMER for a workspace not in it, and 409
+// CLAIM_CUSTOMER_UNREAD for a new claim on a workspace its scan could not
+// read, where a claim already made can still be renewed. This route starts no
+// scan. Answers the list as GET /claims does, with the caller's `claim` and
+// whether it was `renewed`.
+router.put('/claims/:workspaceId', authenticateToken, async (req, res) => {
+  try {
+    // JSON has no undefined, so `note` is undefined exactly when it was left
+    // out; Express 5 leaves `req.body` undefined when there was no body.
+    return res.json(await claimCustomer(req.user, req.params.workspaceId, req.body?.note));
+  } catch (error) {
+    return sendClaimError(res, error, 'The claim could not be saved.');
+  }
+});
+
+// DELETE /api/maintenance-dashboard/claims/:workspaceId/:userId -- release a
+// claim: the caller's own, or anyone's for an admin (403 CLAIM_NOT_YOURS
+// otherwise). The snapshot is not asked, so this works after a restart and
+// for a customer that has left the backlog. A claim already gone (released or
+// lapsed) answers 200 with `released: false`, beside the list as GET /claims
+// gives it.
+router.delete('/claims/:workspaceId/:userId', authenticateToken, async (req, res) => {
+  try {
+    return res.json(await releaseClaim(req.user, req.params.workspaceId, req.params.userId));
+  } catch (error) {
+    return sendClaimError(res, error, 'The claim could not be released.');
+  }
 });
 
 // GET /api/maintenance-dashboard/taskwolf -- is Task Wolf wired up, and what

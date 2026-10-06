@@ -43,6 +43,7 @@ model User {
   salesEngineer     SalesEngineer?
   userRoles         UserRole[]
   googleIntegration UserGoogleIntegration?
+  maintenanceClaims MaintenanceClaim[]
 
   @@map("users")
 }
@@ -252,4 +253,37 @@ model OppCarrAttribution {
 
   @@index([salesEngineerId])
   @@map("opp_carr_attributions")
+}
+
+
+/// An SE's claim on a Bone Pile customer: "I'm on this one", so the rest of
+/// the team can see it is taken. Keyed by the QA Wolf workspace id, which is
+/// how the snapshot keys customers. The snapshot lives only in memory, so
+/// claims are kept here, where they outlive a restart or a deploy. Each SE
+/// holds at most one claim per customer, and several SEs may each hold one on
+/// the same customer. A claim counts until `expiresAt`; renewing moves it on by
+/// MAINTENANCE_DASHBOARD_CLAIM_DAYS. Reads skip lapsed claims and every write
+/// deletes them, so nothing runs on a schedule, and a claim made after one
+/// lapsed is a new row: `createdAt` is when it was claimed. Releasing deletes
+/// the row.
+model MaintenanceClaim {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  /// The customer's name when it was claimed or last renewed, for reading this
+  /// table directly and for naming a claim whose customer has left the
+  /// snapshot. Never used for matching -- the workspace id is the key.
+  workspaceName String?
+  userId        String
+  /// One line of plain text, at most 140 characters. claimShape.js enforces
+  /// it, so neither schema needs a native column type.
+  note          String?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("maintenance_claims")
 }

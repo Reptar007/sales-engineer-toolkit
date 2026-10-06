@@ -7,6 +7,9 @@ import assert from 'node:assert/strict';
 import {
   enrichWithTaskWolf,
   findCachedCustomer,
+  findUnreadWorkspace,
+  getClaimDays,
+  hasCachedSnapshot,
   mapWithConcurrency,
   probeTaskWolfCustomer,
   scanMaintenanceBacklog,
@@ -2769,6 +2772,49 @@ describe('the Task Wolf token’s expiry in the answers', () => {
   });
 });
 
+describe('what claims take from the service', () => {
+  beforeEach(() => resetMaintenanceCache());
+
+  test('a claim lasts 14 days by default, a setting that can be read, and 90 at most', (t) => {
+    t.after(() => delete process.env.MAINTENANCE_DASHBOARD_CLAIM_DAYS);
+    assert.equal(getClaimDays(), 14);
+    process.env.MAINTENANCE_DASHBOARD_CLAIM_DAYS = '7';
+    assert.equal(getClaimDays(), 7);
+    // Nonsense falls back to the default rather than making claims lapse at once.
+    for (const value of ['soon', '0', '-3']) {
+      process.env.MAINTENANCE_DASHBOARD_CLAIM_DAYS = value;
+      assert.equal(getClaimDays(), 14, value);
+    }
+    // A typo cannot make claims all but permanent.
+    process.env.MAINTENANCE_DASHBOARD_CLAIM_DAYS = '400';
+    assert.equal(getClaimDays(), 90);
+  });
+
+  test('whether a snapshot is cached, so a claim can be checked against its customers', async () => {
+    assert.equal(hasCachedSnapshot(), false);
+    await startRefresh({ client: fakeClient(), taskWolfClient: null });
+    assert.equal(hasCachedSnapshot(), true);
+    resetMaintenanceCache();
+    assert.equal(hasCachedSnapshot(), false);
+  });
+
+  test('a workspace the scan could not read is found among its errors, not its customers', async () => {
+    assert.equal(findUnreadWorkspace('ws-2'), null);
+    await startRefresh({
+      client: fakeClient({ failing: new Set(['ws-2']) }),
+      taskWolfClient: null,
+    });
+    assert.equal(findCachedCustomer('ws-2'), null);
+    assert.deepEqual(findUnreadWorkspace('ws-2'), {
+      workspaceId: 'ws-2',
+      workspaceName: 'Two',
+      message: 'ws-2 exploded',
+    });
+    assert.equal(findUnreadWorkspace('ws-1'), null, 'read, with no backlog');
+    assert.equal(findUnreadWorkspace('ws-nope'), null);
+  });
+});
+
 /**
  * The route's own handler, past the session check, and a `res` that records
  * what it was told. Nothing listens on a port.
@@ -2817,6 +2863,13 @@ describe('the routes', () => {
       TW_UPSTREAM: 502,
       SCAN_FAILED: 500,
       TW_ABORTED: 500,
+      // A claim refused for what was asked, and one the database failed.
+      CLAIM_NOTE_INVALID: 400,
+      CLAIM_NOT_YOURS: 403,
+      CLAIM_UNKNOWN_CUSTOMER: 404,
+      CLAIM_NO_SNAPSHOT: 409,
+      CLAIM_CUSTOMER_UNREAD: 409,
+      CLAIMS_UNAVAILABLE: 500,
     };
     for (const [code, status] of Object.entries(table)) {
       assert.equal(statusForError({ code }), status, code);
@@ -3007,6 +3060,9 @@ describe('the routes', () => {
       ['get', '/'],
       ['get', '/status'],
       ['post', '/refresh'],
+      ['get', '/claims'],
+      ['put', '/claims/:workspaceId'],
+      ['delete', '/claims/:workspaceId/:userId'],
     ]) {
       assert.equal(route(method, path).stack.length, 2, path);
     }
