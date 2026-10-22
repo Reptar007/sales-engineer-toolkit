@@ -7,6 +7,7 @@ import SalesforceMetrics from './salesforce-metrics';
 import RatioEstimator from './ratio-estimator';
 import FlowDocGenerator from './flow-doc-generator';
 import MaintenanceDashboard from './maintenance-dashboard';
+import LoneWolves from './lone-wolves';
 
 export const projects = {
   'salesforce-metrics': {
@@ -30,6 +31,23 @@ export const projects = {
     category: 'Analytics',
     version: '1.0.0',
     features: ['Cross-workspace scan', 'Age ranking', 'Culprit ranking', 'CSV + Slack export'],
+  },
+  'lone-wolves': {
+    id: 'lone-wolves',
+    name: 'Self-Serve Onboarding',
+    description:
+      'Every self-serve, custom-contract and pilot workspace and how far each is from its first real win',
+    icon: '🐺',
+    component: LoneWolves,
+    path: '/lone-wolves',
+    category: 'Analytics',
+    version: '1.0.0',
+    features: [
+      'Activation steps',
+      'Milestone timeline + calendar',
+      'Onboarding health',
+      'CSV + Slack pulse',
+    ],
   },
   'flow-doc-generator': {
     id: 'flow-doc-generator',
