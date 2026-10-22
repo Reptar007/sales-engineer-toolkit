@@ -20,6 +20,7 @@ import {
   GoBookmark,
   GoPeople,
   GoTools,
+  GoRocket,
 } from 'react-icons/go';
 
 /**
@@ -30,12 +31,14 @@ import {
 const PROJECT_LABEL_OVERRIDES = {
   'flow-doc-generator': 'Howl Sheet',
   'maintenance-dashboard': 'Bone Pile',
+  'lone-wolves': 'Lone Wolves',
 };
 
 const PROJECT_ICON_OVERRIDES = {
   'flow-doc-generator': <GoFile />,
   'salesforce-metrics': <GoGoal />,
   'maintenance-dashboard': <GoTools />,
+  'lone-wolves': <GoRocket />,
 };
 
 // Projects intentionally hidden from the sidebar even though they're still

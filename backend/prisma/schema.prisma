@@ -292,3 +292,38 @@ model MaintenanceClaim {
   @@index([userId])
   @@map("maintenance_claims")
 }
+
+/// One workspace on the Lone Wolves (self-serve onboarding) page, and what
+/// the platform cannot say about it: when it kicked off, how long its pilot
+/// runs, who owns failures, and the onboarding ticket. Workspaces on Task
+/// Wolf's SelfService QA team are listed without a row; a row is written the
+/// first time someone records a detail, or when a workspace from another team
+/// (a pilot, a self-managed workspace in a full-service account) is added by
+/// hand. Nothing here is copied from QA Wolf, so a rescan never overwrites it.
+model OnboardingWorkspace {
+  id                  String    @id @default(cuid())
+  workspaceId         String    @unique
+  /// The workspace's name when the row was last saved, for reading this table.
+  workspaceName       String?
+  /// self | custom | pilot | hybrid; null shows as self-serve.
+  segment             String?
+  /// Added by hand rather than found on the SelfService QA team.
+  addedManually       Boolean   @default(false)
+  /// Taken off the page without deleting what was recorded.
+  hidden              Boolean   @default(false)
+  kickoffOn           DateTime?
+  pilotDays           Int?
+  linearIssue         String?
+  ae                  String?
+  csm                 String?
+  /// The customer's named owner for reviewing failures; set means step done.
+  failureOwner        String?
+  /// Whether the client has started building tests themselves; null is unknown.
+  clientBuildingTests Boolean?
+  nextStep            String?
+  updatedBy           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@map("onboarding_workspaces")
+}

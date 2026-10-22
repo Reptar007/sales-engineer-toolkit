@@ -470,6 +470,35 @@ export async function releaseMaintenanceClaim(workspaceId, userId) {
   );
 }
 
+/**
+ * Lone Wolves (self-serve onboarding): the cached scan joined to the page's
+ * records. `refresh` asks for a rescan in the background.
+ */
+export async function fetchLoneWolves({ refresh = false } = {}) {
+  return apiRequest(`/lone-wolves${refresh ? '?refresh=1' : ''}`);
+}
+
+/** Ask for a Lone Wolves rescan; a 429 carries `retryAfterMs` in `body`. */
+export async function rescanLoneWolves() {
+  return apiRequest('/lone-wolves/refresh', { method: 'POST' });
+}
+
+/** Record details for one Lone Wolves workspace; only the fields sent change. */
+export async function saveLoneWolvesDetails(workspaceId, details) {
+  return apiRequest(`/lone-wolves/workspaces/${encodeURIComponent(workspaceId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(details),
+  });
+}
+
+/** Add a workspace from another QA team to Lone Wolves, by its id. */
+export async function addLoneWolvesWorkspace(details) {
+  return apiRequest('/lone-wolves/workspaces', {
+    method: 'POST',
+    body: JSON.stringify(details),
+  });
+}
+
 /** Dashboard: today’s calendar events (Google Calendar when configured). */
 export async function fetchDashboardCalendar() {
   return apiRequest('/dashboard/calendar');

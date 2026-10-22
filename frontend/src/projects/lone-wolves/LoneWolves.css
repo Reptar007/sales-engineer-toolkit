@@ -1,0 +1,751 @@
+/*
+ * Lone Wolves (self-serve onboarding) — the Bone Pile's look: translucent
+ * surfaces over the app's midnight-navy canvas, white text with rgba grey for
+ * supporting copy, coral for the brand accent and the primary action.
+ *
+ * Colour carries meaning in three places, and each is also said in words:
+ * milestone chips (kickoff blue, done teal, missed coral, unknown dashed,
+ * coming up grey), activation dots (done filled, not yet a coral ring,
+ * unknown a dashed ring, so they differ by shape too), and status pills.
+ *
+ * Every selector is scoped under `.lone-wolves`.
+ */
+
+.lone-wolves {
+  width: 100%;
+  color: var(--white);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  --lw-surface: rgba(255, 255, 255, 0.04);
+  --lw-border: rgba(255, 255, 255, 0.08);
+  --lw-muted: rgba(255, 255, 255, 0.62);
+  --lw-teal: #5eead4;
+  --lw-coral-text: #ffc2b4;
+  --lw-amber-text: #fde68a;
+}
+
+.lone-wolves h1,
+.lone-wolves h2,
+.lone-wolves h3 {
+  color: var(--white);
+  background: none;
+  -webkit-text-fill-color: var(--white);
+  margin: 0;
+}
+
+.lone-wolves .lw-muted {
+  color: var(--lw-muted);
+}
+
+.lone-wolves .lw-small {
+  font-size: 0.75rem;
+}
+
+.lone-wolves .lw-nowrap {
+  white-space: nowrap;
+}
+
+/* Header */
+
+.lone-wolves .lw-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--lw-border);
+}
+
+.lone-wolves .lw-overline {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--coral);
+  margin-bottom: 0.4rem;
+}
+
+.lone-wolves .lw-header h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.4rem;
+}
+
+.lone-wolves .lw-header p {
+  margin: 0;
+  max-width: 64ch;
+  color: var(--lw-muted);
+  font-size: 0.95rem;
+}
+
+.lone-wolves .lw-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lone-wolves .lw-status-live {
+  color: #ff9b85;
+}
+
+.lone-wolves .lw-actions,
+.lone-wolves .lw-card-actions,
+.lone-wolves .lw-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.lone-wolves .lw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 1.1rem;
+  border-radius: 8px;
+  border: none;
+  background: var(--coral);
+  color: #12131a;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.lone-wolves .lw-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.lone-wolves .lw-btn--ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--white);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.lone-wolves .lw-btn--quiet {
+  background: transparent;
+  color: var(--lw-muted);
+  border: 1px solid transparent;
+}
+
+.lone-wolves .lw-icon-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--lw-surface);
+  color: var(--white);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.lone-wolves .lw-warning {
+  border: 1px solid rgba(255, 176, 32, 0.4);
+  background: rgba(255, 176, 32, 0.1);
+  color: #ffd79a;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  font-size: 0.9rem;
+}
+
+.lone-wolves .lw-hint {
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  color: var(--lw-muted);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+}
+
+/* Tiles */
+
+.lone-wolves .lw-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.lone-wolves .lw-tile {
+  background: var(--lw-surface);
+  border: 1px solid var(--lw-border);
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.lone-wolves .lw-tile--bad {
+  background: rgba(255, 107, 74, 0.08);
+  border-color: rgba(255, 107, 74, 0.35);
+}
+
+.lone-wolves .lw-tile-label {
+  font-size: 0.8rem;
+  color: var(--lw-muted);
+}
+
+.lone-wolves .lw-tile--bad .lw-tile-label,
+.lone-wolves .lw-tile--bad .lw-tile-sub {
+  color: var(--lw-coral-text);
+}
+
+.lone-wolves .lw-tile-value {
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.lone-wolves .lw-tile-sub {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Panels */
+
+.lone-wolves .lw-panel {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--lw-border);
+  border-radius: 12px;
+  min-width: 0;
+}
+
+.lone-wolves .lw-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--lw-border);
+}
+
+.lone-wolves .lw-panel-head h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.lone-wolves .lw-panel-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.lone-wolves .lw-panel-foot {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--lw-border);
+}
+
+.lone-wolves .lw-footnote {
+  margin: 0;
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid var(--lw-border);
+  font-size: 0.75rem;
+  color: var(--lw-muted);
+}
+
+.lone-wolves .lw-segmented {
+  display: flex;
+  gap: 2px;
+  background: #020617;
+  padding: 3px;
+  border-radius: 9px;
+}
+
+.lone-wolves .lw-segmented button {
+  min-height: 2.25rem;
+  padding: 0 0.9rem;
+  border-radius: 7px;
+  border: 0;
+  background: transparent;
+  color: var(--lw-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lone-wolves .lw-segmented button[aria-pressed='true'] {
+  background: var(--coral);
+  color: #12131a;
+}
+
+.lone-wolves .lw-scroll {
+  overflow-x: auto;
+}
+
+/* Chips: milestone states */
+
+.lone-wolves .lw-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.lone-wolves .lw-chip {
+  display: block;
+  width: 100%;
+  min-height: 1.5rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.lone-wolves .lw-chip--static {
+  display: inline-block;
+  width: auto;
+  cursor: default;
+}
+
+.lone-wolves .lw-chip--kickoff {
+  background: rgba(41, 121, 255, 0.2);
+  color: #cfe0ff;
+  border: 1px solid rgba(41, 121, 255, 0.35);
+}
+
+.lone-wolves .lw-chip--done {
+  background: rgba(20, 184, 166, 0.16);
+  color: #99f6e4;
+  border: 1px solid rgba(20, 184, 166, 0.35);
+}
+
+.lone-wolves .lw-chip--missed {
+  background: rgba(255, 107, 74, 0.2);
+  color: var(--lw-coral-text);
+  border: 1px solid rgba(255, 107, 74, 0.45);
+}
+
+.lone-wolves .lw-chip--unknown {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+}
+
+.lone-wolves .lw-chip--later {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.lone-wolves .lw-milestone + .lw-milestone {
+  margin-top: 0.5rem;
+}
+
+.lone-wolves .lw-milestone .lw-small {
+  margin-top: 0.15rem;
+}
+
+/* Calendar */
+
+.lone-wolves .lw-cal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.25rem;
+}
+
+.lone-wolves .lw-cal-head h3 {
+  font-size: 1.1rem;
+  min-width: 10rem;
+}
+
+.lone-wolves .lw-cal {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  min-width: 840px;
+  border-top: 1px solid var(--lw-border);
+}
+
+.lone-wolves .lw-cal-dow {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.55);
+  border-bottom: 1px solid var(--lw-border);
+}
+
+.lone-wolves .lw-cal-cell {
+  min-height: 7.5rem;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.lone-wolves .lw-cal-cell.is-weekend {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.lone-wolves .lw-cal-cell.is-today {
+  background: rgba(255, 107, 74, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 107, 74, 0.55);
+}
+
+.lone-wolves .lw-cal-num {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 0.2rem 0.15rem;
+}
+
+.lone-wolves .lw-cal-num.is-out {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.lone-wolves .is-today .lw-cal-num {
+  align-self: flex-start;
+  background: var(--coral);
+  color: #12131a;
+  border-radius: 999px;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+/* Filters */
+
+.lone-wolves .lw-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.lone-wolves .lw-filter {
+  min-height: 2.5rem;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--lw-surface);
+  color: rgba(255, 255, 255, 0.85);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lone-wolves .lw-filter span {
+  opacity: 0.7;
+  font-weight: 500;
+}
+
+.lone-wolves .lw-filter[aria-pressed='true'] {
+  background: var(--coral);
+  border-color: var(--coral);
+  color: #12131a;
+}
+
+/* Table */
+
+.lone-wolves .lw-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.lone-wolves .lw-health {
+  flex: 999 1 640px;
+}
+
+.lone-wolves .lw-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  min-width: 1100px;
+}
+
+.lone-wolves .lw-timeline {
+  min-width: 900px;
+}
+
+.lone-wolves .lw-table th {
+  text-align: left;
+  padding: 0.75rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lone-wolves .lw-table td {
+  padding: 0.75rem 0.6rem;
+  vertical-align: top;
+  border-top: 1px solid var(--lw-border);
+}
+
+.lone-wolves .lw-table th:first-child,
+.lone-wolves .lw-table td:first-child {
+  padding-left: 1.25rem;
+}
+
+.lone-wolves .lw-table tr.is-selected td {
+  background: rgba(255, 107, 74, 0.07);
+}
+
+.lone-wolves .lw-table tr.is-selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--coral);
+}
+
+.lone-wolves .lw-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.lone-wolves .lw-name {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--white);
+  text-align: left;
+  cursor: pointer;
+  min-height: 1.5rem;
+}
+
+.lone-wolves .lw-link {
+  display: inline-block;
+  margin-top: 0.3rem;
+  color: #ff9b85;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.lone-wolves .lw-reason {
+  margin-top: 0.35rem;
+  max-width: 16rem;
+  line-height: 1.4;
+}
+
+.lone-wolves .lw-dots {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  min-height: 1.25rem;
+}
+
+.lone-wolves .lw-dot {
+  display: inline-block;
+  flex: none;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  box-sizing: border-box;
+}
+
+.lone-wolves .lw-dot--y {
+  background: var(--lw-teal);
+}
+
+.lone-wolves .lw-dot--n {
+  border: 2px solid var(--coral);
+}
+
+.lone-wolves .lw-dot--u {
+  border: 2px dashed rgba(255, 255, 255, 0.45);
+}
+
+.lone-wolves .lw-pill,
+.lone-wolves .lw-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.lone-wolves .lw-badge {
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.lone-wolves .lw-badge--bad,
+.lone-wolves .lw-status--stalled {
+  background: rgba(255, 107, 74, 0.18);
+  color: var(--lw-coral-text);
+  border: 1px solid rgba(255, 107, 74, 0.5);
+}
+
+.lone-wolves .lw-badge--good,
+.lone-wolves .lw-status--ontrack {
+  background: rgba(20, 184, 166, 0.14);
+  color: #99f6e4;
+  border: 1px solid rgba(20, 184, 166, 0.4);
+}
+
+.lone-wolves .lw-badge--unknown,
+.lone-wolves .lw-status--unread,
+.lone-wolves .lw-env--unknown {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.lone-wolves .lw-status--watch,
+.lone-wolves .lw-env--needsInvestigation {
+  background: rgba(250, 204, 21, 0.1);
+  color: var(--lw-amber-text);
+  border: 1px solid rgba(250, 204, 21, 0.35);
+}
+
+.lone-wolves .lw-env--blocked {
+  background: rgba(255, 107, 74, 0.12);
+  color: #ffb4a3;
+}
+
+.lone-wolves .lw-env--ready {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Workspace card */
+
+.lone-wolves .lw-card {
+  flex: 1 1 300px;
+  min-width: 0;
+  background: var(--lw-surface);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-sizing: border-box;
+}
+
+.lone-wolves .lw-card h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.lone-wolves .lw-card h3 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 0.4rem;
+}
+
+.lone-wolves .lw-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.lone-wolves .lw-step {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  padding: 0.15rem 0;
+}
+
+.lone-wolves .lw-step-label {
+  flex: 1 1 auto;
+}
+
+.lone-wolves .lw-card-flag {
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  background: rgba(255, 107, 74, 0.08);
+  border: 1px solid rgba(255, 107, 74, 0.25);
+}
+
+.lone-wolves .lw-card-flag h3 {
+  color: var(--lw-coral-text);
+  -webkit-text-fill-color: var(--lw-coral-text);
+}
+
+.lone-wolves .lw-people {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1rem;
+  font-size: 0.85rem;
+}
+
+.lone-wolves .lw-people dt {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lone-wolves .lw-people dd {
+  margin: 0.15rem 0 0;
+}
+
+/* Forms */
+
+.lone-wolves .lw-form,
+.lone-wolves .lw-add {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.lone-wolves .lw-add {
+  grid-template-columns: repeat(auto-fit, minmax(160px, auto));
+  align-items: end;
+}
+
+.lone-wolves .lw-form label,
+.lone-wolves .lw-add label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--lw-muted);
+}
+
+.lone-wolves .lw-form-wide,
+.lone-wolves .lw-form-actions {
+  grid-column: 1 / -1;
+}
+
+.lone-wolves .lw-form input,
+.lone-wolves .lw-form select,
+.lone-wolves .lw-form textarea,
+.lone-wolves .lw-add input,
+.lone-wolves .lw-add select {
+  min-height: 2.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #0f172a;
+  color: var(--white);
+  font: inherit;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .lone-wolves .lw-form {
+    grid-template-columns: 1fr;
+  }
+}
