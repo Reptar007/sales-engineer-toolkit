@@ -52,6 +52,12 @@ function text(value, field, max = TEXT_MAX) {
 export function normalizeDetails(body = {}) {
   const out = {};
   if ('workspaceName' in body) out.workspaceName = text(body.workspaceName, 'Name');
+  if ('environmentId' in body) {
+    if (body.environmentId && !SAFE_ID.test(body.environmentId)) {
+      throw new OnboardingError('ONBOARDING_INVALID', 'That is not a QA Wolf environment id.');
+    }
+    out.environmentId = body.environmentId || null;
+  }
   if ('segment' in body) {
     if (body.segment != null && body.segment !== '' && !SEGMENTS.includes(body.segment)) {
       throw new OnboardingError(

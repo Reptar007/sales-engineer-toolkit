@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   addLoneWolvesWorkspace,
+  fetchLoneWolvesEnvironments,
   fetchLoneWolves,
   rescanLoneWolves,
   saveLoneWolvesDetails,
@@ -239,6 +240,7 @@ function Calendar({ rows, onPick }) {
 }
 
 const EMPTY_FORM = {
+  environmentId: '',
   segment: '',
   kickoffOn: '',
   pilotDays: '',
@@ -253,6 +255,7 @@ const EMPTY_FORM = {
 function formFor(row) {
   if (!row) return EMPTY_FORM;
   return {
+    environmentId: row.environmentId || '',
     segment: row.segment || '',
     kickoffOn: row.kickoffOn ? row.kickoffOn.slice(0, 10) : '',
     pilotDays: row.pilotDays ?? '',
@@ -283,8 +286,12 @@ function WorkspaceCard({ row, onSaved }) {
     event.preventDefault();
     setSaving(true);
     try {
+      // The environment is sent only when it changed: changing it starts a
+      // rescan, which an edit to the next step should not.
+      const { environmentId, ...rest } = form;
       await saveLoneWolvesDetails(row.workspaceId, {
-        ...form,
+        ...rest,
+        ...(environmentId !== (row.environmentId || '') ? { environmentId } : {}),
         clientBuildingTests:
           form.clientBuildingTests === 'yes'
             ? true
@@ -322,6 +329,9 @@ function WorkspaceCard({ row, onSaved }) {
         <div className="lw-overline">{segmentLabel(row.segment)}</div>
         <h2>{row.name}</h2>
         <div className="lw-muted">{kickoff}</div>
+        {row.environmentName ? (
+          <div className="lw-muted lw-small">Counting the {row.environmentName} environment</div>
+        ) : null}
         {ticket ? (
           <a className="lw-link" href={ticket} target="_blank" rel="noreferrer">
             {row.linearIssue}
@@ -349,6 +359,19 @@ function WorkspaceCard({ row, onSaved }) {
 
       {editing ? (
         <form className="lw-form" onSubmit={save}>
+          {row.environments?.length ? (
+            <label className="lw-form-wide">
+              Environment to count
+              <select value={form.environmentId} onChange={set('environmentId')}>
+                {row.environments.map((env) => (
+                  <option key={env.id} value={env.id}>
+                    {env.name}
+                    {env.isDefault ? ' (default)' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label>
             Type
             <select value={form.segment} onChange={set('segment')}>
@@ -468,18 +491,46 @@ function WorkspaceCard({ row, onSaved }) {
   );
 }
 
+const EMPTY_ADD = { workspaceId: '', workspaceName: '', segment: 'pilot', environmentId: '' };
+
+/**
+ * Add a workspace by id. Once the id is entered, its environments are read
+ * live from QA Wolf so the one to count can be picked now; it starts on the
+ * workspace's default.
+ */
 function AddWorkspace({ onAdded }) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ workspaceId: '', workspaceName: '', segment: 'pilot' });
+  const [form, setForm] = useState(EMPTY_ADD);
+  const [environments, setEnvironments] = useState(null);
+  const [loadingEnvs, setLoadingEnvs] = useState(false);
   const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
+  const loadEnvironments = async () => {
+    const id = form.workspaceId.trim();
+    if (!id) return;
+    setLoadingEnvs(true);
+    try {
+      const data = await fetchLoneWolvesEnvironments(id);
+      setEnvironments(data.environments);
+      setForm((f) => ({
+        ...f,
+        environmentId: data.defaultEnvironmentId || data.environments[0]?.id || '',
+      }));
+    } catch (err) {
+      setEnvironments(null);
+      toast.error(err?.message || 'That workspace’s environments could not be read.');
+    } finally {
+      setLoadingEnvs(false);
+    }
+  };
   const submit = async (event) => {
     event.preventDefault();
     try {
       await addLoneWolvesWorkspace({ ...form, workspaceId: form.workspaceId.trim() });
       toast.success(`Added ${form.workspaceName || form.workspaceId}; it is being scanned.`);
       setOpen(false);
-      setForm({ workspaceId: '', workspaceName: '', segment: 'pilot' });
+      setForm(EMPTY_ADD);
+      setEnvironments(null);
       onAdded();
     } catch (err) {
       toast.error(err?.message || 'The workspace could not be added.');
@@ -500,8 +551,28 @@ function AddWorkspace({ onAdded }) {
           required
           value={form.workspaceId}
           onChange={set('workspaceId')}
+          onBlur={loadEnvironments}
           placeholder="clsizdlgk0ikr7w013qfl02ib"
         />
+      </label>
+      <label>
+        Environment to count
+        <select
+          value={form.environmentId}
+          onChange={set('environmentId')}
+          disabled={!environments?.length}
+        >
+          {environments?.length ? (
+            environments.map((env) => (
+              <option key={env.id} value={env.id}>
+                {env.name}
+                {env.isDefault ? ' (default)' : ''}
+              </option>
+            ))
+          ) : (
+            <option value="">{loadingEnvs ? 'Reading…' : 'Enter the id first'}</option>
+          )}
+        </select>
       </label>
       <label>
         Name
@@ -813,6 +884,9 @@ export default function LoneWolves() {
                         <span className={`lw-pill lw-env--${row.environment?.status || 'unknown'}`}>
                           {environmentLabel(row.environment?.status)}
                         </span>
+                        {row.environmentName ? (
+                          <div className="lw-muted lw-small">{row.environmentName}</div>
+                        ) : null}
                       </td>
                       <td className="lw-nowrap">
                         <div>

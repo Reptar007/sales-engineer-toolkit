@@ -1,20 +1,21 @@
 /**
  * Lone Wolves -- what the scan reads from QA Wolf's public API for one
- * workspace: its environments, the flows in each static one, its triggers,
- * its recent runs and its bug reports.
+ * workspace: its environments, the flows and recent runs of the one it
+ * counts, its triggers and its bug reports.
  *
  * Every call goes through the Bone Pile's `qawQuery`, so it shares that
  * client's auth (QAW_BEARER_TOKEN / QAWOLF_API_KEY), timeouts and error codes.
  * Read-only: nothing here changes anything in QA Wolf.
  */
 import { qawQuery } from '../maintenance-dashboard/qawolfClient.js';
-import { DAY_MS } from './onboardingShape.js';
+import { DAY_MS, chooseEnvironment } from './onboardingShape.js';
 
 const PAGE_LIMIT = 100;
 /** Pages read per list before giving up; a busy workspace still fits. */
 const MAX_PAGES = 10;
 
-async function readPages(procedure, input, key, options) {
+/** Every page of a list; `onPage` sees each raw answer (for fields beside the list). */
+async function readPages(procedure, input, key, options, onPage) {
   const items = [];
   let cursor;
   for (let page = 0; page < MAX_PAGES; page += 1) {
@@ -23,6 +24,7 @@ async function readPages(procedure, input, key, options) {
       { ...input, limit: PAGE_LIMIT, ...(cursor ? { cursor } : {}) },
       options,
     );
+    onPage?.(data);
     items.push(...(Array.isArray(data?.[key]) ? data[key] : []));
     cursor = data?.nextCursor;
     if (!cursor) break;
@@ -30,9 +32,22 @@ async function readPages(procedure, input, key, options) {
   return items;
 }
 
-/** The workspace's environments, terminated ones left out. */
-export function listEnvironments(workspaceId, options = {}) {
-  return readPages('public.environment.find', { workspaceId }, 'environments', options);
+/**
+ * The workspace's environments, terminated ones left out, and which one is
+ * its default (`defaultEnvironmentId`, beside the list in every page).
+ */
+export async function listEnvironments(workspaceId, options = {}) {
+  let defaultEnvironmentId = null;
+  const environments = await readPages(
+    'public.environment.find',
+    { workspaceId },
+    'environments',
+    options,
+    (data) => {
+      defaultEnvironmentId = defaultEnvironmentId || data?.defaultEnvironmentId || null;
+    },
+  );
+  return { environments, defaultEnvironmentId };
 }
 
 /** The flows of one environment, drafts included. */
@@ -94,27 +109,26 @@ export async function listBugs(workspaceId, options = {}) {
 }
 
 /**
- * Everything the row needs for one workspace. Flows and runs are read per
- * static environment; preview environments come and go with pull requests.
+ * Everything the row needs for one workspace. Flows and runs are read from
+ * one environment only, `options.environmentId` when it is still one of the
+ * workspace's, else its default (see chooseEnvironment); every environment
+ * is returned so the page can offer the others.
  */
 export async function readWorkspace(workspaceId, options = {}) {
-  const environments = await listEnvironments(workspaceId, options);
-  const statics = environments.filter((env) => env?.kind !== 'preview');
-  const [triggers, bugs, perEnvironment] = await Promise.all([
+  const { environments, defaultEnvironmentId } = await listEnvironments(workspaceId, options);
+  const chosen = chooseEnvironment(environments, defaultEnvironmentId, options.environmentId);
+  const [triggers, bugs, flows, runs] = await Promise.all([
     listTriggers(workspaceId, options),
     listBugs(workspaceId, options),
-    Promise.all(
-      statics.map(async (env) => ({
-        id: env.id,
-        flows: await listFlows(workspaceId, env.id, options),
-        runs: await listRecentRuns(workspaceId, env.id, options),
-      })),
-    ),
+    chosen ? listFlows(workspaceId, chosen.id, options) : [],
+    chosen ? listRecentRuns(workspaceId, chosen.id, options) : [],
   ]);
   return {
     environments,
-    flowsByEnvironment: Object.fromEntries(perEnvironment.map((env) => [env.id, env.flows])),
-    runs: perEnvironment.flatMap((env) => env.runs),
+    defaultEnvironmentId,
+    environmentId: chosen?.id || null,
+    flowsByEnvironment: chosen ? { [chosen.id]: flows } : {},
+    runs,
     triggers,
     bugs,
   };

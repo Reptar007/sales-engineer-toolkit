@@ -305,6 +305,10 @@ model OnboardingWorkspace {
   workspaceId         String    @unique
   /// The workspace's name when the row was last saved, for reading this table.
   workspaceName       String?
+  /// The environment the page counts (flows, runs, triggers, bugs); null
+  /// means the workspace's default. Picked by hand where a workspace keeps
+  /// a pilot's environment beside others, e.g. Panorama's Self-Serve.
+  environmentId       String?
   /// self | custom | pilot | hybrid; null shows as self-serve.
   segment             String?
   /// Added by hand rather than found on the SelfService QA team.

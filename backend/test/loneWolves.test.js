@@ -23,6 +23,9 @@ import {
   summarizeEnvironments,
   summarizeRuns,
   summarizeTriggers,
+  bugsInEnvironment,
+  chooseEnvironment,
+  triggerEnvironmentIds,
 } from '../src/projects/lone-wolves/onboardingShape.js';
 import { hasCustomerRun, listTeamWorkspaces } from '../src/projects/lone-wolves/taskWolfSource.js';
 import { normalizeDetails, OnboardingError } from '../src/projects/lone-wolves/workspaceStore.js';
@@ -230,7 +233,12 @@ describe('status', () => {
 
 describe('rows', () => {
   const platform = {
-    environments: [{ id: ENV, kind: 'static', status: 'blocked' }],
+    environments: [
+      { id: ENV, name: 'Staging', kind: 'static', status: 'blocked' },
+      { id: 'envselfserve1', name: 'Self-Serve', kind: 'static', status: 'ready' },
+    ],
+    defaultEnvironmentId: ENV,
+    environmentId: ENV,
     flowsByEnvironment: { [ENV]: [flow('f1', 'active', ['CI']), flow('f2', 'draft')] },
     triggers: [schedule(['CI'])],
     runs: [{ createdAt: hoursAgo(3), status: 'pass' }],
@@ -459,5 +467,105 @@ describe('scan', () => {
     assert.equal(rows[0].day, 8);
     assert.equal(rows[0].linearIssue, 'AXO-1278');
     assert.deepEqual(rowsFor(scan, [{ workspaceId: 'w1', hidden: true }], NOW), []);
+  });
+});
+
+describe('one environment per workspace', () => {
+  const OTHER = 'envselfserve1';
+  const deploy = (environmentIds, tagNames) => ({
+    isPaused: false,
+    configuration: { kind: 'deployment', environmentIds, action: { tagNames } },
+  });
+
+  test('deploy triggers name their environments as a list (Neighborly)', () => {
+    assert.deepEqual(triggerEnvironmentIds(deploy([ENV], ['Loans'])), [ENV]);
+    assert.deepEqual(triggerEnvironmentIds(schedule(['CI'])), [ENV]);
+    const flows = { [ENV]: [flow('f1', 'active', ['Loans'])] };
+    const t = summarizeTriggers([deploy([ENV], ['Loans']), deploy([ENV], ['Gone'])], flows);
+    assert.deepEqual(t, { count: 2, empty: 1, matchingSchedule: false });
+  });
+
+  test('only triggers aimed at the counted environment count', () => {
+    const flows = { [ENV]: [flow('f1', 'active', ['CI'])] };
+    const t = summarizeTriggers([schedule(['CI']), deploy([OTHER], ['CI'])], flows, ENV);
+    assert.deepEqual(t, { count: 1, empty: 0, matchingSchedule: true });
+  });
+
+  test('the picked environment wins, else the default, else the first static one', () => {
+    const envs = [
+      { id: 'prev1', kind: 'preview' },
+      { id: ENV, kind: 'static' },
+      { id: OTHER, kind: 'static' },
+    ];
+    assert.equal(chooseEnvironment(envs, ENV, OTHER).id, OTHER);
+    assert.equal(chooseEnvironment(envs, ENV, 'gone').id, ENV);
+    assert.equal(chooseEnvironment(envs, null, null).id, ENV);
+    assert.equal(chooseEnvironment([], null, null), null);
+  });
+
+  test('bugs reproduced elsewhere are left out; hand-filed ones stay', () => {
+    const bugs = [
+      { reproductions: [{ environmentId: ENV }] },
+      { reproductions: [{ environmentId: OTHER }] },
+      { reproductions: [] },
+    ];
+    assert.equal(bugsInEnvironment(bugs, ENV).length, 2);
+    assert.equal(bugsInEnvironment(bugs, null).length, 3);
+  });
+
+  test('the row counts one environment and lists the rest for the picker', () => {
+    const row = buildRow({
+      workspace: { id: 'pano1', name: 'Panorama', source: 'manual' },
+      details: { environmentId: OTHER },
+      platform: {
+        environments: [
+          { id: ENV, name: 'Staging', kind: 'static', status: 'blocked' },
+          { id: OTHER, name: 'Self-Serve', kind: 'static', status: 'ready' },
+        ],
+        defaultEnvironmentId: ENV,
+        environmentId: OTHER,
+        flowsByEnvironment: { [OTHER]: [flow('a', 'active', ['CI'])] },
+        triggers: [schedule(['CI'])],
+        runs: [{ createdAt: hoursAgo(1), status: 'pass' }],
+        bugs: [
+          { createdAt: daysAgo(1), status: 'pending', reproductions: [{ environmentId: ENV }] },
+        ],
+      },
+      now: NOW,
+    });
+    assert.equal(row.environmentName, 'Self-Serve');
+    assert.equal(row.environment.status, 'ready');
+    assert.deepEqual(row.flows, { active: 1, draft: 0 });
+    assert.equal(row.triggers.count, 0);
+    assert.equal(row.bugs.open, 0);
+    assert.deepEqual(
+      row.environments.map((e) => [e.name, e.isDefault]),
+      [
+        ['Staging', true],
+        ['Self-Serve', false],
+      ],
+    );
+  });
+
+  test('the scan reads each workspace in its recorded environment', async () => {
+    const seen = [];
+    await scanOnboarding({
+      taskWolfClient: null,
+      listDetailsImpl: async () => [
+        { workspaceId: 'man1', addedManually: true, environmentId: OTHER },
+      ],
+      readWorkspaceImpl: async (id, options) => {
+        seen.push([id, options.environmentId]);
+        return { environments: [], flowsByEnvironment: {}, triggers: [], runs: [], bugs: [] };
+      },
+      now: NOW,
+    });
+    assert.deepEqual(seen, [['man1', OTHER]]);
+  });
+
+  test('an environment id is checked like a workspace id', () => {
+    assert.equal(normalizeDetails({ environmentId: OTHER }).environmentId, OTHER);
+    assert.equal(normalizeDetails({ environmentId: '' }).environmentId, null);
+    assert.throws(() => normalizeDetails({ environmentId: 'Bad Id' }), OnboardingError);
   });
 });

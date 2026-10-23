@@ -79,7 +79,22 @@ export function summarizeEnvironments(environments = []) {
   return { status: worst, count: statics.length, blocked };
 }
 
-/** Active and draft flow counts across the workspace's static environments. */
+/**
+ * The bug reports that belong to one environment: those reproduced there,
+ * and those reproduced nowhere yet (filed by hand), which can only be
+ * counted where they were filed. Without an environment every report counts.
+ */
+export function bugsInEnvironment(bugs = [], environmentId = null) {
+  if (!environmentId) return bugs;
+  return bugs.filter((bug) => {
+    const reproductions = Array.isArray(bug?.reproductions) ? bug.reproductions : [];
+    return (
+      reproductions.length === 0 || reproductions.some((r) => r?.environmentId === environmentId)
+    );
+  });
+}
+
+/** Active and draft flow counts across the environments the scan read. */
 export function countFlows(flowsByEnvironment = {}) {
   let active = 0;
   let draft = 0;
@@ -93,16 +108,45 @@ export function countFlows(flowsByEnvironment = {}) {
 }
 
 /**
- * Whether a trigger selects at least one active flow in its environment, by
+ * The environment the page counts for a workspace: the one recorded on the
+ * page, else the workspace's default, else its first static one. Workspaces
+ * keep several environments (a pilot's own beside a full-service Staging),
+ * and adding them up double counts, so the row reads one.
+ */
+export function chooseEnvironment(
+  environments = [],
+  defaultEnvironmentId = null,
+  preferredId = null,
+) {
+  const statics = environments.filter((env) => env?.kind !== 'preview');
+  return (
+    statics.find((env) => env.id === preferredId) ||
+    statics.find((env) => env.id === defaultEnvironmentId) ||
+    statics[0] ||
+    null
+  );
+}
+
+/**
+ * The environments a trigger targets. Scheduled triggers name one
+ * (`environmentId`); deployment triggers name a list (`environmentIds`).
+ */
+export function triggerEnvironmentIds(trigger) {
+  const config = trigger?.configuration || {};
+  if (Array.isArray(config.environmentIds)) return config.environmentIds;
+  return config.environmentId ? [config.environmentId] : [];
+}
+
+/**
+ * Whether a trigger selects at least one active flow in its environments, by
  * flow id or by tag. A trigger that selects nothing looks set up and runs
  * nothing, which is the failure this column exists to catch.
  */
 export function triggerMatchesFlows(trigger, flowsByEnvironment = {}) {
-  const config = trigger?.configuration || {};
-  const action = config.action || {};
-  const flows = (flowsByEnvironment[config.environmentId] || []).filter(
-    (flow) => flow?.readiness !== 'draft',
-  );
+  const action = trigger?.configuration?.action || {};
+  const flows = triggerEnvironmentIds(trigger)
+    .flatMap((id) => flowsByEnvironment[id] || [])
+    .filter((flow) => flow?.readiness !== 'draft');
   const flowIds = new Set(flows.map((flow) => flow.flowId));
   if ((action.flowIds || []).some((id) => flowIds.has(id))) return true;
   const tags = new Set(action.tagNames || []);
@@ -111,16 +155,18 @@ export function triggerMatchesFlows(trigger, flowsByEnvironment = {}) {
 }
 
 /**
- * The trigger column: how many unpaused triggers there are, how many select
- * no flow, and whether a scheduled one that does select flows exists (the
- * daily-run step needs one).
+ * The trigger column: how many unpaused triggers target the counted
+ * environment, how many of those select no flow, and whether a scheduled one
+ * that does select flows exists (the daily-run step needs one). Without an
+ * `environmentId` every trigger counts.
  */
-export function summarizeTriggers(triggers = [], flowsByEnvironment = {}) {
+export function summarizeTriggers(triggers = [], flowsByEnvironment = {}, environmentId = null) {
   let count = 0;
   let empty = 0;
   let matchingSchedule = false;
   for (const trigger of triggers) {
     if (trigger?.isPaused) continue;
+    if (environmentId && !triggerEnvironmentIds(trigger).includes(environmentId)) continue;
     count += 1;
     const matches = triggerMatchesFlows(trigger, flowsByEnvironment);
     if (!matches) empty += 1;
@@ -355,15 +401,31 @@ export function buildRow({
       milestones: null,
     };
   }
+  // Everything below counts the one environment the scan read (see
+  // chooseEnvironment); the others are listed only for the picker.
+  const counted = (platform.environments || []).find((env) => env.id === platform.environmentId);
   const flows = countFlows(platform.flowsByEnvironment);
-  const environment = summarizeEnvironments(platform.environments);
-  const triggers = summarizeTriggers(platform.triggers, platform.flowsByEnvironment);
+  const environment = summarizeEnvironments(counted ? [counted] : []);
+  const triggers = summarizeTriggers(
+    platform.triggers,
+    platform.flowsByEnvironment,
+    platform.environmentId,
+  );
   const runs = summarizeRuns(platform.runs, now);
-  const bugs = summarizeBugs(platform.bugs, now);
+  const bugs = summarizeBugs(bugsInEnvironment(platform.bugs, platform.environmentId), now);
   const activation = activationSteps({ flows, customerRun, triggers, runs, bugs, details, now });
   const { status, reason } = onboardingStatus({ flows, runs, triggers, bugs, environment, now });
   return {
     ...base,
+    environmentId: counted?.id || null,
+    environmentName: counted?.name || null,
+    environments: (platform.environments || [])
+      .filter((env) => env?.kind !== 'preview')
+      .map((env) => ({
+        id: env.id,
+        name: env.name,
+        isDefault: env.id === platform.defaultEnvironmentId,
+      })),
     flows,
     environment,
     triggers,
