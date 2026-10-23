@@ -491,6 +491,11 @@ export async function saveLoneWolvesDetails(workspaceId, details) {
   });
 }
 
+/** A workspace's static environments, live from QA Wolf, for the Lone Wolves picker. */
+export async function fetchLoneWolvesEnvironments(workspaceId) {
+  return apiRequest(`/lone-wolves/workspaces/${encodeURIComponent(workspaceId)}/environments`);
+}
+
 /** Add a workspace from another QA team to Lone Wolves, by its id. */
 export async function addLoneWolvesWorkspace(details) {
   return apiRequest('/lone-wolves/workspaces', {

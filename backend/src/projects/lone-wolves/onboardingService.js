@@ -101,9 +101,10 @@ export async function scanOnboarding({
       warnings.push(`Task Wolf could not list customer people: ${error.message}`);
     }
   }
+  const environmentFor = new Map(details.map((d) => [d.workspaceId, d.environmentId || null]));
   const results = await mapWithConcurrency(workspaces, SCAN_CONCURRENCY, async (ws) => {
     const [platform, customerRun] = await Promise.all([
-      readWorkspaceImpl(ws.id, { now }).catch((error) => {
+      readWorkspaceImpl(ws.id, { now, environmentId: environmentFor.get(ws.id) }).catch((error) => {
         // An expired key fails every workspace the same way; say it once, loudly.
         if (error?.code === 'QAW_AUTH' || error?.code === 'QAW_CONFIG') throw error;
         return { error: error?.message || 'QA Wolf could not be read.' };

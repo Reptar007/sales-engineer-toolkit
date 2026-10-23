@@ -14,7 +14,8 @@ import express from 'express';
 import { authenticateToken } from '../../../middleware/auth.js';
 import { statusForError } from '../../maintenance-dashboard/routes/index.js';
 import { getOnboardingDashboard, requestRescan, startRefresh } from '../onboardingService.js';
-import { OnboardingError, addWorkspace, saveDetails } from '../workspaceStore.js';
+import { OnboardingError, addWorkspace, isWorkspaceId, saveDetails } from '../workspaceStore.js';
+import { listEnvironments } from '../platformClient.js';
 
 const router = express.Router();
 
@@ -66,12 +67,36 @@ router.post('/refresh', authenticateToken, (req, res) => {
   return res.status(202).json({ status: 'accepted' });
 });
 
+// GET /api/lone-wolves/workspaces/:workspaceId/environments -- the
+// workspace's static environments, live from QA Wolf, for the environment
+// picker when adding a workspace (before any scan has read it):
+// `{ environments: [{ id, name, isDefault }], defaultEnvironmentId }`.
+router.get('/workspaces/:workspaceId/environments', authenticateToken, async (req, res) => {
+  try {
+    if (!isWorkspaceId(req.params.workspaceId)) {
+      throw new OnboardingError('ONBOARDING_INVALID', 'That is not a QA Wolf workspace id.');
+    }
+    const { environments, defaultEnvironmentId } = await listEnvironments(req.params.workspaceId);
+    return res.json({
+      status: 'ok',
+      defaultEnvironmentId,
+      environments: environments
+        .filter((env) => env?.kind !== 'preview')
+        .map((env) => ({ id: env.id, name: env.name, isDefault: env.id === defaultEnvironmentId })),
+    });
+  } catch (error) {
+    return sendError(res, error, 'The environments could not be read.');
+  }
+});
+
 // PUT /api/lone-wolves/workspaces/:workspaceId -- record details. Only the
 // fields sent change; an empty value clears one. `hidden: true` takes the
-// workspace off the page.
+// workspace off the page. Changing `environmentId` starts a rescan, since
+// the cached numbers are the old environment's.
 router.put('/workspaces/:workspaceId', authenticateToken, async (req, res) => {
   try {
     const row = await saveDetails(req.params.workspaceId, req.body || {}, req.user);
+    if (req.body && 'environmentId' in req.body) startRefresh();
     return res.json({ status: 'ok', details: row });
   } catch (error) {
     return sendError(res, error, 'The details could not be saved.');
