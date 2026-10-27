@@ -496,6 +496,11 @@ export async function fetchLoneWolvesEnvironments(workspaceId) {
   return apiRequest(`/lone-wolves/workspaces/${encodeURIComponent(workspaceId)}/environments`);
 }
 
+/** The CSM and CSM lead accounts, for the Lone Wolves CSM picker (editors only). */
+export async function fetchLoneWolvesCsms() {
+  return apiRequest('/lone-wolves/csms');
+}
+
 /** Add a workspace from another QA team to Lone Wolves, by its id. */
 export async function addLoneWolvesWorkspace(details) {
   return apiRequest('/lone-wolves/workspaces', {

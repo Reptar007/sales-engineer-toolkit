@@ -5,6 +5,7 @@ import {
   fetchLoneWolves,
   rescanLoneWolves,
   saveLoneWolvesDetails,
+  fetchLoneWolvesCsms,
 } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -333,7 +334,7 @@ function UsageCell({ week, pricing }) {
  * to post. The toggle is the same saved pick as the row's: old by default,
  * since every customer signed before 10/19 is on it; "None" for trials.
  */
-function UsageSection({ row, pricing, onPickPricing }) {
+function UsageSection({ row, pricing, onPickPricing, canEdit }) {
   const toast = useToast();
   const usage = row.usage;
   if (!usage) return null;
@@ -362,7 +363,17 @@ function UsageSection({ row, pricing, onPickPricing }) {
     <div className="lw-card-section">
       <div className="lw-usage-head">
         <h3>Usage{row.environmentName ? ` · ${row.environmentName}` : ''}</h3>
-        <PricingToggle pricing={pricing} onPick={onPickPricing} label={`Pricing for ${row.name}`} />
+        {canEdit ? (
+          <PricingToggle
+            pricing={pricing}
+            onPick={onPickPricing}
+            label={`Pricing for ${row.name}`}
+          />
+        ) : (
+          <span className="lw-readonly">
+            {PRICINGS.find((p) => p.id === pricing)?.label || 'Old pricing'}
+          </span>
+        )}
       </div>
       <div className="lw-scroll">
         <table className="lw-usage-table">
@@ -440,16 +451,25 @@ function UsageSection({ row, pricing, onPickPricing }) {
   );
 }
 
-function WorkspaceCard({ row, onSaved, pricing, onPickPricing }) {
+function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(() => formFor(row));
   const [saving, setSaving] = useState(false);
+  // The CSM accounts, for the CSM picker; read once, when editing starts.
+  const [csms, setCsms] = useState(null);
 
   useEffect(() => {
     setForm(formFor(row));
     setEditing(false);
   }, [row]);
+
+  useEffect(() => {
+    if (!editing || !canEdit || csms) return;
+    fetchLoneWolvesCsms()
+      .then((data) => setCsms(data.csms || []))
+      .catch(() => setCsms([]));
+  }, [editing, canEdit, csms]);
 
   if (!row) return null;
   const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
@@ -530,7 +550,7 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing }) {
         </div>
       ) : null}
 
-      <UsageSection row={row} pricing={pricing} onPickPricing={onPickPricing} />
+      <UsageSection row={row} pricing={pricing} onPickPricing={onPickPricing} canEdit={canEdit} />
 
       {editing ? (
         <form className="lw-form" onSubmit={save}>
@@ -581,7 +601,18 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing }) {
           </label>
           <label>
             CSM
-            <input value={form.csm} onChange={set('csm')} />
+            <select value={form.csm} onChange={set('csm')}>
+              <option value="">Not assigned</option>
+              {(csms || []).map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+              {/* A name typed before the picker existed stays selectable. */}
+              {form.csm && !(csms || []).some((c) => c.name === form.csm) ? (
+                <option value={form.csm}>{form.csm}</option>
+              ) : null}
+            </select>
           </label>
           <label>
             Failure owner
@@ -643,9 +674,11 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing }) {
             </div>
           </dl>
           <div className="lw-card-actions">
-            <button type="button" className="lw-btn" onClick={() => setEditing(true)}>
-              Edit details
-            </button>
+            {canEdit ? (
+              <button type="button" className="lw-btn" onClick={() => setEditing(true)}>
+                Edit details
+              </button>
+            ) : null}
             {row.slug ? (
               <a
                 className="lw-btn lw-btn--ghost"
@@ -656,10 +689,15 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing }) {
                 Open in QA Wolf
               </a>
             ) : null}
-            <button type="button" className="lw-btn lw-btn--quiet" onClick={hide}>
-              Hide
-            </button>
+            {canEdit ? (
+              <button type="button" className="lw-btn lw-btn--quiet" onClick={hide}>
+                Hide
+              </button>
+            ) : null}
           </div>
+          {!canEdit ? (
+            <p className="lw-readonly">View only. Becca and Kyla can change these details.</p>
+          ) : null}
         </>
       )}
     </aside>
@@ -783,7 +821,10 @@ export default function LoneWolves() {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
   const [view, setView] = useState('timeline');
-  const [selectedId, setSelectedId] = useState(null);
+  // A link from the CSM dashboard opens the page on its workspace.
+  const [selectedId, setSelectedId] = useState(
+    () => new URLSearchParams(window.location.search).get('workspace') || null,
+  );
   const stopped = useRef(false);
 
   const load = useCallback(async (options) => {
@@ -817,6 +858,9 @@ export default function LoneWolves() {
   }, [load]);
 
   const rows = useMemo(() => payload?.rows || [], [payload]);
+  // Editors (admins and the CSM lead) change things; everyone else, CSMs
+  // included, reads. The server says which and enforces it.
+  const canEdit = Boolean(payload?.canEdit);
   const visible = useMemo(() => filterRows(rows, filter), [rows, filter]);
   const counts = useMemo(() => filterCounts(rows), [rows]);
   const selected = rows.find((row) => row.workspaceId === selectedId) || visible[0] || null;
@@ -882,7 +926,7 @@ export default function LoneWolves() {
         ) : null}
       </div>
       <div className="lw-actions">
-        <AddWorkspace onAdded={() => load()} />
+        {canEdit ? <AddWorkspace onAdded={() => load()} /> : null}
         <button
           type="button"
           className="lw-btn lw-btn--ghost"
@@ -899,9 +943,11 @@ export default function LoneWolves() {
         >
           Export CSV
         </button>
-        <button type="button" className="lw-btn" onClick={rescan}>
-          Rescan
-        </button>
+        {canEdit ? (
+          <button type="button" className="lw-btn" onClick={rescan}>
+            Rescan
+          </button>
+        ) : null}
       </div>
     </header>
   );
@@ -1140,6 +1186,7 @@ export default function LoneWolves() {
           onSaved={() => load()}
           pricing={selected ? pricingFor(selected) : 'old'}
           onPickPricing={(pricing) => selected && pickPricing(selected, pricing)}
+          canEdit={canEdit}
         />
       </section>
     </div>

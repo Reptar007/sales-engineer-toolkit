@@ -11,32 +11,38 @@ import userRoutes from '../user.js';
 import dashboardRoutes from './dashboard.js';
 import integrationsRoutes from './integrations.js';
 import oppsRoutes from './opps.js';
+import { blockCsm } from '../middleware/rbac.js';
 
 const router = express.Router();
+
+// Customer success accounts (csm, csm_lead) see their self-serve clients and
+// Lone Wolves, nothing built for SEs: `blockCsm` sits in front of every
+// other router. It only turns away a CSM token; everyone else reaches each
+// router's own auth as before.
 
 // Mount authentication routes
 router.use('/auth', authRoutes);
 
 // Mount team routes
-router.use('/teams', teamRoutes);
+router.use('/teams', blockCsm, teamRoutes);
 
 // Mount user routes
-router.use('/users', userRoutes);
+router.use('/users', blockCsm, userRoutes);
 
 // Dashboard widgets (calendar, Linear)
-router.use('/dashboard', dashboardRoutes);
+router.use('/dashboard', blockCsm, dashboardRoutes);
 
-router.use('/integrations', integrationsRoutes);
+router.use('/integrations', blockCsm, integrationsRoutes);
 
-router.use('/opps', oppsRoutes);
+router.use('/opps', blockCsm, oppsRoutes);
 
 // Mount project-specific routes
-router.use('/ratio-estimator', ratioEstimatorRoutes);
-router.use('/flow-doc', flowDocRoutes);
-router.use('/maintenance-dashboard', maintenanceDashboardRoutes);
+router.use('/ratio-estimator', blockCsm, ratioEstimatorRoutes);
+router.use('/flow-doc', blockCsm, flowDocRoutes);
+router.use('/maintenance-dashboard', blockCsm, maintenanceDashboardRoutes);
 router.use('/lone-wolves', loneWolvesRoutes);
 router.use('/health', healthRoutes);
-router.use('/salesforce', salesforceRoutes);
+router.use('/salesforce', blockCsm, salesforceRoutes);
 
 // API root endpoint
 router.get('/', (req, res) => {

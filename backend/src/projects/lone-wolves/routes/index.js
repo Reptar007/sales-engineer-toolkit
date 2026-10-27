@@ -7,17 +7,33 @@
  *
  * It reads QA Wolf and Task Wolf and changes nothing in either. The one thing
  * it writes is its own record of each workspace (kickoff date, pilot length,
- * failure owner, ticket), to this app's database. Any signed-in user may
- * read and record; the page is the onboarding team's working list.
+ * failure owner, ticket, pricing), to this app's database.
+ *
+ * Any signed-in user may read it, CSMs included. Writing (details, adding a
+ * workspace, rescans, the live environment lookup that adding needs) is for
+ * editors only: admins and the CSM lead, as Becca asked (10/28). `canEdit`
+ * on the GET answer tells the page which it is showing.
  */
 import express from 'express';
 import { authenticateToken } from '../../../middleware/auth.js';
+import { requireRole } from '../../../middleware/rbac.js';
+import { getPrisma } from '../../../lib/prisma.js';
 import { statusForError } from '../../maintenance-dashboard/routes/index.js';
 import { getOnboardingDashboard, requestRescan, startRefresh } from '../onboardingService.js';
 import { OnboardingError, addWorkspace, isWorkspaceId, saveDetails } from '../workspaceStore.js';
 import { listEnvironments } from '../platformClient.js';
 
 const router = express.Router();
+
+/** Who may change Lone Wolves; requireRole lets admins through as well. */
+export const EDITOR_ROLES = ['csm_lead'];
+const requireEditor = requireRole(EDITOR_ROLES);
+
+/** Whether a signed-in user may edit, by the same rule as requireEditor. */
+export function canEditLoneWolves(user) {
+  const roles = user?.roles || [];
+  return roles.includes('admin') || EDITOR_ROLES.some((role) => roles.includes(role));
+}
 
 function sendError(res, error, fallback) {
   if (error instanceof OnboardingError) {
@@ -35,11 +51,13 @@ function sendError(res, error, fallback) {
 // `{ status: 'ready', builtAt, refreshing, refreshError, taskWolf, warnings,
 // summary, rows }` once a scan exists, `{ status: 'building' }` during the
 // first, or an error with `failedAt` when there is no scan and it failed.
-// `?refresh=1` asks for a rescan in the background.
+// `?refresh=1` asks for a rescan in the background (editors only; anyone
+// else's is ignored). Every answer carries `canEdit`.
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const refresh = req.query.refresh === '1' || req.query.refresh === 'true';
-    const result = await getOnboardingDashboard({ refresh });
+    const canEdit = canEditLoneWolves(req.user);
+    const refresh = canEdit && (req.query.refresh === '1' || req.query.refresh === 'true');
+    const result = { ...(await getOnboardingDashboard({ refresh })), canEdit };
     if (result.status === 'error') {
       return res.status(statusForError(result.error)).json({
         status: 'error',
@@ -56,7 +74,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // POST /api/lone-wolves/refresh -- 202 when a rescan starts, 429 with
 // Retry-After (seconds) when one ran too recently or is running.
-router.post('/refresh', authenticateToken, (req, res) => {
+router.post('/refresh', authenticateToken, requireEditor, (req, res) => {
   const { accepted, retryAfterMs } = requestRescan();
   if (!accepted) {
     res.set('Retry-After', String(Math.ceil(retryAfterMs / 1000)));
@@ -71,21 +89,55 @@ router.post('/refresh', authenticateToken, (req, res) => {
 // workspace's static environments, live from QA Wolf, for the environment
 // picker when adding a workspace (before any scan has read it):
 // `{ environments: [{ id, name, isDefault }], defaultEnvironmentId }`.
-router.get('/workspaces/:workspaceId/environments', authenticateToken, async (req, res) => {
-  try {
-    if (!isWorkspaceId(req.params.workspaceId)) {
-      throw new OnboardingError('ONBOARDING_INVALID', 'That is not a QA Wolf workspace id.');
+router.get(
+  '/workspaces/:workspaceId/environments',
+  authenticateToken,
+  requireEditor,
+  async (req, res) => {
+    try {
+      if (!isWorkspaceId(req.params.workspaceId)) {
+        throw new OnboardingError('ONBOARDING_INVALID', 'That is not a QA Wolf workspace id.');
+      }
+      const { environments, defaultEnvironmentId } = await listEnvironments(req.params.workspaceId);
+      return res.json({
+        status: 'ok',
+        defaultEnvironmentId,
+        environments: environments
+          .filter((env) => env?.kind !== 'preview')
+          .map((env) => ({
+            id: env.id,
+            name: env.name,
+            isDefault: env.id === defaultEnvironmentId,
+          })),
+      });
+    } catch (error) {
+      return sendError(res, error, 'The environments could not be read.');
     }
-    const { environments, defaultEnvironmentId } = await listEnvironments(req.params.workspaceId);
+  },
+);
+
+// GET /api/lone-wolves/csms -- the active CSM and CSM lead accounts, for
+// the CSM picker on a workspace (editors only): `{ csms: [{ id, name,
+// email }] }`. A workspace's CSM is saved as the name, which is what a
+// CSM's dashboard matches to find their clients.
+router.get('/csms', authenticateToken, requireEditor, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const users = await prisma.user.findMany({
+      where: { isActive: true, userRoles: { some: { role: { in: ['csm', 'csm_lead'] } } } },
+      select: { id: true, email: true, firstName: true, lastName: true },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    });
     return res.json({
       status: 'ok',
-      defaultEnvironmentId,
-      environments: environments
-        .filter((env) => env?.kind !== 'preview')
-        .map((env) => ({ id: env.id, name: env.name, isDefault: env.id === defaultEnvironmentId })),
+      csms: users.map((u) => ({
+        id: u.id,
+        email: u.email,
+        name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email,
+      })),
     });
   } catch (error) {
-    return sendError(res, error, 'The environments could not be read.');
+    return sendError(res, error, 'The CSMs could not be listed.');
   }
 });
 
@@ -94,7 +146,7 @@ router.get('/workspaces/:workspaceId/environments', authenticateToken, async (re
 // workspace off the page. Sending `environmentId` or `kickoffOn` starts a
 // rescan, since the cached usage was counted for the old environment and
 // the old window of weeks; the page sends them only when they change.
-router.put('/workspaces/:workspaceId', authenticateToken, async (req, res) => {
+router.put('/workspaces/:workspaceId', authenticateToken, requireEditor, async (req, res) => {
   try {
     const row = await saveDetails(req.params.workspaceId, req.body || {}, req.user);
     if (req.body && ('environmentId' in req.body || 'kickoffOn' in req.body)) startRefresh();
@@ -107,7 +159,7 @@ router.put('/workspaces/:workspaceId', authenticateToken, async (req, res) => {
 // POST /api/lone-wolves/workspaces -- add a workspace from another QA team
 // by id (a pilot, a self-managed workspace in a full-service account). It is
 // scanned in the background and shows as "Not scanned yet" until then.
-router.post('/workspaces', authenticateToken, async (req, res) => {
+router.post('/workspaces', authenticateToken, requireEditor, async (req, res) => {
   try {
     const { workspaceId, ...details } = req.body || {};
     const row = await addWorkspace(workspaceId, details, req.user);

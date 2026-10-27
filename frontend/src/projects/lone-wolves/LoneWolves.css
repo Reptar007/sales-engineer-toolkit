@@ -838,3 +838,75 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* The CSM dashboard (pages/CsmDashboard.jsx): one card per client. */
+.lone-wolves .lw-clients {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1rem;
+}
+
+.lone-wolves .lw-client {
+  background: var(--lw-surface);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.lone-wolves .lw-client-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.lone-wolves .lw-client-head h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.lone-wolves .lw-client-reason {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 107, 74, 0.08);
+  border: 1px solid rgba(255, 107, 74, 0.25);
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.lone-wolves .lw-client-steps {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.lone-wolves .lw-client-facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1rem;
+  font-size: 0.8rem;
+}
+
+.lone-wolves .lw-client-facts dt {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lone-wolves .lw-client-facts dd {
+  margin: 0.15rem 0 0;
+}
+
+/* Read-only Lone Wolves (CSMs): a quiet note where the edit controls were. */
+.lone-wolves .lw-readonly {
+  font-size: 0.8rem;
+  color: var(--lw-muted);
+}

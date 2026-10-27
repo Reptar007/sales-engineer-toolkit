@@ -276,7 +276,14 @@ router.post('/register', authenticateToken, requireRole('admin'), async (req, re
     }
 
     // Validate and normalize roles
-    const allowedRoles = ['admin', 'sales_engineer_1', 'sales_engineer_2', 'sales_engineer_lead'];
+    const allowedRoles = [
+      'admin',
+      'sales_engineer_1',
+      'sales_engineer_2',
+      'sales_engineer_lead',
+      'csm',
+      'csm_lead',
+    ];
     let userRoles = roles;
 
     // Normalize roles: convert string to array, default to sales_engineer_1 if not provided
