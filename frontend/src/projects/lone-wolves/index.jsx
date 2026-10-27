@@ -9,6 +9,7 @@ import {
 import { useToast } from '../../contexts/ToastContext';
 import {
   FILTERS,
+  PRICINGS,
   SEGMENT_LABELS,
   STATE_WORDS,
   activationList,
@@ -21,6 +22,7 @@ import {
   filterCounts,
   filterRows,
   formatDay,
+  formatMoney,
   linearUrl,
   monthName,
   rowsToCsv,
@@ -28,6 +30,7 @@ import {
   slackPulse,
   timeline,
   triggerCheck,
+  usageMessage,
 } from './onboardingView';
 import './LoneWolves.css';
 
@@ -269,7 +272,175 @@ function formFor(row) {
   };
 }
 
-function WorkspaceCard({ row, onSaved }) {
+/**
+ * Old / New / None, the price a workspace is shown on. Saved per workspace,
+ * so a customer on new pricing stays on it across reloads and for everyone.
+ */
+function PricingToggle({ pricing, onPick, label }) {
+  return (
+    <div className="lw-segmented lw-segmented--sm" role="group" aria-label={label}>
+      {PRICINGS.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          aria-pressed={pricing === p.id}
+          title={p.label}
+          onClick={() => onPick(p.id)}
+        >
+          {p.short}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The table's usage cell on the workspace's picked price (picked in the
+ * workspace card): old leads with runner minutes and their price, new with
+ * credits and theirs, none shows both counts and no dollars.
+ */
+function UsageCell({ week, pricing }) {
+  const price = week.prices?.[pricing];
+  return (
+    <>
+      {pricing === 'new' ? (
+        <div>
+          {week.credits} <span className="lw-muted">credits</span>
+        </div>
+      ) : (
+        <div>
+          {week.runnerMinutes} <span className="lw-muted">runner min</span>
+        </div>
+      )}
+      <div className="lw-muted">
+        {pricing === 'none' ? `${week.credits} credits · ` : ''}
+        {week.flowRuns} test runs
+      </div>
+      {price ? (
+        <div>
+          {formatMoney(price.amount)}{' '}
+          <span className="lw-muted">{pricing === 'old' ? 'old pricing' : 'new pricing'}</span>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * The card's usage: one line per week since kickoff (at most six, else the
+ * last four), newest first, and their total, priced on the workspace's
+ * picked pricing; then a button that copies last week's message for the CSM
+ * to post. The toggle is the same saved pick as the row's: old by default,
+ * since every customer signed before 10/19 is on it; "None" for trials.
+ */
+function UsageSection({ row, pricing, onPickPricing }) {
+  const toast = useToast();
+  const usage = row.usage;
+  if (!usage) return null;
+  if (usage.error) {
+    return (
+      <div className="lw-card-section">
+        <h3>Usage</h3>
+        <p className="lw-muted">Could not be counted: {usage.error}</p>
+      </div>
+    );
+  }
+  const copy = async () => {
+    const message = usageMessage(row, pricing);
+    if (!message) return;
+    try {
+      await navigator.clipboard.writeText(message);
+      toast.success(`Copied ${row.name}'s usage for last week.`);
+    } catch {
+      toast.error('Could not copy to the clipboard.');
+    }
+  };
+  const priced = pricing !== 'none';
+  const weekLabel = (index) => (index === 0 ? 'This week' : index === 1 ? 'Last week' : null);
+  const total = usage.total;
+  return (
+    <div className="lw-card-section">
+      <div className="lw-usage-head">
+        <h3>Usage{row.environmentName ? ` · ${row.environmentName}` : ''}</h3>
+        <PricingToggle pricing={pricing} onPick={onPickPricing} label={`Pricing for ${row.name}`} />
+      </div>
+      <div className="lw-scroll">
+        <table className="lw-usage-table">
+          <thead>
+            <tr>
+              <th scope="col">Week of</th>
+              <th scope="col" className="lw-num" title="Test runs">
+                Tests
+              </th>
+              <th scope="col" className="lw-num">
+                Min
+              </th>
+              <th scope="col" className="lw-num">
+                Credits
+              </th>
+              {priced ? (
+                <th scope="col" className="lw-num">
+                  {pricing === 'old' ? 'Old $' : 'New $'}
+                </th>
+              ) : null}
+            </tr>
+          </thead>
+          <tbody>
+            {(usage.weeks || []).map((week, index) => (
+              <tr key={week.weekStart}>
+                <th scope="row">
+                  {formatDay(week.weekStart)}
+                  {weekLabel(index) ? (
+                    <span className="lw-muted lw-week-label">{weekLabel(index)}</span>
+                  ) : null}
+                  {week.unfinished ? (
+                    <span className="lw-muted" title={`${week.unfinished} attempts still running`}>
+                      {' '}
+                      …
+                    </span>
+                  ) : null}
+                </th>
+                <td className="lw-num">{week.flowRuns}</td>
+                <td className="lw-num">{week.runnerMinutes}</td>
+                <td className="lw-num">{week.credits}</td>
+                {priced ? (
+                  <td className="lw-num">{formatMoney(week.prices[pricing].amount)}</td>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+          {total ? (
+            <tfoot>
+              <tr>
+                <th scope="row">
+                  {total.sinceKickoff ? 'Since kickoff' : `Last ${total.weekCount} weeks`}
+                </th>
+                <td className="lw-num">{total.flowRuns}</td>
+                <td className="lw-num">{total.runnerMinutes}</td>
+                <td className="lw-num">{total.credits}</td>
+                {priced ? (
+                  <td className="lw-num">{formatMoney(total.prices[pricing].amount)}</td>
+                ) : null}
+              </tr>
+            </tfoot>
+          ) : null}
+        </table>
+      </div>
+      <p className="lw-muted lw-small">
+        Weeks run Monday to Sunday (UTC).
+        {pricing === 'old' ? ' Old pricing is $0.15 a runner minute; AI credits not included.' : ''}
+        {pricing === 'new' ? ' New pricing is $1 a run credit.' : ''}
+      </p>
+      {usage.lastWeek ? (
+        <button type="button" className="lw-btn lw-btn--ghost" onClick={copy}>
+          Copy last week's usage
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function WorkspaceCard({ row, onSaved, pricing, onPickPricing }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(() => formFor(row));
@@ -286,12 +457,14 @@ function WorkspaceCard({ row, onSaved }) {
     event.preventDefault();
     setSaving(true);
     try {
-      // The environment is sent only when it changed: changing it starts a
-      // rescan, which an edit to the next step should not.
-      const { environmentId, ...rest } = form;
+      // The environment and kickoff are sent only when they changed: either
+      // starts a rescan (usage is counted per environment, over the weeks
+      // since kickoff), which an edit to the next step should not.
+      const { environmentId, kickoffOn, ...rest } = form;
       await saveLoneWolvesDetails(row.workspaceId, {
         ...rest,
         ...(environmentId !== (row.environmentId || '') ? { environmentId } : {}),
+        ...(kickoffOn !== (row.kickoffOn ? row.kickoffOn.slice(0, 10) : '') ? { kickoffOn } : {}),
         clientBuildingTests:
           form.clientBuildingTests === 'yes'
             ? true
@@ -356,6 +529,8 @@ function WorkspaceCard({ row, onSaved }) {
           <p>{row.reason}</p>
         </div>
       ) : null}
+
+      <UsageSection row={row} pricing={pricing} onPickPricing={onPickPricing} />
 
       {editing ? (
         <form className="lw-form" onSubmit={save}>
@@ -646,6 +821,23 @@ export default function LoneWolves() {
   const counts = useMemo(() => filterCounts(rows), [rows]);
   const selected = rows.find((row) => row.workspaceId === selectedId) || visible[0] || null;
 
+  // A pricing pick shows at once and is saved behind it; a failed save
+  // puts the row back and says so.
+  const [pricingPicks, setPricingPicks] = useState({});
+  const pricingFor = (row) => pricingPicks[row.workspaceId] || row.pricing || 'old';
+  const pickPricing = async (row, pricing) => {
+    const before = pricingFor(row);
+    if (pricing === before) return;
+    setPricingPicks((picks) => ({ ...picks, [row.workspaceId]: pricing }));
+    try {
+      await saveLoneWolvesDetails(row.workspaceId, { pricing });
+      await load();
+    } catch (err) {
+      setPricingPicks((picks) => ({ ...picks, [row.workspaceId]: before }));
+      toast.error(err?.message || `${row.name}'s pricing could not be saved.`);
+    }
+  };
+
   const rescan = async () => {
     try {
       await rescanLoneWolves();
@@ -838,7 +1030,7 @@ export default function LoneWolves() {
                   <th scope="col">Environment</th>
                   <th scope="col">Triggers</th>
                   <th scope="col">Bugs</th>
-                  <th scope="col">Usage 7d</th>
+                  <th scope="col">Usage this week</th>
                   <th scope="col">Status</th>
                 </tr>
               </thead>
@@ -912,11 +1104,14 @@ export default function LoneWolves() {
                           </span>
                         ) : null}
                       </td>
-                      <td
-                        className="lw-muted lw-small"
-                        title="Runner minutes and AI credits are not in QA Wolf's public API yet"
-                      >
-                        {row.usage ? `${row.usage.runnerMinutes} runner min` : 'Not available yet'}
+                      <td className="lw-small lw-nowrap">
+                        {row.usage?.thisWeek ? (
+                          <UsageCell week={row.usage.thisWeek} pricing={pricingFor(row)} />
+                        ) : (
+                          <span className="lw-muted" title={row.usage?.error || undefined}>
+                            {row.usage?.error ? 'Could not count' : '—'}
+                          </span>
+                        )}
                       </td>
                       <td>
                         <span
@@ -940,7 +1135,12 @@ export default function LoneWolves() {
             runs)
           </div>
         </div>
-        <WorkspaceCard row={selected} onSaved={() => load()} />
+        <WorkspaceCard
+          row={selected}
+          onSaved={() => load()}
+          pricing={selected ? pricingFor(selected) : 'old'}
+          onPickPricing={(pricing) => selected && pickPricing(selected, pricing)}
+        />
       </section>
     </div>
   );

@@ -326,6 +326,79 @@ export function slackPulse(rows, summary, builtAt) {
   return lines.join('\n');
 }
 
+/**
+ * The pricing a CSM can put in a customer's message. Both prices are real:
+ * customers signed before 10/19 are on old pricing until their CSM moves
+ * them, so the page shows both and the CSM picks per message.
+ */
+export const PRICINGS = [
+  { id: 'old', label: 'Old pricing', short: 'Old' },
+  { id: 'new', label: 'New pricing', short: 'New' },
+  { id: 'none', label: 'Counts only', short: 'None' },
+];
+
+/** "$8.71". */
+export function formatMoney(amount) {
+  return `$${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/** "Mon 19 Oct – Sun 25 Oct" for a week starting Monday 00:00 UTC. */
+export function weekRange(weekStart) {
+  const start = Date.parse(weekStart);
+  return `Mon ${formatDay(start)} – Sun ${formatDay(start + 6 * DAY_MS)}`;
+}
+
+const plural = (n, one, many = `${one}s`) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
+
+/** "22 runs · 44 test runs · 58.1 runner min · 44 credits". */
+export function describeUsage(week) {
+  if (!week) return '—';
+  return [
+    plural(week.runs, 'run'),
+    plural(week.flowRuns, 'test run'),
+    `${week.runnerMinutes.toLocaleString('en-US')} runner min`,
+    plural(week.credits, 'credit'),
+  ].join(' · ');
+}
+
+/**
+ * One pricing's dollar line for a week: "new" is credits at $1, "old" is
+ * runner minutes at $0.15 and says AI credits are not included. Null for
+ * "none" or a week the server did not price.
+ */
+export function describePrice(week, pricing) {
+  const price = week?.prices?.[pricing];
+  if (!price) return null;
+  if (pricing === 'new') {
+    return `${formatMoney(price.amount)} (${plural(week.credits, 'run credit')} at ${formatMoney(price.rate)})`;
+  }
+  return `${formatMoney(price.amount)} (${week.runnerMinutes} runner min at ${formatMoney(price.rate)}/min; AI credits not included)`;
+}
+
+/**
+ * Last week's usage as a short message the CSM posts to the customer, like
+ * the Bone Pile's Slack summary, on the pricing the CSM picked: old shows
+ * minutes and their price, new shows credits and theirs, counts only shows
+ * both counts and no dollars. Null when last week could not be counted.
+ */
+export function usageMessage(row, pricing = 'none') {
+  const week = row?.usage?.lastWeek;
+  if (!week) return null;
+  const where = row.environmentName ? ` in your ${row.environmentName} environment` : '';
+  const lines = [
+    `Hi ${row.name} team! Your QA Wolf usage for ${weekRange(week.weekStart)}${where}:`,
+    `• ${plural(week.runs, 'run')}, ${plural(week.flowRuns, 'test run')}`,
+  ];
+  if (pricing !== 'new') {
+    lines.push(`• ${week.runnerMinutes.toLocaleString('en-US')} runner minutes, retries included`);
+  }
+  if (pricing !== 'old') lines.push(`• ${plural(week.credits, 'run credit')}`);
+  const price = describePrice(week, pricing);
+  if (price) lines.push(`• ${price}`);
+  lines.push('Any questions, just reply here.');
+  return lines.join('\n');
+}
+
 export function downloadText(filename, text, mime = 'text/csv') {
   const blob = new Blob([text], { type: `${mime};charset=utf-8` });
   const url = URL.createObjectURL(blob);

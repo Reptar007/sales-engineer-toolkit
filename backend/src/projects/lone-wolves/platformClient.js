@@ -18,7 +18,7 @@ const MAX_PAGES = 10;
 async function readPages(procedure, input, key, options, onPage) {
   const items = [];
   let cursor;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
+  for (let page = 0; page < (options?.maxPages ?? MAX_PAGES); page += 1) {
     const data = await qawQuery(
       procedure,
       { ...input, limit: PAGE_LIMIT, ...(cursor ? { cursor } : {}) },
@@ -86,6 +86,29 @@ export async function listRecentRuns(workspaceId, environmentId, options = {}) {
     'runs',
     options,
   );
+}
+
+/**
+ * Every run of one environment created in [from, to), for weekly usage.
+ * The list comes newest first from `createdAfter`, so runs after `to` are
+ * read and dropped; a week of a busy workspace is several pages.
+ */
+export async function listRunsBetween(workspaceId, environmentId, from, to, options = {}) {
+  const runs = await readPages(
+    'public.run.find',
+    { workspaceId, environmentId, createdAfter: new Date(from).toISOString() },
+    'runs',
+    { ...options, maxPages: 40 },
+  );
+  return runs.filter((run) => {
+    const at = Date.parse(run?.createdAt);
+    return Number.isFinite(at) && at >= from && at < to;
+  });
+}
+
+/** One run with every flow and each flow's attempts (start and end times). */
+export function getRun(runId, options = {}) {
+  return qawQuery('public.run.get', { runId }, options);
 }
 
 /**

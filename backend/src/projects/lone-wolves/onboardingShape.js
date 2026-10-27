@@ -389,7 +389,10 @@ export function buildRow({
     failureOwner: details.failureOwner || null,
     clientBuildingTests: details.clientBuildingTests ?? null,
     nextStep: details.nextStep || null,
-    // Runner minutes and AI credits are not in QA Wolf's public API yet.
+    // Which price the CSM picked; unpicked reads as old (see usageShape).
+    pricing: ['old', 'new', 'none'].includes(details.pricing) ? details.pricing : 'old',
+    // Weekly usage is counted beside the row (usageService) and joined in
+    // by the service; a row built on its own has none.
     usage: null,
   };
   if (!platform || platform.error) {

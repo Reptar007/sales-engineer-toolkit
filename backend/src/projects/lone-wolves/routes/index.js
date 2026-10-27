@@ -91,12 +91,13 @@ router.get('/workspaces/:workspaceId/environments', authenticateToken, async (re
 
 // PUT /api/lone-wolves/workspaces/:workspaceId -- record details. Only the
 // fields sent change; an empty value clears one. `hidden: true` takes the
-// workspace off the page. Changing `environmentId` starts a rescan, since
-// the cached numbers are the old environment's.
+// workspace off the page. Sending `environmentId` or `kickoffOn` starts a
+// rescan, since the cached usage was counted for the old environment and
+// the old window of weeks; the page sends them only when they change.
 router.put('/workspaces/:workspaceId', authenticateToken, async (req, res) => {
   try {
     const row = await saveDetails(req.params.workspaceId, req.body || {}, req.user);
-    if (req.body && 'environmentId' in req.body) startRefresh();
+    if (req.body && ('environmentId' in req.body || 'kickoffOn' in req.body)) startRefresh();
     return res.json({ status: 'ok', details: row });
   } catch (error) {
     return sendError(res, error, 'The details could not be saved.');

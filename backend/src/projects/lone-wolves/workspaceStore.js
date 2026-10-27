@@ -8,6 +8,7 @@
  */
 import { getPrisma } from '../../lib/prisma.js';
 import { SEGMENTS } from './onboardingShape.js';
+import { PRICINGS } from './usageShape.js';
 
 let prismaOverride = null;
 
@@ -112,6 +113,15 @@ export function normalizeDetails(body = {}) {
     out.clientBuildingTests = value;
   }
   if ('hidden' in body) out.hidden = body.hidden === true;
+  if ('pricing' in body) {
+    if (body.pricing != null && !PRICINGS.includes(body.pricing)) {
+      throw new OnboardingError(
+        'ONBOARDING_INVALID',
+        `Pricing must be one of ${PRICINGS.join(', ')}.`,
+      );
+    }
+    out.pricing = body.pricing ?? null;
+  }
   return out;
 }
 
@@ -121,6 +131,43 @@ const viewerName = (viewer) => viewer?.name || viewer?.email || viewer?.username
 export async function listDetails() {
   const prisma = await db();
   return prisma.onboardingWorkspace.findMany();
+}
+
+/** A finished week's stored usage, or null when it has not been counted yet. */
+export async function getUsageWeek(workspaceId, environmentId, weekStart) {
+  const prisma = await db();
+  return prisma.onboardingUsageWeek.findUnique({
+    where: {
+      workspaceId_environmentId_weekStart: {
+        workspaceId,
+        environmentId,
+        weekStart: new Date(weekStart),
+      },
+    },
+  });
+}
+
+/** Keep a finished week's usage; counting it again would read every run. */
+export async function saveUsageWeek(workspaceId, environmentId, weekStart, usage) {
+  const prisma = await db();
+  const data = {
+    runs: usage.runs,
+    flowRuns: usage.flowRuns,
+    attempts: usage.attempts,
+    runnerSeconds: usage.runnerSeconds,
+    credits: usage.credits,
+  };
+  return prisma.onboardingUsageWeek.upsert({
+    where: {
+      workspaceId_environmentId_weekStart: {
+        workspaceId,
+        environmentId,
+        weekStart: new Date(weekStart),
+      },
+    },
+    create: { workspaceId, environmentId, weekStart: new Date(weekStart), ...data },
+    update: data,
+  });
 }
 
 /** Record details for a workspace, creating its row on first save. */
