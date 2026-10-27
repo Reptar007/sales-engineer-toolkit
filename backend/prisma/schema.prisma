@@ -325,9 +325,39 @@ model OnboardingWorkspace {
   /// Whether the client has started building tests themselves; null is unknown.
   clientBuildingTests Boolean?
   nextStep            String?
+  /// Which price the page shows and the usage message carries: old
+  /// (per-minute), new (runs-based) or none (counts only). Picked per
+  /// workspace by its CSM; null reads as old, which every customer signed
+  /// before 10/19 is on.
+  pricing             String?
   updatedBy           String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
   @@map("onboarding_workspaces")
+}
+
+/// One finished Monday-to-Sunday week (UTC) of a workspace environment's
+/// usage, counted once from its runs' attempts and kept, since a closed week
+/// no longer changes and recounting means reading every run again. The
+/// current week is never stored; it is counted on each scan.
+model OnboardingUsageWeek {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  environmentId String
+  /// Monday 00:00 UTC.
+  weekStart     DateTime
+  runs          Int
+  /// One per flow per run.
+  flowRuns      Int
+  attempts      Int
+  /// Every attempt's runtime, retries included.
+  runnerSeconds Float
+  /// Run credits: per flow run, 1 per started 5 minutes of its longest
+  /// attempt (2 on iOS, Android, Windows and Mac), at least 1.
+  credits       Int
+  createdAt     DateTime @default(now())
+
+  @@unique([workspaceId, environmentId, weekStart])
+  @@map("onboarding_usage_weeks")
 }

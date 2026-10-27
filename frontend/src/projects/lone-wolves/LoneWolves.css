@@ -279,6 +279,22 @@
   color: #12131a;
 }
 
+/* The per-row pricing toggle: small enough to sit under a table cell. */
+.lone-wolves .lw-segmented--sm {
+  display: inline-flex;
+}
+
+/* In the table the toggle leads the usage cell, above the figures it picks. */
+.lone-wolves .lw-usage-toggle {
+  margin-bottom: 0.4rem;
+}
+
+.lone-wolves .lw-segmented--sm button {
+  min-height: 1.75rem;
+  padding: 0 0.55rem;
+  font-size: 0.7rem;
+}
+
 .lone-wolves .lw-scroll {
   overflow-x: auto;
 }
@@ -667,6 +683,22 @@
 
 .lone-wolves .lw-step-label {
   flex: 1 1 auto;
+}
+
+.lone-wolves .lw-usage-week {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--lw-border);
+}
+
+.lone-wolves .lw-copy-usage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
 }
 
 .lone-wolves .lw-card-flag {

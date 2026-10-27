@@ -23,6 +23,18 @@ import { buildRow, sortRows, summarize } from './onboardingShape.js';
 import { readWorkspace } from './platformClient.js';
 import { customerPeople, customerRunFor, listTeamWorkspaces } from './taskWolfSource.js';
 import { listDetails } from './workspaceStore.js';
+import { weeklyUsage } from './usageService.js';
+import { shapeWeek } from './usageShape.js';
+
+/** A row's usage cell: this week so far and last week, each priced both ways, or why not. */
+export function shapeRowUsage(usage) {
+  if (!usage) return null;
+  if (usage.error) return { error: usage.error };
+  return {
+    thisWeek: shapeWeek(usage.thisWeekStart, usage.thisWeek),
+    lastWeek: shapeWeek(usage.lastWeekStart, usage.lastWeek),
+  };
+}
 
 const minutes = (name, fallback) => {
   const value = Number(process.env[name]);
@@ -68,12 +80,13 @@ export function workspacesToScan(teamWorkspaces, details) {
 /**
  * One full scan. Dependencies are injectable so the tests need no network:
  * `taskWolfClient` (null when no token is set: the team list and customer
- * runs are then skipped and the page says so), `readWorkspaceImpl` and
- * `listDetailsImpl`.
+ * runs are then skipped and the page says so), `readWorkspaceImpl`,
+ * `weeklyUsageImpl` and `listDetailsImpl`.
  */
 export async function scanOnboarding({
   taskWolfClient = defaultTaskWolfClient(),
   readWorkspaceImpl = readWorkspace,
+  weeklyUsageImpl = weeklyUsage,
   listDetailsImpl = listDetails,
   now = Date.now(),
 } = {}) {
@@ -102,6 +115,23 @@ export async function scanOnboarding({
     }
   }
   const environmentFor = new Map(details.map((d) => [d.workspaceId, d.environmentId || null]));
+  // Weekly usage of the environment the row counts. A failure here leaves the
+  // usage cell saying so and the rest of the row standing.
+  const usageFor = async (workspaceId, platform) => {
+    if (!platform || platform.error || !platform.environmentId) return null;
+    const flows = platform.flowsByEnvironment?.[platform.environmentId] || [];
+    try {
+      return await weeklyUsageImpl({
+        workspaceId,
+        environmentId: platform.environmentId,
+        targets: Object.fromEntries(flows.map((flow) => [flow.flowId, flow.executionTarget])),
+        now,
+      });
+    } catch (error) {
+      if (error?.code === 'QAW_AUTH' || error?.code === 'QAW_CONFIG') throw error;
+      return { error: error?.message || 'Usage could not be read.' };
+    }
+  };
   const results = await mapWithConcurrency(workspaces, SCAN_CONCURRENCY, async (ws) => {
     const [platform, customerRun] = await Promise.all([
       readWorkspaceImpl(ws.id, { now, environmentId: environmentFor.get(ws.id) }).catch((error) => {
@@ -111,7 +141,7 @@ export async function scanOnboarding({
       }),
       taskWolfClient ? customerRunFor(taskWolfClient, ws.id, people.get(ws.id)) : null,
     ]);
-    return { workspace: ws, platform, customerRun };
+    return { workspace: ws, platform, customerRun, usage: await usageFor(ws.id, platform) };
   });
   const fatal = results.find((result) => result.error);
   if (fatal) throw fatal.error;
@@ -173,15 +203,19 @@ export function rowsFor(scan, details, now = Date.now()) {
   const byId = new Map(details.map((d) => [d.workspaceId, d]));
   const visible = scan.workspaces.filter((entry) => !byId.get(entry.workspace.id)?.hidden);
   return sortRows(
-    visible.map(({ workspace, platform, customerRun }) =>
-      buildRow({
-        workspace: { ...workspace, name: byId.get(workspace.id)?.workspaceName || workspace.name },
-        details: byId.get(workspace.id) || {},
-        platform,
-        customerRun,
-        now,
-      }),
-    ),
+    visible.map(({ workspace, platform, customerRun, usage }) => {
+      const details = byId.get(workspace.id) || {};
+      return {
+        ...buildRow({
+          workspace: { ...workspace, name: details.workspaceName || workspace.name },
+          details,
+          platform,
+          customerRun,
+          now,
+        }),
+        usage: shapeRowUsage(usage),
+      };
+    }),
   );
 }
 
