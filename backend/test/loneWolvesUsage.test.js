@@ -16,6 +16,7 @@ import {
   runUsage,
   runnerMinutes,
   sumUsage,
+  usageWindow,
   weekStartOf,
 } from '../src/projects/lone-wolves/usageShape.js';
 import {
@@ -47,6 +48,28 @@ describe('weeks', () => {
     assert.equal(weekStartOf(Date.UTC(2026, 9, 25, 23, 59)), monday);
     assert.equal(weekStartOf(Date.UTC(2026, 9, 19, 0, 0)), monday);
     assert.equal(weekStartOf('2026-10-26T00:00:00Z'), monday + 7 * 24 * 60 * MIN);
+  });
+
+  test('the window runs from the kickoff week to this week (Panorama, kicked off 13 Oct)', () => {
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    const w = usageWindow('2026-10-13T00:00:00Z', now);
+    assert.deepEqual(w.weekStarts, [
+      Date.UTC(2026, 9, 26),
+      Date.UTC(2026, 9, 19),
+      Date.UTC(2026, 9, 12),
+    ]);
+    assert.equal(w.sinceKickoff, true);
+  });
+
+  test('always this week and last; at most six weeks; four without a kickoff', () => {
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    assert.equal(usageWindow('2026-10-26T00:00:00Z', now).weekStarts.length, 2);
+    const old = usageWindow('2026-08-24T00:00:00Z', now);
+    assert.equal(old.weekStarts.length, 6);
+    assert.equal(old.sinceKickoff, false);
+    const none = usageWindow(null, now);
+    assert.equal(none.weekStarts.length, 4);
+    assert.equal(none.sinceKickoff, false);
   });
 });
 
@@ -209,13 +232,22 @@ describe('reading runs', () => {
       credits: 1,
       unfinished: 0,
     };
-    const result = await weeklyUsage({ ...base, countWeekImpl: async () => done });
+    const kickoffOn = '2026-10-20T00:00:00Z';
+    const result = await weeklyUsage({ ...base, kickoffOn, countWeekImpl: async () => done });
     assert.equal(saved.length, 1);
     assert.equal(saved[0][2], Date.UTC(2026, 9, 19));
-    assert.equal(result.thisWeekStart, Date.UTC(2026, 9, 26));
+    assert.deepEqual(
+      result.weeks.map((w) => w.weekStart),
+      [Date.UTC(2026, 9, 26), Date.UTC(2026, 9, 19)],
+    );
+    assert.equal(result.sinceKickoff, true);
 
     saved.length = 0;
-    await weeklyUsage({ ...base, countWeekImpl: async () => ({ ...done, unfinished: 1 }) });
+    await weeklyUsage({
+      ...base,
+      kickoffOn,
+      countWeekImpl: async () => ({ ...done, unfinished: 1 }),
+    });
     assert.equal(saved.length, 0);
   });
 
@@ -225,6 +257,7 @@ describe('reading runs', () => {
       workspaceId: 'w',
       environmentId: 'e',
       targets: {},
+      kickoffOn: '2026-10-20T00:00:00Z',
       now: NOW,
       getStoredImpl: async () => ({
         runs: 22,
@@ -246,11 +279,36 @@ describe('reading runs', () => {
 describe('the page', () => {
   const lastWeek = { runs: 22, flowRuns: 44, attempts: 66, runnerSeconds: 58.09 * 60, credits: 44 };
   const usage = {
-    thisWeekStart: Date.UTC(2026, 9, 26),
-    thisWeek: { runs: 3, flowRuns: 3, attempts: 3, runnerSeconds: 120, credits: 3, unfinished: 0 },
-    lastWeekStart: Date.UTC(2026, 9, 19),
-    lastWeek,
+    weeks: [
+      {
+        weekStart: Date.UTC(2026, 9, 26),
+        usage: { runs: 3, flowRuns: 3, attempts: 3, runnerSeconds: 120, credits: 3, unfinished: 0 },
+      },
+      { weekStart: Date.UTC(2026, 9, 19), usage: lastWeek },
+      {
+        weekStart: Date.UTC(2026, 9, 12),
+        usage: { runs: 17, flowRuns: 27, attempts: 30, runnerSeconds: 1200, credits: 27 },
+      },
+    ],
+    sinceKickoff: true,
   };
+
+  test('every week since kickoff, newest first, and their total', () => {
+    const u = shapeRowUsage(usage);
+    assert.deepEqual(
+      u.weeks.map((w) => w.weekStart.slice(0, 10)),
+      ['2026-10-26', '2026-10-19', '2026-10-12'],
+    );
+    assert.equal(u.thisWeek.flowRuns, 3);
+    assert.equal(u.lastWeek.flowRuns, 44);
+    assert.equal(u.total.runs, 42);
+    assert.equal(u.total.flowRuns, 74);
+    assert.equal(u.total.credits, 74);
+    assert.equal(u.total.runnerMinutes, 80.1);
+    assert.equal(u.total.prices.new.amount, 74);
+    assert.equal(u.total.sinceKickoff, true);
+    assert.equal(u.total.weekCount, 3);
+  });
 
   const row = {
     name: 'Panorama Education',

@@ -24,15 +24,29 @@ import { readWorkspace } from './platformClient.js';
 import { customerPeople, customerRunFor, listTeamWorkspaces } from './taskWolfSource.js';
 import { listDetails } from './workspaceStore.js';
 import { weeklyUsage } from './usageService.js';
-import { shapeWeek } from './usageShape.js';
+import { addWeeks, shapeWeek } from './usageShape.js';
 
-/** A row's usage cell: this week so far and last week, each priced both ways, or why not. */
+/**
+ * A row's usage: every week of its window newest first, each priced both
+ * ways, and their total; `thisWeek` and `lastWeek` are the first two, for
+ * the table cell and the weekly message. Or why it could not be counted.
+ */
 export function shapeRowUsage(usage) {
   if (!usage) return null;
   if (usage.error) return { error: usage.error };
+  const weeks = (usage.weeks || []).map((w) => shapeWeek(w.weekStart, w.usage));
+  const oldest = usage.weeks?.[usage.weeks.length - 1]?.weekStart;
   return {
-    thisWeek: shapeWeek(usage.thisWeekStart, usage.thisWeek),
-    lastWeek: shapeWeek(usage.lastWeekStart, usage.lastWeek),
+    weeks,
+    thisWeek: weeks[0] || null,
+    lastWeek: weeks[1] || null,
+    total: weeks.length
+      ? {
+          ...shapeWeek(oldest, addWeeks(usage.weeks.map((w) => w.usage))),
+          sinceKickoff: Boolean(usage.sinceKickoff),
+          weekCount: weeks.length,
+        }
+      : null,
   };
 }
 
@@ -115,6 +129,7 @@ export async function scanOnboarding({
     }
   }
   const environmentFor = new Map(details.map((d) => [d.workspaceId, d.environmentId || null]));
+  const kickoffFor = new Map(details.map((d) => [d.workspaceId, d.kickoffOn || null]));
   // Weekly usage of the environment the row counts. A failure here leaves the
   // usage cell saying so and the rest of the row standing.
   const usageFor = async (workspaceId, platform) => {
@@ -125,6 +140,7 @@ export async function scanOnboarding({
         workspaceId,
         environmentId: platform.environmentId,
         targets: Object.fromEntries(flows.map((flow) => [flow.flowId, flow.executionTarget])),
+        kickoffOn: kickoffFor.get(workspaceId) || null,
         now,
       });
     } catch (error) {

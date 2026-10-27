@@ -14,7 +14,7 @@
  */
 import { mapWithConcurrency } from '../maintenance-dashboard/maintenanceService.js';
 import { getRun, listRunsBetween } from './platformClient.js';
-import { WEEK_MS, runUsage, sumUsage, weekStartOf } from './usageShape.js';
+import { WEEK_MS, runUsage, sumUsage, usageWindow } from './usageShape.js';
 import { getUsageWeek, saveUsageWeek } from './workspaceStore.js';
 
 /** A run this old has had its retries and manual re-attempts; its usage is final. */
@@ -59,29 +59,39 @@ export async function countWeek({
 }
 
 /**
- * This week so far, and last week (stored once counted). Returns the week
- * starts beside the totals so the page can name the dates.
+ * Every week in the workspace's usage window (see usageWindow: since
+ * kickoff, at most six weeks, else the last four), newest first. Finished
+ * weeks come from the table when stored, else are counted and stored; the
+ * current week is always counted. Returns the weeks and the window, so the
+ * page can name the dates and say what the total covers.
  */
 export async function weeklyUsage({
   workspaceId,
   environmentId,
   targets,
+  kickoffOn = null,
   now = Date.now(),
   countWeekImpl = countWeek,
   getStoredImpl = getUsageWeek,
   saveStoredImpl = saveUsageWeek,
 }) {
-  const thisWeekStart = weekStartOf(now);
-  const lastWeekStart = thisWeekStart - WEEK_MS;
+  const window = usageWindow(kickoffOn, now);
   const base = { workspaceId, environmentId, targets, now };
-
-  let lastWeek = await getStoredImpl(workspaceId, environmentId, lastWeekStart);
-  if (!lastWeek) {
-    lastWeek = await countWeekImpl({ ...base, weekStart: lastWeekStart });
-    if (lastWeek.unfinished === 0) {
-      await saveStoredImpl(workspaceId, environmentId, lastWeekStart, lastWeek);
+  const weeks = [];
+  for (const weekStart of window.weekStarts) {
+    let usage = null;
+    if (weekStart + WEEK_MS <= now) {
+      usage = await getStoredImpl(workspaceId, environmentId, weekStart);
+      if (!usage) {
+        usage = await countWeekImpl({ ...base, weekStart });
+        if (usage.unfinished === 0) {
+          await saveStoredImpl(workspaceId, environmentId, weekStart, usage);
+        }
+      }
+    } else {
+      usage = await countWeekImpl({ ...base, weekStart });
     }
+    weeks.push({ weekStart, usage });
   }
-  const thisWeek = await countWeekImpl({ ...base, weekStart: thisWeekStart });
-  return { thisWeekStart, thisWeek, lastWeekStart, lastWeek };
+  return { weeks, sinceKickoff: window.sinceKickoff };
 }

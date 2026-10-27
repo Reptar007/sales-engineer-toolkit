@@ -284,11 +284,6 @@
   display: inline-flex;
 }
 
-/* In the table the toggle leads the usage cell, above the figures it picks. */
-.lone-wolves .lw-usage-toggle {
-  margin-bottom: 0.4rem;
-}
-
 .lone-wolves .lw-segmented--sm button {
   min-height: 1.75rem;
   padding: 0 0.55rem;
@@ -473,15 +468,22 @@
 
 /* Table */
 
+/* Health table and workspace card, 75 / 25; stacked on narrower screens. */
 .lone-wolves .lw-split {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(320px, 1fr);
   gap: 1rem;
-  align-items: flex-start;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .lone-wolves .lw-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .lone-wolves .lw-health {
-  flex: 999 1 640px;
+  min-width: 0;
 }
 
 .lone-wolves .lw-table {
@@ -642,7 +644,6 @@
 /* Workspace card */
 
 .lone-wolves .lw-card {
-  flex: 1 1 300px;
   min-width: 0;
   background: var(--lw-surface);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -685,19 +686,75 @@
   flex: 1 1 auto;
 }
 
-.lone-wolves .lw-usage-week {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--lw-border);
-}
-
-.lone-wolves .lw-copy-usage {
+/* The card's usage: a week per line, newest first, and the total. */
+.lone-wolves .lw-usage-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.lone-wolves .lw-usage-head h3 {
+  margin-bottom: 0;
+}
+
+.lone-wolves .lw-usage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.lone-wolves .lw-usage-table th,
+.lone-wolves .lw-usage-table td {
+  padding: 0.4rem 0.3rem;
+  text-align: left;
+  font-weight: 400;
+  border-bottom: 1px solid var(--lw-border);
+  white-space: nowrap;
+}
+
+/* The week label sits under its date ("26 Oct" over "This week") so the numbers fit. */
+.lone-wolves .lw-usage-table tbody th:first-child,
+.lone-wolves .lw-usage-table tfoot th:first-child {
+  white-space: normal;
+}
+
+.lone-wolves .lw-week-label {
+  display: block;
+  font-size: 0.65rem;
+}
+.lone-wolves .lw-usage-table th:first-child,
+.lone-wolves .lw-usage-table td:first-child {
+  padding-left: 0;
+}
+
+.lone-wolves .lw-usage-table thead th {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lone-wolves .lw-usage-table .lw-num {
+  text-align: right;
+}
+
+.lone-wolves .lw-usage-table tfoot th,
+.lone-wolves .lw-usage-table tfoot td {
+  font-weight: 700;
+  border-bottom: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.lone-wolves .lw-card-section .lw-scroll + p {
+  margin-top: 0.5rem;
+}
+
+.lone-wolves .lw-card-section > .lw-btn {
   margin-top: 0.6rem;
 }
 

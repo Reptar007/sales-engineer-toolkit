@@ -15,9 +15,7 @@ import {
   activationList,
   calendarCells,
   dayLabel,
-  describePrice,
   describeRuns,
-  describeUsage,
   doneCount,
   downloadText,
   environmentLabel,
@@ -33,7 +31,6 @@ import {
   timeline,
   triggerCheck,
   usageMessage,
-  weekRange,
 } from './onboardingView';
 import './LoneWolves.css';
 
@@ -298,17 +295,14 @@ function PricingToggle({ pricing, onPick, label }) {
 }
 
 /**
- * The table's usage cell on the workspace's picked price: old leads with
- * runner minutes and their price, new with credits and theirs, none shows
- * both counts and no dollars.
+ * The table's usage cell on the workspace's picked price (picked in the
+ * workspace card): old leads with runner minutes and their price, new with
+ * credits and theirs, none shows both counts and no dollars.
  */
-function UsageCell({ week, pricing, onPick }) {
+function UsageCell({ week, pricing }) {
   const price = week.prices?.[pricing];
   return (
     <>
-      <div className="lw-usage-toggle">
-        <PricingToggle pricing={pricing} onPick={onPick} label="Pricing for this workspace" />
-      </div>
       {pricing === 'new' ? (
         <div>
           {week.credits} <span className="lw-muted">credits</span>
@@ -333,11 +327,11 @@ function UsageCell({ week, pricing, onPick }) {
 }
 
 /**
- * The card's usage: this week so far and last week, each priced both ways
- * (old per-minute and new runs-based), and a button that copies last week's
- * message for the CSM to post on the workspace's picked pricing. The toggle
- * here is the same saved pick as the row's: old by default, since every
- * customer signed before 10/19 is on it; "None" for trials with no price.
+ * The card's usage: one line per week since kickoff (at most six, else the
+ * last four), newest first, and their total, priced on the workspace's
+ * picked pricing; then a button that copies last week's message for the CSM
+ * to post. The toggle is the same saved pick as the row's: old by default,
+ * since every customer signed before 10/19 is on it; "None" for trials.
  */
 function UsageSection({ row, pricing, onPickPricing }) {
   const toast = useToast();
@@ -361,41 +355,86 @@ function UsageSection({ row, pricing, onPickPricing }) {
       toast.error('Could not copy to the clipboard.');
     }
   };
-  const weeks = [
-    ['This week so far', usage.thisWeek],
-    ['Last week', usage.lastWeek],
-  ];
+  const priced = pricing !== 'none';
+  const weekLabel = (index) => (index === 0 ? 'This week' : index === 1 ? 'Last week' : null);
+  const total = usage.total;
   return (
     <div className="lw-card-section">
-      <h3>Usage{row.environmentName ? ` · ${row.environmentName}` : ''}</h3>
-      {weeks.map(([label, week]) =>
-        week ? (
-          <div key={label} className="lw-usage-week">
-            <div className="lw-small lw-muted">
-              {label} · {weekRange(week.weekStart)}
-              {week.unfinished ? ` · ${week.unfinished} attempts still running` : ''}
-            </div>
-            <div className="lw-small">{describeUsage(week)}</div>
-            <div className="lw-small">
-              <span className="lw-muted">Old:</span> {describePrice(week, 'old')}
-            </div>
-            <div className="lw-small">
-              <span className="lw-muted">New:</span> {describePrice(week, 'new')}
-            </div>
-          </div>
-        ) : null,
-      )}
+      <div className="lw-usage-head">
+        <h3>Usage{row.environmentName ? ` · ${row.environmentName}` : ''}</h3>
+        <PricingToggle pricing={pricing} onPick={onPickPricing} label={`Pricing for ${row.name}`} />
+      </div>
+      <div className="lw-scroll">
+        <table className="lw-usage-table">
+          <thead>
+            <tr>
+              <th scope="col">Week of</th>
+              <th scope="col" className="lw-num" title="Test runs">
+                Tests
+              </th>
+              <th scope="col" className="lw-num">
+                Min
+              </th>
+              <th scope="col" className="lw-num">
+                Credits
+              </th>
+              {priced ? (
+                <th scope="col" className="lw-num">
+                  {pricing === 'old' ? 'Old $' : 'New $'}
+                </th>
+              ) : null}
+            </tr>
+          </thead>
+          <tbody>
+            {(usage.weeks || []).map((week, index) => (
+              <tr key={week.weekStart}>
+                <th scope="row">
+                  {formatDay(week.weekStart)}
+                  {weekLabel(index) ? (
+                    <span className="lw-muted lw-week-label">{weekLabel(index)}</span>
+                  ) : null}
+                  {week.unfinished ? (
+                    <span className="lw-muted" title={`${week.unfinished} attempts still running`}>
+                      {' '}
+                      …
+                    </span>
+                  ) : null}
+                </th>
+                <td className="lw-num">{week.flowRuns}</td>
+                <td className="lw-num">{week.runnerMinutes}</td>
+                <td className="lw-num">{week.credits}</td>
+                {priced ? (
+                  <td className="lw-num">{formatMoney(week.prices[pricing].amount)}</td>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+          {total ? (
+            <tfoot>
+              <tr>
+                <th scope="row">
+                  {total.sinceKickoff ? 'Since kickoff' : `Last ${total.weekCount} weeks`}
+                </th>
+                <td className="lw-num">{total.flowRuns}</td>
+                <td className="lw-num">{total.runnerMinutes}</td>
+                <td className="lw-num">{total.credits}</td>
+                {priced ? (
+                  <td className="lw-num">{formatMoney(total.prices[pricing].amount)}</td>
+                ) : null}
+              </tr>
+            </tfoot>
+          ) : null}
+        </table>
+      </div>
+      <p className="lw-muted lw-small">
+        Weeks run Monday to Sunday (UTC).
+        {pricing === 'old' ? ' Old pricing is $0.15 a runner minute; AI credits not included.' : ''}
+        {pricing === 'new' ? ' New pricing is $1 a run credit.' : ''}
+      </p>
       {usage.lastWeek ? (
-        <div className="lw-copy-usage">
-          <PricingToggle
-            pricing={pricing}
-            onPick={onPickPricing}
-            label={`Pricing for ${row.name}`}
-          />
-          <button type="button" className="lw-btn lw-btn--ghost" onClick={copy}>
-            Copy last week's usage
-          </button>
-        </div>
+        <button type="button" className="lw-btn lw-btn--ghost" onClick={copy}>
+          Copy last week's usage
+        </button>
       ) : null}
     </div>
   );
@@ -418,12 +457,14 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing }) {
     event.preventDefault();
     setSaving(true);
     try {
-      // The environment is sent only when it changed: changing it starts a
-      // rescan, which an edit to the next step should not.
-      const { environmentId, ...rest } = form;
+      // The environment and kickoff are sent only when they changed: either
+      // starts a rescan (usage is counted per environment, over the weeks
+      // since kickoff), which an edit to the next step should not.
+      const { environmentId, kickoffOn, ...rest } = form;
       await saveLoneWolvesDetails(row.workspaceId, {
         ...rest,
         ...(environmentId !== (row.environmentId || '') ? { environmentId } : {}),
+        ...(kickoffOn !== (row.kickoffOn ? row.kickoffOn.slice(0, 10) : '') ? { kickoffOn } : {}),
         clientBuildingTests:
           form.clientBuildingTests === 'yes'
             ? true
@@ -1065,11 +1106,7 @@ export default function LoneWolves() {
                       </td>
                       <td className="lw-small lw-nowrap">
                         {row.usage?.thisWeek ? (
-                          <UsageCell
-                            week={row.usage.thisWeek}
-                            pricing={pricingFor(row)}
-                            onPick={(pricing) => pickPricing(row, pricing)}
-                          />
+                          <UsageCell week={row.usage.thisWeek} pricing={pricingFor(row)} />
                         ) : (
                           <span className="lw-muted" title={row.usage?.error || undefined}>
                             {row.usage?.error ? 'Could not count' : '—'}

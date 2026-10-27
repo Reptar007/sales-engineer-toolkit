@@ -98,6 +98,47 @@ export function runUsage(run, targets = {}) {
   return usage;
 }
 
+/** Weeks shown without a kickoff date; and the most shown with one. */
+const DEFAULT_WEEKS = 4;
+const MAX_WEEKS = 6;
+
+/**
+ * The weeks a workspace's usage covers, newest first: from the week of its
+ * kickoff to this week (a pilot is about a month, so this is its usage to
+ * date), at most six weeks and always at least this week and last; without
+ * a kickoff date, the last four. `sinceKickoff` says which, for the total.
+ */
+export function usageWindow(kickoffOn, now = Date.now()) {
+  const thisWeek = weekStartOf(now);
+  const kickoff = kickoffOn == null ? null : toMs(kickoffOn);
+  let first = thisWeek - (DEFAULT_WEEKS - 1) * WEEK_MS;
+  let sinceKickoff = false;
+  if (kickoff != null && kickoff <= now) {
+    first = weekStartOf(kickoff);
+    sinceKickoff = first >= thisWeek - (MAX_WEEKS - 1) * WEEK_MS;
+    first = Math.min(first, thisWeek - WEEK_MS);
+    first = Math.max(first, thisWeek - (MAX_WEEKS - 1) * WEEK_MS);
+  }
+  const weekStarts = [];
+  for (let at = thisWeek; at >= first; at -= WEEK_MS) weekStarts.push(at);
+  return { weekStarts, sinceKickoff };
+}
+
+/** Add weeks' totals into one (the window's total). */
+export function addWeeks(weeks) {
+  const total = { runs: 0, flowRuns: 0, attempts: 0, runnerSeconds: 0, credits: 0, unfinished: 0 };
+  for (const w of weeks) {
+    if (!w) continue;
+    total.runs += w.runs;
+    total.flowRuns += w.flowRuns;
+    total.attempts += w.attempts;
+    total.runnerSeconds += w.runnerSeconds;
+    total.credits += w.credits;
+    total.unfinished += w.unfinished || 0;
+  }
+  return total;
+}
+
 /** Add run usages into a week's totals. */
 export function sumUsage(usages) {
   const total = { runs: 0, flowRuns: 0, attempts: 0, runnerSeconds: 0, credits: 0, unfinished: 0 };
