@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import DashboardLoadingScreen from './dashboard/DashboardLoadingScreen';
 import useDashboardBootstrap from '../hooks/useDashboardBootstrap';
 import { useAuth } from '../contexts/AuthContext';
+import { isCsmOnly } from '../utils/roles';
 
 // Routes where the splash should NOT render. We don't want to cover
 // the change-password form or the login screen itself, so the splash
@@ -33,15 +34,22 @@ const LOADER_FADE_MS = 500;
  *   - Renders nothing when no bootstrap is in flight.
  */
 function BootstrapGate() {
-  const { needsBootstrap, markBootstrapped } = useAuth();
+  const { needsBootstrap, markBootstrapped, user } = useAuth();
   const location = useLocation();
+  const csm = isCsmOnly(user);
+
+  // A customer success account has no SE dashboard to warm (its calendar,
+  // Linear and Salesforce calls are refused), so it skips the splash.
+  useEffect(() => {
+    if (csm && needsBootstrap) markBootstrapped();
+  }, [csm, needsBootstrap, markBootstrapped]);
 
   // Defer the splash on auth-only routes so it doesn't cover the
   // login / change-password / forgot-password forms. The flag stays
   // armed and will fire as soon as the user lands inside the app.
   const isAuthRoute = AUTH_ROUTES.has(location.pathname);
 
-  if (!needsBootstrap || isAuthRoute) return null;
+  if (!needsBootstrap || isAuthRoute || csm) return null;
 
   return <ActiveBootstrap onComplete={markBootstrapped} fadeMs={LOADER_FADE_MS} />;
 }

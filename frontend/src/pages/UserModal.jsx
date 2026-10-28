@@ -7,6 +7,10 @@ const ROLE_OPTIONS = [
   { value: 'sales_engineer_lead', label: 'Sales Engineer Lead' },
   { value: 'sales_engineer_2', label: 'Sales Engineer 2' },
   { value: 'sales_engineer_1', label: 'Sales Engineer 1' },
+  // Customer success: their self-serve clients and Lone Wolves only. The
+  // lead also edits Lone Wolves. Neither takes a team.
+  { value: 'csm_lead', label: 'CSM Lead' },
+  { value: 'csm', label: 'CSM' },
 ];
 
 const SE_ROLES = new Set(['sales_engineer_1', 'sales_engineer_2', 'sales_engineer_lead']);

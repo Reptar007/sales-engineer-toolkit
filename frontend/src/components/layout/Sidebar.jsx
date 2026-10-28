@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { getAllProjects } from '../../projects';
 import { useAuth } from '../../contexts/AuthContext';
 import { toTeamSlug } from '../../projects/team/slug';
+import { isCsmOnly } from '../../utils/roles';
 import {
   GoHome,
   GoStar,
@@ -48,22 +49,31 @@ const PROJECT_ICON_OVERRIDES = {
 // now points at the Flow Doc Generator instead.
 const SIDEBAR_HIDDEN_PROJECT_IDS = new Set(['salesforce-metrics', 'ratio-estimator']);
 
+// The only project a customer success account sees in the sidebar.
+const CSM_PROJECT_IDS = new Set(['lone-wolves']);
+
 function Sidebar({ isSidebarOpen, toggleSidebar }) {
   const projects = getAllProjects();
   const navigate = useNavigate();
   const location = useLocation();
   const [openDropdown, setOpenDropdown] = useState(false);
+  // A customer success account gets its own short sidebar: its clients and
+  // Lone Wolves. The SE pages behind the other entries refuse its token.
+  const csm = isCsmOnly(useAuth().user);
 
   const toggleDropdown = () => {
     setOpenDropdown(!openDropdown);
   };
 
   // Separate Home from other nav items
-  const homeItem = { path: '/', label: 'The Den', icon: <GoHome /> };
+  const homeItem = csm
+    ? { path: '/', label: 'My Clients', icon: <GoHome /> }
+    : { path: '/', label: 'The Den', icon: <GoHome /> };
 
   const navItems = [
     ...projects
       .filter((project) => !SIDEBAR_HIDDEN_PROJECT_IDS.has(project.id))
+      .filter((project) => !csm || CSM_PROJECT_IDS.has(project.id))
       .map((project) => ({
         path: `/projects/${project.id}`,
         label: PROJECT_LABEL_OVERRIDES[project.id] || project.name,
@@ -185,67 +195,71 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
               </NavLink>
             </li>
           )}
-          <li className="nav-item">
-            <NavLink
-              to="/projects/opps"
-              className={({ isActive }) =>
-                `nav-link ${isActive || location.pathname.startsWith('/projects/opps') ? 'active' : ''}`
-              }
-            >
-              <span className="nav-icon">
-                <GoBookmark />
-              </span>
-              <span className="nav-label">Hunt Board</span>
-            </NavLink>
-          </li>
-          <li className="nav-item">
-            <NavLink
-              to="/projects/carr-by-se"
-              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-            >
-              <span className="nav-icon">
-                <GoPeople />
-              </span>
-              <span className="nav-label">Spoils</span>
-            </NavLink>
-          </li>
-          {/* Salesforce Dropdown — wolf-rebranded as "Hunt Pipeline" */}
-          <li className="nav-item">
-            <button
-              type="button"
-              className={`nav-link nav-link-dropdown ${location.pathname.startsWith('/projects/salesforce') || location.pathname === '/projects/salesforce-metrics' ? 'active' : ''}`}
-              onClick={toggleDropdown}
-            >
-              <span className="nav-icon">
-                <GoGoal />
-              </span>
-              <span className="nav-label">Hunt Pipeline</span>
-              <span className="nav-chevron">
-                {openDropdown ? <GoChevronDown /> : <GoChevronRight />}
-              </span>
-            </button>
-            {openDropdown && (
-              <ul className="nav-submenu">
-                {salesforceSubItems.map((item) => (
-                  <li key={item.path} className="nav-subitem">
-                    <NavLink
-                      to={item.path}
-                      className={({ isActive }) => {
-                        // Special check for Metrics - also active on salesforce-metrics route
-                        const isMetricsActive =
-                          item.path === '/projects/salesforce-metrics' &&
-                          location.pathname === '/projects/salesforce-metrics';
-                        return `nav-link nav-sublink ${isActive || isMetricsActive ? 'active' : ''}`;
-                      }}
-                    >
-                      <span className="nav-icon">{item.icon}</span>
-                      <span className="nav-label">{item.label}</span>
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </li>
+          {!csm && (
+            <>
+              <li className="nav-item">
+                <NavLink
+                  to="/projects/opps"
+                  className={({ isActive }) =>
+                    `nav-link ${isActive || location.pathname.startsWith('/projects/opps') ? 'active' : ''}`
+                  }
+                >
+                  <span className="nav-icon">
+                    <GoBookmark />
+                  </span>
+                  <span className="nav-label">Hunt Board</span>
+                </NavLink>
+              </li>
+              <li className="nav-item">
+                <NavLink
+                  to="/projects/carr-by-se"
+                  className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                >
+                  <span className="nav-icon">
+                    <GoPeople />
+                  </span>
+                  <span className="nav-label">Spoils</span>
+                </NavLink>
+              </li>
+              {/* Salesforce Dropdown — wolf-rebranded as "Hunt Pipeline" */}
+              <li className="nav-item">
+                <button
+                  type="button"
+                  className={`nav-link nav-link-dropdown ${location.pathname.startsWith('/projects/salesforce') || location.pathname === '/projects/salesforce-metrics' ? 'active' : ''}`}
+                  onClick={toggleDropdown}
+                >
+                  <span className="nav-icon">
+                    <GoGoal />
+                  </span>
+                  <span className="nav-label">Hunt Pipeline</span>
+                  <span className="nav-chevron">
+                    {openDropdown ? <GoChevronDown /> : <GoChevronRight />}
+                  </span>
+                </button>
+                {openDropdown && (
+                  <ul className="nav-submenu">
+                    {salesforceSubItems.map((item) => (
+                      <li key={item.path} className="nav-subitem">
+                        <NavLink
+                          to={item.path}
+                          className={({ isActive }) => {
+                            // Special check for Metrics - also active on salesforce-metrics route
+                            const isMetricsActive =
+                              item.path === '/projects/salesforce-metrics' &&
+                              location.pathname === '/projects/salesforce-metrics';
+                            return `nav-link nav-sublink ${isActive || isMetricsActive ? 'active' : ''}`;
+                          }}
+                        >
+                          <span className="nav-icon">{item.icon}</span>
+                          <span className="nav-label">{item.label}</span>
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            </>
+          )}
           {navItems.map((item) => (
             <li key={item.path} className="nav-item">
               <NavLink
@@ -262,15 +276,17 @@ function Sidebar({ isSidebarOpen, toggleSidebar }) {
         {/* Bottom section */}
         <div className="sidebar-footer">
           <div className="sidebar-divider"></div>
-          <NavLink
-            to="/profile"
-            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          >
-            <span className="nav-icon">
-              <GoPerson />
-            </span>
-            <span className="nav-label">My Wolf</span>
-          </NavLink>
+          {!csm && (
+            <NavLink
+              to="/profile"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
+              <span className="nav-icon">
+                <GoPerson />
+              </span>
+              <span className="nav-label">My Wolf</span>
+            </NavLink>
+          )}
           <button className="nav-link" type="button" onClick={handleLogout}>
             <span className="nav-icon">
               <GoSignOut />

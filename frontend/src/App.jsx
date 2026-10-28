@@ -7,6 +7,9 @@ import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import BootstrapGate from './components/BootstrapGate';
 import Dashboard from './pages/Dashboard';
+import CsmDashboard from './pages/CsmDashboard';
+import { useAuth } from './contexts/AuthContext';
+import { isCsmOnly } from './utils/roles';
 import ProjectView from './pages/ProjectView';
 import LoginPage from './pages/LoginPage';
 import PasswordChangePage from './pages/PasswordChangePage';
@@ -21,6 +24,15 @@ import TeamPage from './projects/team';
 import OppDirectory from './projects/opps/OppDirectory';
 import MyOpps from './projects/opps/MyOpps';
 import OppDetail from './projects/opps/OppDetail';
+
+/**
+ * The home page: the SE dashboard (The Den), or for a customer success
+ * account, its self-serve clients.
+ */
+function Home() {
+  const { user } = useAuth();
+  return isCsmOnly(user) ? <CsmDashboard /> : <Dashboard />;
+}
 
 /**
  * Main App Component with Routing
@@ -69,7 +81,7 @@ function AppContent() {
               path="/"
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <Home />
                 </ProtectedRoute>
               }
             />

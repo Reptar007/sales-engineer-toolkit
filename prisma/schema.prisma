@@ -20,6 +20,10 @@ enum Role {
   sales_engineer_1
   sales_engineer_2
   sales_engineer_lead
+  /// Customer success: sees their self-serve clients and Lone Wolves, read-only.
+  csm
+  /// Customer success lead: everything a CSM sees, and edits Lone Wolves.
+  csm_lead
 }
 
 model User {

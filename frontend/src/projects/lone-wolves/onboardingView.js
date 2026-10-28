@@ -399,6 +399,23 @@ export function usageMessage(row, pricing = 'none') {
   return lines.join('\n');
 }
 
+const normalizePerson = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * The rows a CSM follows on their dashboard: those whose CSM field names
+ * them (by full name, as the CSM picker saves it, or by email), or every
+ * row when `all` (the CSM lead and admins).
+ */
+export function clientsFor(rows, { all = false, name = '', email = '' } = {}) {
+  if (all) return rows;
+  const wanted = new Set([normalizePerson(name), normalizePerson(email)].filter(Boolean));
+  return rows.filter((row) => wanted.has(normalizePerson(row.csm)));
+}
+
 export function downloadText(filename, text, mime = 'text/csv') {
   const blob = new Blob([text], { type: `${mime};charset=utf-8` });
   const url = URL.createObjectURL(blob);
