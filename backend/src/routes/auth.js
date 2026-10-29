@@ -4,7 +4,7 @@ import { generateJWT } from '../utlis/jwt.js';
 import validatePassword from '../utlis/passwordValidation.js';
 import generateRandomPassword from '../utlis/generateRandomPassword.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireRole } from '../middleware/rbac.js';
+import { ALL_ROLES, requireRole } from '../middleware/rbac.js';
 import { getPrisma } from '../lib/prisma.js';
 
 const router = express.Router();
@@ -276,14 +276,7 @@ router.post('/register', authenticateToken, requireRole('admin'), async (req, re
     }
 
     // Validate and normalize roles
-    const allowedRoles = [
-      'admin',
-      'sales_engineer_1',
-      'sales_engineer_2',
-      'sales_engineer_lead',
-      'csm',
-      'csm_lead',
-    ];
+    const allowedRoles = ALL_ROLES;
     let userRoles = roles;
 
     // Normalize roles: convert string to array, default to sales_engineer_1 if not provided

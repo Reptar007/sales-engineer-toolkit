@@ -11,12 +11,13 @@
  *
  * Any signed-in user may read it, CSMs included. Writing (details, adding a
  * workspace, rescans, the live environment lookup that adding needs) is for
- * editors only: admins and the CSM lead, as Becca asked (10/28). `canEdit`
- * on the GET answer tells the page which it is showing.
+ * editors only: admins and the CSM lead, as Becca asked (10/28); CSMs may
+ * also switch a workspace's pricing. `canEdit` and `canPrice` on the GET
+ * answer tell the page which it is showing.
  */
 import express from 'express';
 import { authenticateToken } from '../../../middleware/auth.js';
-import { requireRole } from '../../../middleware/rbac.js';
+import { CSM_ROLES, requireRole } from '../../../middleware/rbac.js';
 import { getPrisma } from '../../../lib/prisma.js';
 import { statusForError } from '../../maintenance-dashboard/routes/index.js';
 import { getOnboardingDashboard, requestRescan, startRefresh } from '../onboardingService.js';
@@ -33,6 +34,26 @@ const requireEditor = requireRole(EDITOR_ROLES);
 export function canEditLoneWolves(user) {
   const roles = user?.roles || [];
   return roles.includes('admin') || EDITOR_ROLES.some((role) => roles.includes(role));
+}
+
+/**
+ * Whether a signed-in user may switch a workspace's pricing (old / new /
+ * none): editors, and any CSM, who shows the customer the number (Becca,
+ * 10/28). The pick is saved for everyone, like the other details.
+ */
+export function canPriceLoneWolves(user) {
+  return canEditLoneWolves(user) || (user?.roles || []).some((role) => CSM_ROLES.includes(role));
+}
+
+/**
+ * Let a details save through: editors change anything; a CSM changes
+ * pricing and nothing else.
+ */
+export function requireDetailsAccess(req, res, next) {
+  if (canEditLoneWolves(req.user)) return next();
+  const keys = Object.keys(req.body || {});
+  if (canPriceLoneWolves(req.user) && keys.length === 1 && keys[0] === 'pricing') return next();
+  return res.status(403).json({ error: 'Insufficient permissions' });
 }
 
 function sendError(res, error, fallback) {
@@ -57,7 +78,8 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     const canEdit = canEditLoneWolves(req.user);
     const refresh = canEdit && (req.query.refresh === '1' || req.query.refresh === 'true');
-    const result = { ...(await getOnboardingDashboard({ refresh })), canEdit };
+    const canPrice = canPriceLoneWolves(req.user);
+    const result = { ...(await getOnboardingDashboard({ refresh })), canEdit, canPrice };
     if (result.status === 'error') {
       return res.status(statusForError(result.error)).json({
         status: 'error',
@@ -145,16 +167,22 @@ router.get('/csms', authenticateToken, requireEditor, async (req, res) => {
 // fields sent change; an empty value clears one. `hidden: true` takes the
 // workspace off the page. Sending `environmentId` or `kickoffOn` starts a
 // rescan, since the cached usage was counted for the old environment and
-// the old window of weeks; the page sends them only when they change.
-router.put('/workspaces/:workspaceId', authenticateToken, requireEditor, async (req, res) => {
-  try {
-    const row = await saveDetails(req.params.workspaceId, req.body || {}, req.user);
-    if (req.body && ('environmentId' in req.body || 'kickoffOn' in req.body)) startRefresh();
-    return res.json({ status: 'ok', details: row });
-  } catch (error) {
-    return sendError(res, error, 'The details could not be saved.');
-  }
-});
+// the old window of weeks; the page sends them only when they change. A CSM
+// may send `{ pricing }` alone; everything else is for editors.
+router.put(
+  '/workspaces/:workspaceId',
+  authenticateToken,
+  requireDetailsAccess,
+  async (req, res) => {
+    try {
+      const row = await saveDetails(req.params.workspaceId, req.body || {}, req.user);
+      if (req.body && ('environmentId' in req.body || 'kickoffOn' in req.body)) startRefresh();
+      return res.json({ status: 'ok', details: row });
+    } catch (error) {
+      return sendError(res, error, 'The details could not be saved.');
+    }
+  },
+);
 
 // POST /api/lone-wolves/workspaces -- add a workspace from another QA team
 // by id (a pilot, a self-managed workspace in a full-service account). It is

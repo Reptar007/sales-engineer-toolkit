@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import { authenticateToken } from './middleware/auth.js';
-import { requireRole } from './middleware/rbac.js';
+import { checkRoleChange, requireRole } from './middleware/rbac.js';
 import { getPrisma } from './lib/prisma.js';
 import { resolveLinearUserByEmail, resolveLinearUserById } from './lib/linearClient.js';
 import generateRandomPassword from './utlis/generateRandomPassword.js';
@@ -104,8 +104,8 @@ router.get('/without-team', authenticateToken, requireRole('admin'), async (req,
   }
 });
 
-// Admin: update a user's profile fields (firstName, lastName, email) and
-// optionally their linked SalesEngineer.salesforceEmail. Used by the admin
+// Admin: update a user's profile fields (firstName, lastName, email), their
+// roles, and optionally their linked SalesEngineer.salesforceEmail. Used by the admin
 // Users tab so we can fix up records when an SE changes their name / email
 // without having to run a DB migration. Returns the same row shape as the
 // GET /users list endpoint so the frontend can drop the new value straight
@@ -142,7 +142,22 @@ router.patch('/:userId', authenticateToken, requireRole('admin'), async (req, re
     salesforceEmailUpdate = body.salesforceEmail.trim() || null;
   }
 
-  if (Object.keys(data).length === 0 && salesforceEmailUpdate === undefined) {
+  // Roles replace the user's whole set. They apply on the user's next
+  // request: every role check reads them from the database, not the token.
+  let rolesUpdate;
+  if (body.roles !== undefined) {
+    const checked = checkRoleChange(body.roles, { userId, editorId: req.user.id });
+    if (checked.error) {
+      return res.status(400).json({ error: checked.error });
+    }
+    rolesUpdate = checked.roles;
+  }
+
+  if (
+    Object.keys(data).length === 0 &&
+    salesforceEmailUpdate === undefined &&
+    rolesUpdate === undefined
+  ) {
     return res.status(400).json({ error: 'No updatable fields provided' });
   }
 
@@ -181,6 +196,14 @@ router.patch('/:userId', authenticateToken, requireRole('admin'), async (req, re
           where: { id: target.salesEngineer.id },
           data: { salesforceEmail: salesforceEmailUpdate },
         });
+      }
+      if (rolesUpdate !== undefined) {
+        await tx.userRole.deleteMany({ where: { userId, role: { notIn: rolesUpdate } } });
+        const held = await tx.userRole.findMany({ where: { userId }, select: { role: true } });
+        const have = new Set(held.map((row) => row.role));
+        for (const role of rolesUpdate.filter((r) => !have.has(r))) {
+          await tx.userRole.create({ data: { userId, role } });
+        }
       }
     });
 

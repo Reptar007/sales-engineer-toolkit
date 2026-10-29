@@ -276,6 +276,7 @@ function formFor(row) {
 /**
  * Old / New / None, the price a workspace is shown on. Saved per workspace,
  * so a customer on new pricing stays on it across reloads and for everyone.
+ * Editors and CSMs switch it; anyone else sees the pick as a label.
  */
 function PricingToggle({ pricing, onPick, label }) {
   return (
@@ -334,7 +335,7 @@ function UsageCell({ week, pricing }) {
  * to post. The toggle is the same saved pick as the row's: old by default,
  * since every customer signed before 10/19 is on it; "None" for trials.
  */
-function UsageSection({ row, pricing, onPickPricing, canEdit }) {
+function UsageSection({ row, pricing, onPickPricing, canPrice }) {
   const toast = useToast();
   const usage = row.usage;
   if (!usage) return null;
@@ -363,7 +364,7 @@ function UsageSection({ row, pricing, onPickPricing, canEdit }) {
     <div className="lw-card-section">
       <div className="lw-usage-head">
         <h3>Usage{row.environmentName ? ` · ${row.environmentName}` : ''}</h3>
-        {canEdit ? (
+        {canPrice ? (
           <PricingToggle
             pricing={pricing}
             onPick={onPickPricing}
@@ -451,7 +452,7 @@ function UsageSection({ row, pricing, onPickPricing, canEdit }) {
   );
 }
 
-function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit }) {
+function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit, canPrice }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(() => formFor(row));
@@ -550,7 +551,7 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit }) {
         </div>
       ) : null}
 
-      <UsageSection row={row} pricing={pricing} onPickPricing={onPickPricing} canEdit={canEdit} />
+      <UsageSection row={row} pricing={pricing} onPickPricing={onPickPricing} canPrice={canPrice} />
 
       {editing ? (
         <form className="lw-form" onSubmit={save}>
@@ -696,7 +697,11 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit }) {
             ) : null}
           </div>
           {!canEdit ? (
-            <p className="lw-readonly">View only. Becca and Kyla can change these details.</p>
+            <p className="lw-readonly">
+              {canPrice
+                ? 'You can switch the pricing above; Becca and Kyla change the other details.'
+                : 'View only. Becca and Kyla can change these details.'}
+            </p>
           ) : null}
         </>
       )}
@@ -858,9 +863,10 @@ export default function LoneWolves() {
   }, [load]);
 
   const rows = useMemo(() => payload?.rows || [], [payload]);
-  // Editors (admins and the CSM lead) change things; everyone else, CSMs
-  // included, reads. The server says which and enforces it.
+  // Editors (admins and the CSM lead) change things; CSMs switch pricing
+  // too; everyone else reads. The server says which and enforces it.
   const canEdit = Boolean(payload?.canEdit);
+  const canPrice = Boolean(payload?.canPrice);
   const visible = useMemo(() => filterRows(rows, filter), [rows, filter]);
   const counts = useMemo(() => filterCounts(rows), [rows]);
   const selected = rows.find((row) => row.workspaceId === selectedId) || visible[0] || null;
@@ -1187,6 +1193,7 @@ export default function LoneWolves() {
           pricing={selected ? pricingFor(selected) : 'old'}
           onPickPricing={(pricing) => selected && pickPricing(selected, pricing)}
           canEdit={canEdit}
+          canPrice={canPrice}
         />
       </section>
     </div>
