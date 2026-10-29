@@ -9,9 +9,13 @@
  */
 import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockCsm, isCsmOnly } from '../src/middleware/rbac.js';
+import { ALL_ROLES, checkRoleChange, isCsmOnly, makeBlockCsm } from '../src/middleware/rbac.js';
 import { generateJWT } from '../src/utlis/jwt.js';
-import { canEditLoneWolves } from '../src/projects/lone-wolves/routes/index.js';
+import {
+  canEditLoneWolves,
+  canPriceLoneWolves,
+  requireDetailsAccess,
+} from '../src/projects/lone-wolves/routes/index.js';
 import * as pageRoles from '../../frontend/src/utils/roles.js';
 import { clientsFor } from '../../frontend/src/projects/lone-wolves/onboardingView.js';
 
@@ -19,10 +23,22 @@ before(() => {
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
 });
 
-const tokenFor = (roles) => generateJWT({ id: 'u1', email: 'someone@qawolf.com' }, roles);
+/**
+ * A token for an account whose roles in the database are `roles`. The token
+ * itself carries `tokenRoles` (the same unless given), so a test can show the
+ * database wins once an admin changes someone's roles.
+ */
+const stored = new Map();
+let nextId = 0;
+function tokenFor(roles, tokenRoles = roles) {
+  const id = `u${(nextId += 1)}`;
+  stored.set(id, roles);
+  return generateJWT({ id, email: 'someone@qawolf.com' }, tokenRoles);
+}
+const blockCsm = makeBlockCsm(async (id) => stored.get(id) || []);
 
-/** Run blockCsm on a request and say whether it let it through, or the status it answered. */
-function run(headers = {}) {
+/** Run a middleware on a request and say whether it let it through, or the status it answered. */
+async function runWith(middleware, req) {
   let status = null;
   let passed = false;
   const res = {
@@ -34,11 +50,13 @@ function run(headers = {}) {
       return this;
     },
   };
-  blockCsm({ headers, cookies: {} }, res, () => {
+  await middleware({ cookies: {}, headers: {}, ...req }, res, () => {
     passed = true;
   });
   return passed ? 'next' : status;
 }
+
+const run = (headers = {}) => runWith(blockCsm, { headers });
 
 describe('who counts as customer success only', () => {
   test('csm or csm_lead alone, not mixed with another role', () => {
@@ -57,20 +75,86 @@ describe('who counts as customer success only', () => {
 });
 
 describe('SE routers turn a CSM token away', () => {
-  test('a CSM token gets 403', () => {
-    assert.equal(run({ authorization: `Bearer ${tokenFor(['csm'])}` }), 403);
-    assert.equal(run({ authorization: `Bearer ${tokenFor(['csm_lead'])}` }), 403);
+  test('a CSM token gets 403', async () => {
+    assert.equal(await run({ authorization: `Bearer ${tokenFor(['csm'])}` }), 403);
+    assert.equal(await run({ authorization: `Bearer ${tokenFor(['csm_lead'])}` }), 403);
   });
 
-  test('SEs, admins and CSMs with another role pass through', () => {
-    assert.equal(run({ authorization: `Bearer ${tokenFor(['sales_engineer_1'])}` }), 'next');
-    assert.equal(run({ authorization: `Bearer ${tokenFor(['admin'])}` }), 'next');
-    assert.equal(run({ authorization: `Bearer ${tokenFor(['csm', 'sales_engineer_2'])}` }), 'next');
+  test('SEs, admins and CSMs with another role pass through', async () => {
+    assert.equal(await run({ authorization: `Bearer ${tokenFor(['sales_engineer_1'])}` }), 'next');
+    assert.equal(await run({ authorization: `Bearer ${tokenFor(['admin'])}` }), 'next');
+    assert.equal(
+      await run({ authorization: `Bearer ${tokenFor(['csm', 'sales_engineer_2'])}` }),
+      'next',
+    );
   });
 
-  test('no token or a bad one is left to the router’s own auth (public routes stay public)', () => {
-    assert.equal(run({}), 'next');
-    assert.equal(run({ authorization: 'Bearer not-a-token' }), 'next');
+  test('roles an admin changed apply at once, whatever the token says', async () => {
+    // An SE moved to CSM is blocked without signing in again...
+    assert.equal(
+      await run({ authorization: `Bearer ${tokenFor(['csm'], ['sales_engineer_1'])}` }),
+      403,
+    );
+    // ...and a CSM given an SE role gets in.
+    assert.equal(
+      await run({ authorization: `Bearer ${tokenFor(['sales_engineer_1'], ['csm'])}` }),
+      'next',
+    );
+  });
+
+  test('no token or a bad one is left to the router’s own auth (public routes stay public)', async () => {
+    assert.equal(await run({}), 'next');
+    assert.equal(await run({ authorization: 'Bearer not-a-token' }), 'next');
+  });
+});
+
+describe('admins change an account’s roles', () => {
+  test('any known roles, deduplicated', () => {
+    assert.deepEqual(checkRoleChange(['csm', 'csm'], { userId: 'a', editorId: 'b' }), {
+      roles: ['csm'],
+    });
+    assert.deepEqual(checkRoleChange(ALL_ROLES, { userId: 'a', editorId: 'b' }).roles, ALL_ROLES);
+  });
+
+  test('not none, not unknown ones, and not their own admin role', () => {
+    assert.ok(checkRoleChange([], { userId: 'a', editorId: 'b' }).error);
+    assert.ok(checkRoleChange('csm', { userId: 'a', editorId: 'b' }).error);
+    assert.match(checkRoleChange(['wizard'], { userId: 'a', editorId: 'b' }).error, /wizard/);
+    assert.match(checkRoleChange(['csm'], { userId: 'a', editorId: 'a' }).error, /own admin/);
+    assert.deepEqual(checkRoleChange(['admin', 'csm'], { userId: 'a', editorId: 'a' }).roles, [
+      'admin',
+      'csm',
+    ]);
+  });
+
+  test('the forms offer exactly the roles the server accepts', () => {
+    assert.deepEqual(pageRoles.ROLE_OPTIONS.map((o) => o.value).sort(), [...ALL_ROLES].sort());
+  });
+});
+
+describe('who switches a workspace’s pricing', () => {
+  const details = (roles, body) => runWith(requireDetailsAccess, { user: { roles }, body });
+
+  test('CSMs switch pricing and nothing else', async () => {
+    assert.equal(await details(['csm'], { pricing: 'new' }), 'next');
+    assert.equal(await details(['csm'], { pricing: 'new', nextStep: 'x' }), 403);
+    assert.equal(await details(['csm'], { hidden: true }), 403);
+  });
+
+  test('editors change anything; SEs change nothing', async () => {
+    assert.equal(await details(['csm_lead'], { hidden: true }), 'next');
+    assert.equal(await details(['admin'], { pricing: 'old', nextStep: 'x' }), 'next');
+    assert.equal(await details(['sales_engineer_1'], { pricing: 'new' }), 403);
+  });
+
+  test('the page agrees with the server', () => {
+    for (const roles of [['admin'], ['csm_lead'], ['csm'], ['sales_engineer_1'], []]) {
+      assert.equal(
+        pageRoles.canPriceLoneWolves({ roles }),
+        canPriceLoneWolves({ roles }),
+        roles.join(','),
+      );
+    }
   });
 });
 

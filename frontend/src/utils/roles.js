@@ -26,6 +26,23 @@ export function canEditLoneWolves(user) {
   return isAdmin(user) || rolesOf(user).includes('csm_lead');
 }
 
+/** May switch a workspace's Old / New pricing: editors and every CSM (the server answers `canPrice` too). */
+export function canPriceLoneWolves(user) {
+  return canEditLoneWolves(user) || rolesOf(user).some((role) => CSM_ROLES.includes(role));
+}
+
+/** The roles an admin can give, in the order the user forms list them. */
+export const ROLE_OPTIONS = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'sales_engineer_lead', label: 'Sales Engineer Lead' },
+  { value: 'sales_engineer_2', label: 'Sales Engineer 2' },
+  { value: 'sales_engineer_1', label: 'Sales Engineer 1' },
+  // Customer success: their self-serve clients and Lone Wolves only. The
+  // lead also edits Lone Wolves. Neither takes a team.
+  { value: 'csm_lead', label: 'CSM Lead' },
+  { value: 'csm', label: 'CSM' },
+];
+
 /** Sees every self-serve client on the CSM dashboard, not only their own. */
 export function seesAllClients(user) {
   return canEditLoneWolves(user);

@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { updateUser } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
+import { ROLE_OPTIONS } from '../utils/roles';
+
+const rolesOf = (user) => (user?.userRoles || []).map((r) => r.role);
+const sameRoles = (a, b) => a.length === b.length && a.every((role) => b.includes(role));
 
 /**
  * Admin: edit an existing user's profile fields.
@@ -8,6 +13,9 @@ import { useToast } from '../contexts/ToastContext';
  * Fields supported:
  *  - First name / Last name (User.firstName / User.lastName)
  *  - Email (User.email — the credential used to log in)
+ *  - Roles (UserRole rows). They apply on the user's next request; their
+ *    sidebar catches up when they reload. An admin cannot drop their own
+ *    admin role, here or on the server.
  *  - Salesforce email (SalesEngineer.salesforceEmail) — only rendered when the
  *    target user has an SE record. Defaults to the app email so the admin
  *    can keep them in sync with one click.
@@ -27,10 +35,12 @@ const EditUserModal = ({ isOpen, user, onClose, onSaved }) => {
   // types. Flips to false the moment the admin manually edits SF email so
   // we don't clobber an intentional split.
   const [syncSalesforceEmail, setSyncSalesforceEmail] = useState(true);
+  const [roles, setRoles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
   const hasSE = Boolean(user?.salesEngineer);
+  const isSelf = useAuth().user?.id === user?.id;
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -42,6 +52,7 @@ const EditUserModal = ({ isOpen, user, onClose, onSaved }) => {
     // Default to "in sync" when SF email matches the app email or is empty;
     // otherwise the admin clearly wants them tracked separately.
     setSyncSalesforceEmail(!initialSfEmail || initialSfEmail === user.email);
+    setRoles(rolesOf(user));
     setError(null);
   }, [isOpen, user]);
 
@@ -66,6 +77,12 @@ const EditUserModal = ({ isOpen, user, onClose, onSaved }) => {
     setSyncSalesforceEmail(false);
   }
 
+  function toggleRole(role) {
+    setRoles((current) =>
+      current.includes(role) ? current.filter((r) => r !== role) : [...current, role],
+    );
+  }
+
   function onBackdropClick(e) {
     if (e.target === dialogRef.current) onClose();
   }
@@ -82,6 +99,10 @@ const EditUserModal = ({ isOpen, user, onClose, onSaved }) => {
       setError('First name and last name are required.');
       return;
     }
+    if (roles.length === 0) {
+      setError('Pick at least one role.');
+      return;
+    }
 
     // Build a minimal patch so we never overwrite fields the admin didn't
     // actually touch. Compare against the current user record before
@@ -90,6 +111,7 @@ const EditUserModal = ({ isOpen, user, onClose, onSaved }) => {
     if ((user.firstName ?? '') !== firstName.trim()) patch.firstName = firstName.trim();
     if ((user.lastName ?? '') !== lastName.trim()) patch.lastName = lastName.trim();
     if (user.email !== email.trim()) patch.email = email.trim();
+    if (!sameRoles(rolesOf(user), roles)) patch.roles = roles;
     if (hasSE) {
       const currentSf = user.salesEngineer?.salesforceEmail ?? '';
       if (currentSf !== salesforceEmail.trim()) {
@@ -167,6 +189,30 @@ const EditUserModal = ({ isOpen, user, onClose, onSaved }) => {
               The login credential. Changing it updates the email this user signs in with.
             </small>
           </label>
+
+          <fieldset className="admin-form-field">
+            <legend>Roles</legend>
+            <div className="admin-form-checkbox-grid">
+              {ROLE_OPTIONS.map((opt) => {
+                const ownAdmin = isSelf && opt.value === 'admin';
+                return (
+                  <label key={opt.value} className="admin-form-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={roles.includes(opt.value)}
+                      onChange={() => toggleRole(opt.value)}
+                      disabled={ownAdmin}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <small className="admin-form-hint">
+              Takes effect right away; they see the new menu after a reload.
+              {isSelf && ' You cannot remove your own admin role.'}
+            </small>
+          </fieldset>
 
           {hasSE && (
             <label className="admin-form-field">
