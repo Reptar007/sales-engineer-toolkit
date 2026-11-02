@@ -491,6 +491,27 @@ export async function saveLoneWolvesDetails(workspaceId, details) {
   });
 }
 
+/** Import billing's by-week CSV (AI credits, interactive minutes) for a workspace environment. */
+export async function importLoneWolvesMetered(workspaceId, environmentId, csv) {
+  return apiRequest(`/lone-wolves/workspaces/${encodeURIComponent(workspaceId)}/metered`, {
+    method: 'POST',
+    body: JSON.stringify({ environmentId, csv }),
+  });
+}
+
+/** Start pulling billing's AI credits from Metronome with a pasted token (runs in the background). */
+export async function startMetronomePull(workspaceId, environmentId, token) {
+  return apiRequest(`/lone-wolves/workspaces/${encodeURIComponent(workspaceId)}/metered/pull`, {
+    method: 'POST',
+    body: JSON.stringify({ environmentId, token }),
+  });
+}
+
+/** Where a workspace's Metronome pull stands. */
+export async function fetchMetronomePull(workspaceId) {
+  return apiRequest(`/lone-wolves/workspaces/${encodeURIComponent(workspaceId)}/metered/pull`);
+}
+
 /** A workspace's static environments, live from QA Wolf, for the Lone Wolves picker. */
 export async function fetchLoneWolvesEnvironments(workspaceId) {
   return apiRequest(`/lone-wolves/workspaces/${encodeURIComponent(workspaceId)}/environments`);

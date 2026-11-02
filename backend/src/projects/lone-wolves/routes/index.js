@@ -21,7 +21,17 @@ import { CSM_ROLES, requireRole } from '../../../middleware/rbac.js';
 import { getPrisma } from '../../../lib/prisma.js';
 import { statusForError } from '../../maintenance-dashboard/routes/index.js';
 import { getOnboardingDashboard, requestRescan, startRefresh } from '../onboardingService.js';
-import { OnboardingError, addWorkspace, isWorkspaceId, saveDetails } from '../workspaceStore.js';
+import {
+  OnboardingError,
+  addWorkspace,
+  isWorkspaceId,
+  listDetails,
+  saveDetails,
+  saveMeteredWeeks,
+} from '../workspaceStore.js';
+import { parseMeteredCsv } from '../meteredImport.js';
+import { cleanToken } from '../metronomeClient.js';
+import { pullStatus, startPull } from '../metronomePull.js';
 import { listEnvironments } from '../platformClient.js';
 
 const router = express.Router();
@@ -182,6 +192,72 @@ router.put(
       return sendError(res, error, 'The details could not be saved.');
     }
   },
+);
+
+// POST /api/lone-wolves/workspaces/:workspaceId/metered -- import billing's
+// weekly AI credits and interactive minutes for the environment the row
+// counts: `{ environmentId, csv }`, csv being the by-week file of the
+// Metronome usage script. Weeks in the file replace those already imported.
+// Answers the weeks it kept. Shows on the next read; no rescan needed.
+router.post(
+  '/workspaces/:workspaceId/metered',
+  authenticateToken,
+  requireEditor,
+  async (req, res) => {
+    try {
+      const { environmentId, csv } = req.body || {};
+      const weeks = parseMeteredCsv(csv);
+      await saveMeteredWeeks(req.params.workspaceId, environmentId, weeks, req.user);
+      return res.json({
+        status: 'ok',
+        weeks: weeks.map((w) => ({ ...w, weekStart: new Date(w.weekStart).toISOString() })),
+      });
+    } catch (error) {
+      return sendError(res, error, 'The usage file could not be imported.');
+    }
+  },
+);
+
+// POST /api/lone-wolves/workspaces/:workspaceId/metered/pull -- pull billing's
+// AI credits and interactive minutes from Metronome in the background:
+// `{ environmentId, token }`, the token pasted from the editor's Metronome
+// session. Used for that pull only, never stored or logged. 202 with the
+// pull's status; 409 while one is running.
+router.post(
+  '/workspaces/:workspaceId/metered/pull',
+  authenticateToken,
+  requireEditor,
+  async (req, res) => {
+    try {
+      const { workspaceId } = req.params;
+      if (!isWorkspaceId(workspaceId)) {
+        throw new OnboardingError('ONBOARDING_INVALID', 'That is not a QA Wolf workspace id.');
+      }
+      const { environmentId, token } = req.body || {};
+      const details = (await listDetails()).find((d) => d.workspaceId === workspaceId) || {};
+      const { status } = startPull({
+        workspaceId,
+        environmentId,
+        aliases: details.metronomeAliases,
+        kickoffOn: details.kickoffOn,
+        token: cleanToken(token),
+        viewer: req.user,
+      });
+      return res.status(202).json({ status: 'ok', pull: status });
+    } catch (error) {
+      if (error?.code === 'ONBOARDING_BUSY') {
+        return res.status(409).json({ status: 'error', error: error.message, code: error.code });
+      }
+      return sendError(res, error, 'The pull could not start.');
+    }
+  },
+);
+
+// GET /api/lone-wolves/workspaces/:workspaceId/metered/pull -- where the
+// workspace's last pull stands: idle, running (with its step and events
+// read so far), done (with the weeks kept) or failed (with why).
+router.get('/workspaces/:workspaceId/metered/pull', authenticateToken, requireEditor, (req, res) =>
+  res.json({ status: 'ok', pull: pullStatus(req.params.workspaceId) }),
 );
 
 // POST /api/lone-wolves/workspaces -- add a workspace from another QA team

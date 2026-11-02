@@ -910,3 +910,24 @@
   font-size: 0.8rem;
   color: var(--lw-muted);
 }
+
+/* Pull from Metronome: a button, or the token form, under the usage table. */
+.lone-wolves .lw-pull {
+  margin-top: 0.6rem;
+}
+
+.lone-wolves .lw-pull-form {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.lone-wolves .lw-pull-form label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.lone-wolves .lw-pull .lw-warning {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}

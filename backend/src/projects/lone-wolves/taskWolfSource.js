@@ -47,6 +47,33 @@ export async function listTeamWorkspaces(client, team = getOnboardingQaTeam()) {
     .map((row) => ({ id: row.qawId, name: row.officialName, slug: row.slug || null }));
 }
 
+export const PLATFORM_QUERY_TOOL = 'query_platform_db';
+/** Task Wolf's most rows per answer; a pilot's environment has far fewer sessions. */
+const SESSION_LIMIT = 1000;
+
+/**
+ * The ids of the Tester chat sessions in one environment, from the platform
+ * database through Task Wolf: what ties AI credits and interactive runner
+ * time in Metronome to an environment. Replaces the session list the
+ * Metronome script reads from a file.
+ */
+export async function chatSessionIds(client, environmentId) {
+  if (!SAFE_ID.test(environmentId || '')) return new Set();
+  const sql = `SELECT id FROM "ChatSession" WHERE "environmentId" = ${literal(environmentId)}`;
+  const answer = await client.callTool(PLATFORM_QUERY_TOOL, { sql, rowLimit: SESSION_LIMIT });
+  const ids = new Set(
+    rowsOf(answer)
+      .map((row) => row?.id)
+      .filter(Boolean),
+  );
+  if (ids.size >= SESSION_LIMIT) {
+    throw new Error(
+      `The environment has more than ${SESSION_LIMIT} chat sessions; ask for a paged read.`,
+    );
+  }
+  return ids;
+}
+
 const normalizeName = (name) =>
   String(name || '')
     .toLowerCase()

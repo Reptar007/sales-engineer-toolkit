@@ -329,6 +329,9 @@ model OnboardingWorkspace {
   /// workspace by its CSM; null reads as old, which every customer signed
   /// before 10/19 is on.
   pricing             String?
+  /// The customer's ids in Metronome (WorkOS org, QA Wolf org, Metronome
+  /// customer), comma-separated: what a pull of billing's AI credits asks for.
+  metronomeAliases    String?
   updatedBy           String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -359,4 +362,28 @@ model OnboardingUsageWeek {
 
   @@unique([workspaceId, environmentId, weekStart])
   @@map("onboarding_usage_weeks")
+}
+
+/// Lone Wolves: a workspace environment's week as billing meters it (from
+/// Metronome), imported by hand from the by-week CSV of the Metronome usage
+/// script. It holds what run records cannot show: AI credits and the
+/// interactive (test-building) runner minutes. Weekly totals only; the
+/// per-user rows of the CSV are summed on import and not kept.
+model OnboardingMeteredWeek {
+  id                 String   @id @default(cuid())
+  workspaceId        String
+  environmentId      String
+  /// Monday 00:00 UTC.
+  weekStart          DateTime
+  aiCredits          Float
+  /// Runner minutes on live (interactive) runners, building tests with Tester.
+  interactiveMinutes Float
+  /// Runner minutes in suites as Metronome bills them (runner time, setup
+  /// included); kept for reference, the page prices its own counted minutes.
+  suiteMinutes       Float
+  importedBy         String?
+  importedAt         DateTime @default(now())
+
+  @@unique([workspaceId, environmentId, weekStart])
+  @@map("onboarding_metered_weeks")
 }

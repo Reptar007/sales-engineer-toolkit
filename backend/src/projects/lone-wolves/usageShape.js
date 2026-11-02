@@ -16,8 +16,10 @@
  *   attempt, at least 1; 2 per block on iOS, Android, Windows and Mac (Linux
  *   Electron is priced as web). Retries add nothing.
  *
- * What run records cannot show, and so is not counted: AI credits, the
- * credit a test's creation uses, and time Tester spends on live runners.
+ * What run records cannot show: AI credits, the credit a test's creation
+ * uses, and time Tester spends on live (interactive) runners. AI credits and
+ * interactive minutes come in by hand instead, from billing's Metronome
+ * export (meteredImport.js), and the old price adds them when a week has them.
  *
  * Pure, so the rule the page shows is the rule the tests pin.
  */
@@ -36,8 +38,10 @@ export const DEFAULT_PRICING = 'old';
 
 /** New pricing: $1 per run credit (list; contracts may discount). */
 export const NEW_CREDIT_RATE = 1;
-/** Old pricing: $0.15 per runner minute, plus AI credits not counted here. */
+/** Old pricing: $0.15 per runner minute (suite and interactive) ... */
 export const OLD_MINUTE_RATE = 0.15;
+/** ... plus $0.01 per AI credit. */
+export const OLD_AI_CREDIT_RATE = 0.01;
 
 const toMs = (value) => {
   const ms = typeof value === 'number' ? value : Date.parse(value);
@@ -155,31 +159,77 @@ export function sumUsage(usages) {
 
 export const runnerMinutes = (usage) => Math.round((usage.runnerSeconds / 60) * 10) / 10;
 
+const cents = (n) => Math.round(n * 100) / 100;
+
 /**
  * The week priced both ways, so the CSM picks per customer without the page
  * tracking who is on which (Becca, 10/27): the new runs-based price ($1 a
- * credit, live for new business since 10/19) and the old per-minute price
- * ($0.15 a runner minute plus AI credits), which every customer signed before
- * 10/19 is still on. The old price is runner time only: the public API does
- * not report AI credits, so it says so.
+ * credit, live for new business since 10/19) and the old per-minute price,
+ * which every customer signed before 10/19 is still on.
+ *
+ * The old price is $0.15 a runner minute plus $0.01 an AI credit (Anna,
+ * 11/2). Run records give the suite minutes; the AI credits and interactive
+ * (test-building) minutes come from billing's export when it was imported
+ * for the week (`metered`). Without it the old price is suite time only and
+ * says so (`excludesAiCredits`). Interactive minutes are billed as runner
+ * minutes on the old model (Fahd, 11/2; Mateus to confirm), so they are a
+ * part of their own. The new price is run credits only: the runs-based model
+ * does not bill interactive time up to fair use (also to confirm).
  */
-export function priceUsage(usage) {
+export function priceUsage(usage, metered = null) {
   if (!usage) return null;
+  const suite = (usage.runnerSeconds / 60) * OLD_MINUTE_RATE;
+  const interactive = metered ? metered.interactiveMinutes * OLD_MINUTE_RATE : 0;
+  const ai = metered ? metered.aiCredits * OLD_AI_CREDIT_RATE : 0;
   return {
     new: {
       rate: NEW_CREDIT_RATE,
-      amount: Math.round(usage.credits * NEW_CREDIT_RATE * 100) / 100,
+      amount: cents(usage.credits * NEW_CREDIT_RATE),
     },
     old: {
       rate: OLD_MINUTE_RATE,
-      amount: Math.round((usage.runnerSeconds / 60) * OLD_MINUTE_RATE * 100) / 100,
-      excludesAiCredits: true,
+      aiCreditRate: OLD_AI_CREDIT_RATE,
+      amount: cents(suite + interactive + ai),
+      parts: metered
+        ? { suite: cents(suite), interactive: cents(interactive), ai: cents(ai) }
+        : null,
+      excludesAiCredits: !metered,
     },
   };
 }
 
-/** A week's totals as the page sends them. */
-export function shapeWeek(weekStart, usage) {
+/** Add imported weeks into one; null when none of them has an import. */
+export function addMetered(list) {
+  const present = list.filter(Boolean);
+  if (!present.length) return null;
+  const total = { aiCredits: 0, interactiveMinutes: 0, suiteMinutes: 0 };
+  for (const m of present) {
+    total.aiCredits += m.aiCredits;
+    total.interactiveMinutes += m.interactiveMinutes;
+    total.suiteMinutes += m.suiteMinutes;
+  }
+  return {
+    aiCredits: cents(total.aiCredits),
+    interactiveMinutes: cents(total.interactiveMinutes),
+    suiteMinutes: cents(total.suiteMinutes),
+  };
+}
+
+const shapeMetered = (m) =>
+  m
+    ? {
+        aiCredits: cents(m.aiCredits),
+        interactiveMinutes: cents(m.interactiveMinutes),
+        suiteMinutes: cents(m.suiteMinutes),
+        importedAt: m.importedAt ? new Date(m.importedAt).toISOString() : null,
+      }
+    : null;
+
+/**
+ * A week's totals as the page sends them; `metered` is the week's imported
+ * billing numbers, or null when none were imported for it.
+ */
+export function shapeWeek(weekStart, usage, metered = null) {
   if (!usage) return null;
   return {
     weekStart: new Date(weekStart).toISOString(),
@@ -189,6 +239,7 @@ export function shapeWeek(weekStart, usage) {
     runnerMinutes: runnerMinutes(usage),
     credits: usage.credits,
     unfinished: usage.unfinished || 0,
-    prices: priceUsage(usage),
+    metered: shapeMetered(metered),
+    prices: priceUsage(usage, metered),
   };
 }

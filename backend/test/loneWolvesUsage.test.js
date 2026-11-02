@@ -163,7 +163,7 @@ describe('pricing', () => {
   test('every week is priced both ways: new at $1 a credit, old at $0.15 a minute', () => {
     assert.deepEqual(priceUsage(week), {
       new: { rate: 1, amount: 44 },
-      old: { rate: 0.15, amount: 8.71, excludesAiCredits: true },
+      old: { rate: 0.15, aiCreditRate: 0.01, amount: 8.71, parts: null, excludesAiCredits: true },
     });
     assert.equal(priceUsage(null), null);
   });
