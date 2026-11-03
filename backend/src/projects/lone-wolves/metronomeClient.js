@@ -16,7 +16,9 @@ import { OnboardingError } from './workspaceStore.js';
 
 export const METRONOME_URL = 'https://graphql.metronome.com/v1/graphql';
 const PAGE_SIZE = 1000;
-const ATTEMPTS = 6;
+/** As the script does: eight tries over about two minutes, since Metronome's
+ * event search often fails for a minute (DOWNSTREAM_SERVICE_ERROR) and then answers. */
+const ATTEMPTS = 8;
 /** Stop rather than page forever if Metronome keeps answering. */
 const MAX_PAGES = 200;
 
@@ -82,7 +84,7 @@ async function fetchPage({ token, aliases, start, endingBefore, fetchImpl, sleep
     if (!payload.errors) return payload.data?.mri_events || [];
     lastError = JSON.stringify(payload.errors);
     if (/JWT|JWS|unauthori[sz]ed|invalid.token/i.test(lastError)) throw rejected();
-    await sleep(Math.min(2 ** attempt * 1000, 15000));
+    await sleep(Math.min(2 ** attempt * 1000, 30000));
   }
   throw new OnboardingError(
     'METRONOME_FAILED',
