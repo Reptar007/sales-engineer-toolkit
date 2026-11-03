@@ -391,6 +391,8 @@ export function buildRow({
     nextStep: details.nextStep || null,
     // Which price the CSM picked; unpicked reads as old (see usageShape).
     pricing: ['old', 'new', 'none'].includes(details.pricing) ? details.pricing : 'old',
+    // The customer's Metronome ids, for pulling billing's AI credits.
+    metronomeAliases: details.metronomeAliases || null,
     // Weekly usage is counted beside the row (usageService) and joined in
     // by the service; a row built on its own has none.
     usage: null,

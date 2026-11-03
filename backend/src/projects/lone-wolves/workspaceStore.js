@@ -122,7 +122,33 @@ export function normalizeDetails(body = {}) {
     }
     out.pricing = body.pricing ?? null;
   }
+  if ('metronomeAliases' in body) out.metronomeAliases = metronomeAliases(body.metronomeAliases);
   return out;
+}
+
+const METRONOME_ALIAS = /^[A-Za-z0-9_-]{4,80}$/;
+
+/**
+ * The customer's Metronome ids, as typed (commas or spaces between them),
+ * stored comma-separated; null clears them. At most five, letters, digits,
+ * dashes and underscores only, since they are sent to Metronome as they are.
+ */
+export function metronomeAliases(value) {
+  if (value == null || !String(value).trim()) return null;
+  const ids = [
+    ...new Set(
+      String(value)
+        .split(/[\s,]+/)
+        .filter(Boolean),
+    ),
+  ];
+  if (ids.length > 5 || !ids.every((id) => METRONOME_ALIAS.test(id))) {
+    throw new OnboardingError(
+      'ONBOARDING_INVALID',
+      'Metronome ids are up to five ids (letters, digits, - and _), separated by commas.',
+    );
+  }
+  return ids.join(',');
 }
 
 const viewerName = (viewer) => viewer?.name || viewer?.email || viewer?.username || null;
@@ -168,6 +194,52 @@ export async function saveUsageWeek(workspaceId, environmentId, weekStart, usage
     create: { workspaceId, environmentId, weekStart: new Date(weekStart), ...data },
     update: data,
   });
+}
+
+/** Every imported billing week (AI credits, interactive minutes), all workspaces. */
+export async function listMeteredWeeks() {
+  const prisma = await db();
+  return prisma.onboardingMeteredWeek.findMany();
+}
+
+/**
+ * Keep a workspace environment's imported billing weeks (from
+ * parseMeteredCsv). A week already imported is replaced, so importing a
+ * newer run of the script fixes a partial last week; weeks the file leaves
+ * out stay as they were.
+ */
+export async function saveMeteredWeeks(workspaceId, environmentId, weeks, viewer) {
+  if (!isWorkspaceId(workspaceId)) {
+    throw new OnboardingError('ONBOARDING_INVALID', 'That is not a QA Wolf workspace id.');
+  }
+  if (!SAFE_ID.test(String(environmentId || ''))) {
+    throw new OnboardingError('ONBOARDING_INVALID', 'That is not a QA Wolf environment id.');
+  }
+  const prisma = await db();
+  const importedBy = viewerName(viewer);
+  const importedAt = new Date();
+  return prisma.$transaction(
+    weeks.map((week) => {
+      const data = {
+        aiCredits: week.aiCredits,
+        interactiveMinutes: week.interactiveMinutes,
+        suiteMinutes: week.suiteMinutes,
+        importedBy,
+        importedAt,
+      };
+      return prisma.onboardingMeteredWeek.upsert({
+        where: {
+          workspaceId_environmentId_weekStart: {
+            workspaceId,
+            environmentId,
+            weekStart: new Date(week.weekStart),
+          },
+        },
+        create: { workspaceId, environmentId, weekStart: new Date(week.weekStart), ...data },
+        update: data,
+      });
+    }),
+  );
 }
 
 /** Record details for a workspace, creating its row on first save. */

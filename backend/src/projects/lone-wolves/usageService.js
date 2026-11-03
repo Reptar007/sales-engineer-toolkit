@@ -60,7 +60,7 @@ export async function countWeek({
 
 /**
  * Every week in the workspace's usage window (see usageWindow: since
- * kickoff, at most six weeks, else the last four), newest first. Finished
+ * kickoff, at most ten weeks, else the last four), newest first. Finished
  * weeks come from the table when stored, else are counted and stored; the
  * current week is always counted. Returns the weeks and the window, so the
  * page can name the dates and say what the total covers.

@@ -361,10 +361,14 @@ export function describeUsage(week) {
   ].join(' · ');
 }
 
+const roundTenth = (n) => Math.round(n * 10) / 10;
+const count = (n) => roundTenth(n).toLocaleString('en-US');
+
 /**
- * One pricing's dollar line for a week: "new" is credits at $1, "old" is
- * runner minutes at $0.15 and says AI credits are not included. Null for
- * "none" or a week the server did not price.
+ * One pricing's dollar line for a week: "new" is credits at $1; "old" is
+ * runner minutes at $0.15 plus AI credits at $0.01 when billing's numbers
+ * were imported for the week, else runner minutes only, saying AI credits
+ * are not included. Null for "none" or a week the server did not price.
  */
 export function describePrice(week, pricing) {
   const price = week?.prices?.[pricing];
@@ -372,7 +376,12 @@ export function describePrice(week, pricing) {
   if (pricing === 'new') {
     return `${formatMoney(price.amount)} (${plural(week.credits, 'run credit')} at ${formatMoney(price.rate)})`;
   }
-  return `${formatMoney(price.amount)} (${week.runnerMinutes} runner min at ${formatMoney(price.rate)}/min; AI credits not included)`;
+  const rate = `${formatMoney(price.rate)}/min`;
+  if (week.metered) {
+    const minutes = count(week.runnerMinutes + week.metered.interactiveMinutes);
+    return `${formatMoney(price.amount)} (${minutes} runner min at ${rate} + ${count(week.metered.aiCredits)} AI credits at ${formatMoney(price.aiCreditRate)})`;
+  }
+  return `${formatMoney(price.amount)} (${week.runnerMinutes} runner min at ${rate}; AI credits not included)`;
 }
 
 /**
@@ -390,7 +399,15 @@ export function usageMessage(row, pricing = 'none') {
     `• ${plural(week.runs, 'run')}, ${plural(week.flowRuns, 'test run')}`,
   ];
   if (pricing !== 'new') {
-    lines.push(`• ${week.runnerMinutes.toLocaleString('en-US')} runner minutes, retries included`);
+    if (week.metered) {
+      lines.push(`• ${count(week.runnerMinutes)} runner minutes running tests, retries included`);
+      lines.push(`• ${count(week.metered.interactiveMinutes)} runner minutes building tests`);
+      lines.push(`• ${count(week.metered.aiCredits)} AI credits`);
+    } else {
+      lines.push(
+        `• ${week.runnerMinutes.toLocaleString('en-US')} runner minutes, retries included`,
+      );
+    }
   }
   if (pricing !== 'old') lines.push(`• ${plural(week.credits, 'run credit')}`);
   const price = describePrice(week, pricing);

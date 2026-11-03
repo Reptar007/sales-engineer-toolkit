@@ -6,6 +6,9 @@ import {
   rescanLoneWolves,
   saveLoneWolvesDetails,
   fetchLoneWolvesCsms,
+  importLoneWolvesMetered,
+  startMetronomePull,
+  fetchMetronomePull,
 } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -252,6 +255,7 @@ const EMPTY_FORM = {
   ae: '',
   csm: '',
   failureOwner: '',
+  metronomeAliases: '',
   clientBuildingTests: '',
   nextStep: '',
 };
@@ -270,6 +274,7 @@ function formFor(row) {
     clientBuildingTests:
       row.clientBuildingTests === true ? 'yes' : row.clientBuildingTests === false ? 'no' : '',
     nextStep: row.nextStep || '',
+    metronomeAliases: row.metronomeAliases || '',
   };
 }
 
@@ -335,7 +340,192 @@ function UsageCell({ week, pricing }) {
  * to post. The toggle is the same saved pick as the row's: old by default,
  * since every customer signed before 10/19 is on it; "None" for trials.
  */
-function UsageSection({ row, pricing, onPickPricing, canPrice }) {
+/**
+ * Import billing's AI credits and test-building minutes: the by-week CSV
+ * the Metronome usage script writes (run with --environment and --by-week).
+ * Editors only. The server keeps weekly totals; the file's per-user rows and
+ * emails are not stored.
+ */
+function MeteredImport({ row, onImported }) {
+  const toast = useToast();
+  const input = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const pick = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    try {
+      const result = await importLoneWolvesMetered(
+        row.workspaceId,
+        row.environmentId,
+        await file.text(),
+      );
+      const n = result.weeks?.length || 0;
+      toast.success(`Imported ${n} week${n === 1 ? '' : 's'} of AI credits for ${row.name}.`);
+      onImported();
+    } catch (err) {
+      toast.error(err?.message || 'The usage file could not be imported.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!row.environmentId) return null;
+  return (
+    <>
+      <input
+        ref={input}
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+        onChange={pick}
+        aria-label={`AI credits CSV for ${row.name}`}
+      />
+      <button
+        type="button"
+        className="lw-btn lw-btn--quiet"
+        onClick={() => input.current?.click()}
+        disabled={busy}
+        title="The usage-by-week CSV from the Metronome usage script, run for this environment"
+      >
+        {busy ? 'Importing…' : 'Import AI credits CSV'}
+      </button>
+    </>
+  );
+}
+
+const PULL_POLL_MS = 3000;
+
+/**
+ * Pull billing's AI credits from Metronome: the editor pastes their
+ * Metronome token (Usage events page > DevTools > Network > a graphql
+ * request > authorization, without "Bearer "), and the server reads the
+ * environment's events in the background. The token is sent once and not
+ * kept, here or on the server. Needs the customer's Metronome ids, set in
+ * Edit details.
+ */
+function MetronomePull({ row, onImported }) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [token, setToken] = useState('');
+  const [pull, setPull] = useState(null);
+  const timer = useRef(null);
+
+  const poll = useCallback(async () => {
+    try {
+      const { pull: status } = await fetchMetronomePull(row.workspaceId);
+      setPull(status);
+      if (status.state === 'running') {
+        timer.current = setTimeout(poll, PULL_POLL_MS);
+      } else if (status.state === 'done') {
+        toast.success(`Pulled ${status.weeks?.length || 0} weeks of AI credits for ${row.name}.`);
+        onImported();
+      }
+    } catch (err) {
+      setPull({ state: 'failed', error: err?.message || 'Lost track of the pull.' });
+    }
+  }, [row.workspaceId, row.name, toast, onImported]);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const start = async (event) => {
+    event.preventDefault();
+    const pasted = token;
+    setToken('');
+    try {
+      const { pull: status } = await startMetronomePull(row.workspaceId, row.environmentId, pasted);
+      setPull(status);
+      setOpen(false);
+      timer.current = setTimeout(poll, PULL_POLL_MS);
+    } catch (err) {
+      toast.error(err?.message || 'The pull could not start.');
+    }
+  };
+
+  if (!row.environmentId) return null;
+  if (!row.metronomeAliases) {
+    return (
+      <span className="lw-muted lw-small">
+        Add the customer&apos;s Metronome ids in Edit details to pull AI credits.
+      </span>
+    );
+  }
+  const running = pull?.state === 'running';
+  return (
+    <div className="lw-pull">
+      {open ? (
+        <form className="lw-pull-form" onSubmit={start}>
+          <label>
+            Metronome token
+            <input
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Paste the value after “Bearer ”"
+              required
+            />
+          </label>
+          <small className="lw-muted">
+            In Metronome: the customer&apos;s Usage events page, DevTools, Network, any graphql
+            request, the authorization header. Used for this pull only; never stored.
+          </small>
+          <div className="lw-form-actions">
+            <button type="submit" className="lw-btn" disabled={!token.trim()}>
+              Pull
+            </button>
+            <button
+              type="button"
+              className="lw-btn lw-btn--ghost"
+              onClick={() => {
+                setToken('');
+                setOpen(false);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button
+          type="button"
+          className="lw-btn lw-btn--quiet"
+          onClick={() => setOpen(true)}
+          disabled={running}
+        >
+          {running ? 'Pulling…' : 'Pull from Metronome'}
+        </button>
+      )}
+      {running ? (
+        <p className="lw-muted lw-small">
+          {pull.step}
+          {pull.events ? ` · ${pull.events.toLocaleString('en-US')} events read` : ''}. This takes a
+          minute or two.
+        </p>
+      ) : null}
+      {pull?.state === 'failed' ? <p className="lw-warning lw-small">{pull.error}</p> : null}
+    </div>
+  );
+}
+
+const oneDecimal = (n) => (Math.round(n * 10) / 10).toLocaleString('en-US');
+
+/** The old price's parts, for the cell's tooltip. */
+function oldPriceTitle(week) {
+  const parts = week.prices?.old?.parts;
+  if (!parts) return 'Runner minutes only; no AI credits imported for this week.';
+  return `Suite min ${formatMoney(parts.suite)} + building min ${formatMoney(parts.interactive)} + AI credits ${formatMoney(parts.ai)}`;
+}
+
+/** Where a week's minutes come from, for the Min cell's tooltip. */
+function minutesTitle(week) {
+  return week.metered
+    ? `Billing's suite minutes (run records: ${oneDecimal(week.recordedMinutes)})`
+    : 'Run records: suite runs, retries included';
+}
+
+function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, onImported }) {
   const toast = useToast();
   const usage = row.usage;
   if (!usage) return null;
@@ -360,6 +550,24 @@ function UsageSection({ row, pricing, onPickPricing, canPrice }) {
   const priced = pricing !== 'none';
   const weekLabel = (index) => (index === 0 ? 'This week' : index === 1 ? 'Last week' : null);
   const total = usage.total;
+  // AI credits and test-building minutes only show once billing's numbers
+  // were imported, and not on new pricing, which bills neither.
+  const showMetered = pricing !== 'new' && (total?.meteredWeeks || 0) > 0;
+  // Whether building minutes are billed on old pricing is unconfirmed, so
+  // the old price also shows without them.
+  const showWithoutBuilding = pricing === 'old' && showMetered;
+  const meteredCell = (week, key) => (
+    <td className="lw-num">{week.metered ? oneDecimal(week.metered[key]) : '—'}</td>
+  );
+  const withoutBuildingCell = (week) => {
+    const amount = week.prices?.old?.withoutBuilding;
+    return <td className="lw-num">{amount == null ? '—' : formatMoney(amount)}</td>;
+  };
+  const lastImport = (usage.weeks || [])
+    .map((w) => w.metered?.importedAt)
+    .filter(Boolean)
+    .sort()
+    .pop();
   return (
     <div className="lw-card-section">
       <div className="lw-usage-head">
@@ -390,9 +598,28 @@ function UsageSection({ row, pricing, onPickPricing, canPrice }) {
               <th scope="col" className="lw-num">
                 Credits
               </th>
+              {showMetered ? (
+                <>
+                  <th scope="col" className="lw-num" title="Runner minutes building tests">
+                    Build min
+                  </th>
+                  <th scope="col" className="lw-num">
+                    AI cr
+                  </th>
+                </>
+              ) : null}
               {priced ? (
                 <th scope="col" className="lw-num">
                   {pricing === 'old' ? 'Old $' : 'New $'}
+                </th>
+              ) : null}
+              {showWithoutBuilding ? (
+                <th
+                  scope="col"
+                  className="lw-num"
+                  title="Old price leaving building minutes out (not yet confirmed whether they are billed)"
+                >
+                  Old $ no build
                 </th>
               ) : null}
             </tr>
@@ -413,11 +640,25 @@ function UsageSection({ row, pricing, onPickPricing, canPrice }) {
                   ) : null}
                 </th>
                 <td className="lw-num">{week.flowRuns}</td>
-                <td className="lw-num">{week.runnerMinutes}</td>
+                <td className="lw-num" title={minutesTitle(week)}>
+                  {week.runnerMinutes}
+                </td>
                 <td className="lw-num">{week.credits}</td>
-                {priced ? (
-                  <td className="lw-num">{formatMoney(week.prices[pricing].amount)}</td>
+                {showMetered ? (
+                  <>
+                    {meteredCell(week, 'interactiveMinutes')}
+                    {meteredCell(week, 'aiCredits')}
+                  </>
                 ) : null}
+                {priced ? (
+                  <td
+                    className="lw-num"
+                    title={pricing === 'old' ? oldPriceTitle(week) : undefined}
+                  >
+                    {formatMoney(week.prices[pricing].amount)}
+                  </td>
+                ) : null}
+                {showWithoutBuilding ? withoutBuildingCell(week) : null}
               </tr>
             ))}
           </tbody>
@@ -428,11 +669,28 @@ function UsageSection({ row, pricing, onPickPricing, canPrice }) {
                   {total.sinceKickoff ? 'Since kickoff' : `Last ${total.weekCount} weeks`}
                 </th>
                 <td className="lw-num">{total.flowRuns}</td>
-                <td className="lw-num">{total.runnerMinutes}</td>
+                <td
+                  className="lw-num"
+                  title={total.metered ? "Billing's suite minutes where imported" : undefined}
+                >
+                  {total.runnerMinutes}
+                </td>
                 <td className="lw-num">{total.credits}</td>
-                {priced ? (
-                  <td className="lw-num">{formatMoney(total.prices[pricing].amount)}</td>
+                {showMetered ? (
+                  <>
+                    {meteredCell(total, 'interactiveMinutes')}
+                    {meteredCell(total, 'aiCredits')}
+                  </>
                 ) : null}
+                {priced ? (
+                  <td
+                    className="lw-num"
+                    title={pricing === 'old' ? oldPriceTitle(total) : undefined}
+                  >
+                    {formatMoney(total.prices[pricing].amount)}
+                  </td>
+                ) : null}
+                {showWithoutBuilding ? withoutBuildingCell(total) : null}
               </tr>
             </tfoot>
           ) : null}
@@ -440,14 +698,29 @@ function UsageSection({ row, pricing, onPickPricing, canPrice }) {
       </div>
       <p className="lw-muted lw-small">
         Weeks run Monday to Sunday (UTC).
-        {pricing === 'old' ? ' Old pricing is $0.15 a runner minute; AI credits not included.' : ''}
+        {pricing === 'old' && !showMetered
+          ? ' Old pricing is $0.15 a runner minute; AI credits not included.'
+          : ''}
+        {pricing === 'old' && showMetered
+          ? ' Old pricing is $0.15 a runner minute (running and building tests) plus $0.01 an AI credit.'
+          : ''}
         {pricing === 'new' ? ' New pricing is $1 a run credit.' : ''}
+        {showMetered
+          ? ` Minutes, building minutes and AI credits are billing's numbers (QA Wolf staff not billed), imported for ${total.meteredWeeks} of ${total.weekCount} weeks${lastImport ? ` (last on ${formatDay(lastImport)})` : ''}; other weeks show run records' minutes and — for the rest.`
+          : ''}
+        {showWithoutBuilding
+          ? ' Whether building minutes are billed on old pricing is not confirmed yet, so "Old $ no build" leaves them out.'
+          : ''}
       </p>
-      {usage.lastWeek ? (
-        <button type="button" className="lw-btn lw-btn--ghost" onClick={copy}>
-          Copy last week's usage
-        </button>
-      ) : null}
+      <div className="lw-card-actions">
+        {usage.lastWeek ? (
+          <button type="button" className="lw-btn lw-btn--ghost" onClick={copy}>
+            Copy last week's usage
+          </button>
+        ) : null}
+        {canEdit ? <MeteredImport row={row} onImported={onImported} /> : null}
+      </div>
+      {canEdit ? <MetronomePull row={row} onImported={onImported} /> : null}
     </div>
   );
 }
@@ -551,7 +824,14 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit, canPrice
         </div>
       ) : null}
 
-      <UsageSection row={row} pricing={pricing} onPickPricing={onPickPricing} canPrice={canPrice} />
+      <UsageSection
+        row={row}
+        pricing={pricing}
+        onPickPricing={onPickPricing}
+        canPrice={canPrice}
+        canEdit={canEdit}
+        onImported={onSaved}
+      />
 
       {editing ? (
         <form className="lw-form" onSubmit={save}>
@@ -634,6 +914,18 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit, canPrice
           <label className="lw-form-wide">
             Next step
             <textarea rows={3} value={form.nextStep} onChange={set('nextStep')} />
+          </label>
+          <label className="lw-form-wide">
+            Metronome ids
+            <input
+              value={form.metronomeAliases}
+              onChange={set('metronomeAliases')}
+              placeholder="org_…, …org, Metronome customer id"
+            />
+            <small className="lw-muted">
+              The ids on the customer&apos;s Metronome page, comma-separated. Needed to pull AI
+              credits.
+            </small>
           </label>
           <div className="lw-form-actions">
             <button type="submit" className="lw-btn" disabled={saving}>

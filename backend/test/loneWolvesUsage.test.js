@@ -61,11 +61,11 @@ describe('weeks', () => {
     assert.equal(w.sinceKickoff, true);
   });
 
-  test('always this week and last; at most six weeks; four without a kickoff', () => {
+  test('always this week and last; at most ten weeks; four without a kickoff', () => {
     const now = Date.parse('2026-10-27T12:00:00Z');
     assert.equal(usageWindow('2026-10-26T00:00:00Z', now).weekStarts.length, 2);
-    const old = usageWindow('2026-08-24T00:00:00Z', now);
-    assert.equal(old.weekStarts.length, 6);
+    const old = usageWindow('2026-08-10T00:00:00Z', now);
+    assert.equal(old.weekStarts.length, 10);
     assert.equal(old.sinceKickoff, false);
     const none = usageWindow(null, now);
     assert.equal(none.weekStarts.length, 4);
@@ -163,7 +163,14 @@ describe('pricing', () => {
   test('every week is priced both ways: new at $1 a credit, old at $0.15 a minute', () => {
     assert.deepEqual(priceUsage(week), {
       new: { rate: 1, amount: 44 },
-      old: { rate: 0.15, amount: 8.71, excludesAiCredits: true },
+      old: {
+        rate: 0.15,
+        aiCreditRate: 0.01,
+        amount: 8.71,
+        withoutBuilding: null,
+        parts: null,
+        excludesAiCredits: true,
+      },
     });
     assert.equal(priceUsage(null), null);
   });

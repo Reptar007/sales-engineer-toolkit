@@ -22,32 +22,60 @@ import {
 import { buildRow, sortRows, summarize } from './onboardingShape.js';
 import { readWorkspace } from './platformClient.js';
 import { customerPeople, customerRunFor, listTeamWorkspaces } from './taskWolfSource.js';
-import { listDetails } from './workspaceStore.js';
+import { listDetails, listMeteredWeeks } from './workspaceStore.js';
 import { weeklyUsage } from './usageService.js';
-import { addWeeks, shapeWeek } from './usageShape.js';
+import { addMetered, addWeeks, shapeWeek } from './usageShape.js';
 
 /**
  * A row's usage: every week of its window newest first, each priced both
  * ways, and their total; `thisWeek` and `lastWeek` are the first two, for
  * the table cell and the weekly message. Or why it could not be counted.
+ *
+ * `meteredFor(weekStart)` gives a week's imported billing numbers (AI
+ * credits, interactive minutes) or null. The total adds the weeks that have
+ * them and says how many do (`meteredWeeks`), since a pilot's import can
+ * stop short of this week. Its suite minutes are each week's as shown:
+ * billing's where imported, run records' elsewhere.
  */
-export function shapeRowUsage(usage) {
+export function shapeRowUsage(usage, meteredFor = () => null) {
   if (!usage) return null;
   if (usage.error) return { error: usage.error };
-  const weeks = (usage.weeks || []).map((w) => shapeWeek(w.weekStart, w.usage));
+  const metered = (usage.weeks || []).map((w) => meteredFor(w.weekStart));
+  const weeks = (usage.weeks || []).map((w, i) => shapeWeek(w.weekStart, w.usage, metered[i]));
   const oldest = usage.weeks?.[usage.weeks.length - 1]?.weekStart;
+  const totalMetered = addMetered(metered);
+  if (totalMetered) {
+    const suite = usage.weeks.reduce(
+      (sum, w, i) => sum + (metered[i] ? metered[i].suiteMinutes : w.usage.runnerSeconds / 60),
+      0,
+    );
+    totalMetered.suiteMinutes = Math.round(suite * 100) / 100;
+  }
   return {
     weeks,
     thisWeek: weeks[0] || null,
     lastWeek: weeks[1] || null,
     total: weeks.length
       ? {
-          ...shapeWeek(oldest, addWeeks(usage.weeks.map((w) => w.usage))),
+          ...shapeWeek(oldest, addWeeks(usage.weeks.map((w) => w.usage)), totalMetered),
           sinceKickoff: Boolean(usage.sinceKickoff),
           weekCount: weeks.length,
+          meteredWeeks: metered.filter(Boolean).length,
         }
       : null,
   };
+}
+
+/** Imported billing weeks by workspace, environment and week, for shapeRowUsage. */
+export function meteredIndex(meteredWeeks = []) {
+  const byKey = new Map(
+    meteredWeeks.map((m) => [
+      `${m.workspaceId}|${m.environmentId}|${new Date(m.weekStart).getTime()}`,
+      m,
+    ]),
+  );
+  return (workspaceId, environmentId) => (weekStart) =>
+    byKey.get(`${workspaceId}|${environmentId}|${new Date(weekStart).getTime()}`) || null;
 }
 
 const minutes = (name, fallback) => {
@@ -214,9 +242,10 @@ export function requestRescan(now = Date.now()) {
   return { accepted: true, retryAfterMs: 0 };
 }
 
-/** The scan joined to the page's records, in page order. */
-export function rowsFor(scan, details, now = Date.now()) {
+/** The scan joined to the page's records and imported billing weeks, in page order. */
+export function rowsFor(scan, details, now = Date.now(), meteredWeeks = []) {
   const byId = new Map(details.map((d) => [d.workspaceId, d]));
+  const meteredFor = meteredIndex(meteredWeeks);
   const visible = scan.workspaces.filter((entry) => !byId.get(entry.workspace.id)?.hidden);
   return sortRows(
     visible.map(({ workspace, platform, customerRun, usage }) => {
@@ -229,7 +258,7 @@ export function rowsFor(scan, details, now = Date.now()) {
           customerRun,
           now,
         }),
-        usage: shapeRowUsage(usage),
+        usage: shapeRowUsage(usage, meteredFor(workspace.id, platform?.environmentId)),
       };
     }),
   );
@@ -244,6 +273,7 @@ export async function getOnboardingDashboard({
   refresh = false,
   now = Date.now(),
   listDetailsImpl = listDetails,
+  listMeteredImpl = listMeteredWeeks,
 } = {}) {
   const stale = !state.builtAt || now - state.builtAt > getCacheTtlMs();
   if (refresh) requestRescan(now);
@@ -264,7 +294,8 @@ export async function getOnboardingDashboard({
     }
     return { status: 'building' };
   }
-  const rows = rowsFor(state.scan, await listDetailsImpl(), now);
+  const [details, metered] = await Promise.all([listDetailsImpl(), listMeteredImpl()]);
+  const rows = rowsFor(state.scan, details, now, metered);
   return {
     status: 'ready',
     builtAt: new Date(state.builtAt).toISOString(),
