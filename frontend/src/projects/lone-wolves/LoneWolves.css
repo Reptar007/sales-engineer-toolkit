@@ -921,6 +921,33 @@
   gap: 0.4rem;
 }
 
+.lone-wolves .lw-pull-form h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.lone-wolves .lw-pull-form p {
+  margin: 0;
+}
+
+.lone-wolves .lw-pull-steps {
+  margin: 0.2rem 0;
+  padding-left: 1.3rem;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.lone-wolves .lw-pull-steps kbd {
+  padding: 0 0.3rem;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.8em;
+  opacity: 0.85;
+}
+
 .lone-wolves .lw-pull-form label {
   display: grid;
   gap: 0.25rem;

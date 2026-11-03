@@ -416,6 +416,64 @@ export function usageMessage(row, pricing = 'none') {
   return lines.join('\n');
 }
 
+/**
+ * A running Metronome pull in plain words: "Step 2 of 3: Reading usage from
+ * Metronome (12,000 records so far)".
+ */
+export function pullProgress(status) {
+  if (status?.state !== 'running' || !status.step) return null;
+  const where = status.stepNumber ? `Step ${status.stepNumber} of ${status.stepCount}: ` : '';
+  const records = status.events ? ` (${status.events.toLocaleString('en-US')} records so far)` : '';
+  return `${where}${status.step}${records}`;
+}
+
+/**
+ * A finished pull in plain words, from the weeks it saved: "Got 4 weeks:
+ * 2,681 AI credits, 1,054 minutes building tests and 254 minutes running
+ * them."
+ */
+export function pullSummary(status) {
+  if (status?.state !== 'done') return null;
+  const weeks = status.weeks || [];
+  const sum = (key) => weeks.reduce((total, week) => total + (week[key] || 0), 0);
+  return (
+    `Got ${plural(weeks.length, 'week')}: ${count(sum('aiCredits'))} AI credits, ` +
+    `${count(sum('interactiveMinutes'))} minutes building tests and ` +
+    `${count(sum('suiteMinutes'))} minutes running them.`
+  );
+}
+
+/**
+ * Why a pull failed and what to do next, without the jargon: a turned-down
+ * token, Metronome being slow, or Task Wolf unable to say which sessions
+ * are the environment's. Anything else shows the server's own words.
+ */
+export function pullFailure(status) {
+  if (status?.state !== 'failed') return null;
+  switch (status.errorCode) {
+    case 'METRONOME_TOKEN':
+      return {
+        title: 'Metronome did not accept that code.',
+        next: 'Codes stop working after about a day. Copy a fresh one from Metronome and try again.',
+      };
+    case 'METRONOME_FAILED':
+      return {
+        title: 'Metronome is not answering right now.',
+        next: 'Nothing was saved. Wait a few minutes and try again with the same code.',
+      };
+    case 'PULL_SESSIONS':
+      return {
+        title: 'SalesWolf could not tell which sessions belong to this environment.',
+        next: 'Ask Fahd or Henry to run the usage script and send you the weekly CSV, then use Import AI credits CSV.',
+      };
+    default:
+      return {
+        title: 'The pull did not finish.',
+        next: status.error || 'Try again, or import the weekly CSV instead.',
+      };
+  }
+}
+
 const normalizePerson = (value) =>
   String(value || '')
     .toLowerCase()
