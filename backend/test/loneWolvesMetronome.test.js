@@ -13,6 +13,12 @@ import {
 } from '../src/projects/lone-wolves/metronomeClient.js';
 import { inEnvironment, weeksFromEvents } from '../src/projects/lone-wolves/meteredImport.js';
 import {
+  pullFailure,
+  pullProgress,
+  pullSummary,
+} from '../../frontend/src/projects/lone-wolves/onboardingView.js';
+import {
+  SESSIONS_FAILED,
   fillWeeks,
   pullStatus,
   pullWeeks,
@@ -267,6 +273,66 @@ describe('a pull', () => {
     await done;
     assert.equal(pullStatus('w1').state, 'failed');
     assert.match(pullStatus('w1').error, /turned the token down/);
+    assert.equal(pullStatus('w1').errorCode, TOKEN_REJECTED);
+  });
+
+  test('says which of three steps it is on, and names a Task Wolf failure as such', async () => {
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const { status, done } = startPull({
+      ...base,
+      sessionIdsImpl: async () => {
+        await gate;
+        throw new Error('403 forbidden');
+      },
+    });
+    assert.equal(status.stepNumber, 1);
+    assert.equal(status.stepCount, 3);
+    assert.match(status.step, /sessions/);
+    release();
+    await done;
+    const after = pullStatus('w1');
+    assert.equal(after.errorCode, SESSIONS_FAILED);
+    assert.match(after.error, /403 forbidden/);
+    assert.equal(after.stepNumber, null);
+  });
+
+  test('progress names the step, of how many, and the records read', () => {
+    const running = {
+      state: 'running',
+      step: 'Reading usage from Metronome',
+      stepNumber: 2,
+      stepCount: 3,
+      events: 12000,
+    };
+    assert.equal(
+      pullProgress(running),
+      'Step 2 of 3: Reading usage from Metronome (12,000 records so far)',
+    );
+    assert.equal(pullProgress({ state: 'done' }), null);
+  });
+
+  test('a finished pull adds up what it got', () => {
+    const weeks = [
+      { aiCredits: 1176, interactiveMinutes: 296, suiteMinutes: 58 },
+      { aiCredits: 984, interactiveMinutes: 640, suiteMinutes: 174 },
+    ];
+    assert.equal(
+      pullSummary({ state: 'done', weeks }),
+      'Got 2 weeks: 2,160 AI credits, 936 minutes building tests and 232 minutes running them.',
+    );
+  });
+
+  test('a failure says what happened and what to do, in plain words', () => {
+    assert.match(pullFailure({ state: 'failed', errorCode: TOKEN_REJECTED }).next, /fresh one/);
+    assert.match(pullFailure({ state: 'failed', errorCode: SESSIONS_FAILED }).next, /CSV/);
+    assert.equal(
+      pullFailure({ state: 'failed', errorCode: null, error: 'Something odd.' }).next,
+      'Something odd.',
+    );
+    assert.equal(pullFailure({ state: 'running' }), null);
   });
 
   test('refused without ids, a token or Task Wolf', () => {

@@ -29,6 +29,9 @@ import {
   formatMoney,
   linearUrl,
   monthName,
+  pullFailure,
+  pullProgress,
+  pullSummary,
   rowsToCsv,
   segmentLabel,
   slackPulse,
@@ -396,6 +399,8 @@ function MeteredImport({ row, onImported }) {
 
 const PULL_POLL_MS = 3000;
 
+const METRONOME_APP = 'https://app.metronome.com';
+
 /**
  * Pull billing's AI credits from Metronome: the editor pastes their
  * Metronome token (Usage events page > DevTools > Network > a graphql
@@ -403,6 +408,10 @@ const PULL_POLL_MS = 3000;
  * environment's events in the background. The token is sent once and not
  * kept, here or on the server. Needs the customer's Metronome ids, set in
  * Edit details.
+ *
+ * Written for a CSM, not an engineer: the form walks through getting the
+ * code step by step, the progress says which step of three it is on, and
+ * the result says what came back or what to do next.
  */
 function MetronomePull({ row, onImported }) {
   const toast = useToast();
@@ -418,7 +427,7 @@ function MetronomePull({ row, onImported }) {
       if (status.state === 'running') {
         timer.current = setTimeout(poll, PULL_POLL_MS);
       } else if (status.state === 'done') {
-        toast.success(`Pulled ${status.weeks?.length || 0} weeks of AI credits for ${row.name}.`);
+        toast.success(`${row.name}'s AI credits are in.`);
         onImported();
       }
     } catch (err) {
@@ -446,34 +455,70 @@ function MetronomePull({ row, onImported }) {
   if (!row.metronomeAliases) {
     return (
       <span className="lw-muted lw-small">
-        Add the customer&apos;s Metronome ids in Edit details to pull AI credits.
+        To bring in AI credits, add {row.name}&apos;s Metronome ids in Edit details first (Fahd or
+        Henry can tell you what they are).
       </span>
     );
   }
   const running = pull?.state === 'running';
+  const progress = pullProgress(pull);
+  const summary = pullSummary(pull);
+  const failure = pullFailure(pull);
   return (
     <div className="lw-pull">
       {open ? (
         <form className="lw-pull-form" onSubmit={start}>
+          <h4>Bring in {row.name}&apos;s AI credits from Metronome</h4>
+          <p className="lw-small">
+            This copies {row.name}&apos;s AI credits and test-building time from billing, week by
+            week since kickoff. Metronome needs a one-time code from you to let SalesWolf read it.
+            The code works for about a day, so get a fresh one each time.
+          </p>
+          <ol className="lw-pull-steps">
+            <li>
+              Open{' '}
+              <a href={METRONOME_APP} target="_blank" rel="noopener noreferrer">
+                Metronome
+              </a>{' '}
+              and sign in.
+            </li>
+            <li>
+              Find <strong>{row.name}</strong> and open its <strong>Usage events</strong> page.
+            </li>
+            <li>
+              Open your browser&apos;s developer tools: press <kbd>⌘</kbd> <kbd>Option</kbd>{' '}
+              <kbd>I</kbd> on a Mac, or <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>I</kbd> on Windows. A
+              panel opens beside or below the page.
+            </li>
+            <li>
+              In that panel, click the <strong>Network</strong> tab and type <code>graphql</code> in
+              its filter box. If the list is empty, refresh the page.
+            </li>
+            <li>
+              Click any line in the list. Under <strong>Headers</strong>, find{' '}
+              <strong>authorization</strong> and copy the long code after the word Bearer.
+            </li>
+            <li>Paste it below and click Get AI credits.</li>
+          </ol>
           <label>
-            Metronome token
+            Code from Metronome
             <input
               type="password"
               autoComplete="off"
               spellCheck={false}
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="Paste the value after “Bearer ”"
+              placeholder="Paste the long code here"
               required
             />
           </label>
           <small className="lw-muted">
-            In Metronome: the customer&apos;s Usage events page, DevTools, Network, any graphql
-            request, the authorization header. Used for this pull only; never stored.
+            It&apos;s fine if the word Bearer comes along. SalesWolf uses the code for this one pull
+            and never saves it. Please don&apos;t share it in Slack.
           </small>
           <div className="lw-form-actions">
             <button type="submit" className="lw-btn" disabled={!token.trim()}>
-              Pull
+              Get AI credits
             </button>
             <button
               type="button"
@@ -494,17 +539,24 @@ function MetronomePull({ row, onImported }) {
           onClick={() => setOpen(true)}
           disabled={running}
         >
-          {running ? 'Pulling…' : 'Pull from Metronome'}
+          {running ? 'Getting AI credits…' : 'Get AI credits from Metronome'}
         </button>
       )}
-      {running ? (
-        <p className="lw-muted lw-small">
-          {pull.step}
-          {pull.events ? ` · ${pull.events.toLocaleString('en-US')} events read` : ''}. This takes a
-          minute or two.
+      {progress ? (
+        <p className="lw-muted lw-small" role="status">
+          {progress}. This usually takes a minute or two; you can leave this page open.
         </p>
       ) : null}
-      {pull?.state === 'failed' ? <p className="lw-warning lw-small">{pull.error}</p> : null}
+      {summary && !open ? (
+        <p className="lw-small" role="status">
+          {summary}
+        </p>
+      ) : null}
+      {failure && !open ? (
+        <div className="lw-warning lw-small" role="alert">
+          <strong>{failure.title}</strong> {failure.next}
+        </div>
+      ) : null}
     </div>
   );
 }

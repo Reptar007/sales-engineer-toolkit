@@ -59,6 +59,21 @@ export function fillWeeks(weekStarts, found) {
   );
 }
 
+/** A pull's steps, in order, as the page shows them ("Step 2 of 3"). */
+export const PULL_STEPS = [
+  'Finding the sessions where the customer built tests',
+  'Reading usage from Metronome',
+  'Saving the weeks',
+];
+
+/** Why a pull failed, for the page to explain: the token, Metronome, or Task Wolf. */
+export const SESSIONS_FAILED = 'PULL_SESSIONS';
+
+const toStep = (job, number) => {
+  job.stepNumber = number;
+  job.step = PULL_STEPS[number - 1];
+};
+
 const publicStatus = (job) =>
   job
     ? {
@@ -66,9 +81,12 @@ const publicStatus = (job) =>
         startedAt: new Date(job.startedAt).toISOString(),
         finishedAt: job.finishedAt ? new Date(job.finishedAt).toISOString() : null,
         step: job.step,
+        stepNumber: job.stepNumber,
+        stepCount: PULL_STEPS.length,
         events: job.events,
         weeks: job.weeks,
         error: job.error,
+        errorCode: job.errorCode,
         by: job.by,
       }
     : { state: 'idle' };
@@ -120,17 +138,25 @@ export function startPull({
     state: 'running',
     startedAt: Date.now(),
     finishedAt: null,
-    step: 'Reading the environment’s chat sessions',
+    step: null,
+    stepNumber: null,
     events: 0,
     weeks: null,
     error: null,
+    errorCode: null,
     by: viewer?.email || null,
   };
+  toStep(job, 1);
   jobs.set(workspaceId, job);
   const done = (async () => {
     try {
-      const sessions = await sessionIdsImpl(taskWolfClient, environmentId);
-      job.step = 'Reading usage events from Metronome';
+      const sessions = await sessionIdsImpl(taskWolfClient, environmentId).catch((error) => {
+        throw new OnboardingError(
+          SESSIONS_FAILED,
+          `Task Wolf could not list the environment’s chat sessions (${error?.message || 'no answer'}).`,
+        );
+      });
+      toStep(job, 2);
       const events = await pullEventsImpl({
         token,
         aliases: aliases.split(','),
@@ -140,7 +166,7 @@ export function startPull({
           job.events = count;
         },
       });
-      job.step = 'Saving the weeks';
+      toStep(job, 3);
       const weeks = fillWeeks(weekStarts, weeksFromEvents(events, environmentId, sessions));
       await saveImpl(workspaceId, environmentId, weeks, viewer);
       job.weeks = weeks.map((w) => ({ ...w, weekStart: new Date(w.weekStart).toISOString() }));
@@ -150,9 +176,11 @@ export function startPull({
         console.error('Metronome pull failed:', error.message);
       job.state = 'failed';
       job.error = error?.message || 'The pull failed.';
+      job.errorCode = error?.code || null;
     } finally {
       job.finishedAt = Date.now();
       job.step = null;
+      job.stepNumber = null;
     }
   })();
   return { status: publicStatus(job), done };
