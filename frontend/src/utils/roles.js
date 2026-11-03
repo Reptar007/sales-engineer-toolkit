@@ -51,6 +51,11 @@ export function seesAllClients(user) {
 /** The paths a CSM-only account may open; anything else goes home. */
 export const CSM_PATHS = new Set(['/', '/change-password', '/projects/lone-wolves']);
 
+/** Whether a CSM-only account may open a path: CSM_PATHS, or a Lone Wolves workspace's page. */
+export function csmMayOpen(pathname) {
+  return CSM_PATHS.has(pathname) || /^\/projects\/lone-wolves\/[^/]+$/.test(pathname);
+}
+
 /** The user's full name as a workspace's CSM field records it. */
 export function fullName(user) {
   return [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();

@@ -7,8 +7,10 @@ import ProjectHeader from '../components/layout/ProjectHeader';
 /**
  * Project View - Wrapper for individual project components
  */
-function ProjectView() {
-  const { projectId } = useParams();
+function ProjectView({ projectId: fixedId }) {
+  // A route under a project (a Lone Wolves workspace) names its project itself.
+  const params = useParams();
+  const projectId = fixedId || params.projectId;
   const navigate = useNavigate();
   const project = getProject(projectId);
 

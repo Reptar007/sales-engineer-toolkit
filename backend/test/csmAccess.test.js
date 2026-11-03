@@ -17,7 +17,7 @@ import {
   requireDetailsAccess,
 } from '../src/projects/lone-wolves/routes/index.js';
 import * as pageRoles from '../../frontend/src/utils/roles.js';
-import { clientsFor } from '../../frontend/src/projects/lone-wolves/onboardingView.js';
+import { clientPath, clientsFor } from '../../frontend/src/projects/lone-wolves/onboardingView.js';
 
 before(() => {
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
@@ -207,5 +207,12 @@ describe('a CSM’s clients', () => {
       '/projects/lone-wolves',
     ]);
     assert.equal(pageRoles.fullName({ firstName: 'Kyla', lastName: 'Jeffrey' }), 'Kyla Jeffrey');
+  });
+
+  test('a CSM-only account may also open a Lone Wolves workspace page, and nothing under it', () => {
+    assert.equal(pageRoles.csmMayOpen('/projects/lone-wolves'), true);
+    assert.equal(pageRoles.csmMayOpen(clientPath('ws_123')), true);
+    assert.equal(pageRoles.csmMayOpen('/projects/lone-wolves/ws_123/edit'), false);
+    assert.equal(pageRoles.csmMayOpen('/projects/opps'), false);
   });
 });

@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useLocation } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
-import { CSM_PATHS, isCsmOnly } from '../utils/roles';
+import { csmMayOpen, isCsmOnly } from '../utils/roles';
 
 const ProtectedRoute = ({ children }) => {
   const { user, isLoading, mustChangePassword } = useAuth();
@@ -25,7 +25,7 @@ const ProtectedRoute = ({ children }) => {
 
   // Customer success accounts see their clients and Lone Wolves only; the
   // SE pages would only show errors (their APIs refuse a CSM token).
-  if (isCsmOnly(user) && !CSM_PATHS.has(location.pathname)) {
+  if (isCsmOnly(user) && !csmMayOpen(location.pathname)) {
     return <Navigate to="/" replace />;
   }
 
