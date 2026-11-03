@@ -417,6 +417,19 @@ export function usageMessage(row, pricing = 'none') {
 }
 
 /**
+ * The server's Metronome connection in plain words, for the admin's box:
+ * "Connected to Metronome by sebastian@… · runs out in about 20 hours".
+ */
+export function metronomeConnectionLine(metronome, now = Date.now()) {
+  if (!metronome?.connected) {
+    return 'Not connected to Metronome, so nobody can pull AI credits until you connect it.';
+  }
+  const hours = Math.floor((Date.parse(metronome.expiresAt) - now) / 3600000);
+  const left = hours < 1 ? 'less than an hour' : `about ${hours} hour${hours === 1 ? '' : 's'}`;
+  return `Connected to Metronome${metronome.by ? ` by ${metronome.by}` : ''} · runs out in ${left}`;
+}
+
+/**
  * A running Metronome pull in plain words: "Step 2 of 3: Reading usage from
  * Metronome (12,000 records so far)".
  */
@@ -452,14 +465,15 @@ export function pullFailure(status) {
   if (status?.state !== 'failed') return null;
   switch (status.errorCode) {
     case 'METRONOME_TOKEN':
+    case 'METRONOME_NOT_CONNECTED':
       return {
-        title: 'Metronome did not accept that code.',
-        next: 'Codes stop working after about a day. Copy a fresh one from Metronome and try again.',
+        title: 'SalesWolf’s connection to Metronome has run out.',
+        next: 'Nothing was saved. Ask an admin to reconnect Metronome at the top of this page, then try again.',
       };
     case 'METRONOME_FAILED':
       return {
         title: 'Metronome is not answering right now.',
-        next: 'Nothing was saved. Wait a few minutes and try again with the same code.',
+        next: 'Nothing was saved. Wait a few minutes and try again.',
       };
     case 'PULL_SESSIONS':
       return {

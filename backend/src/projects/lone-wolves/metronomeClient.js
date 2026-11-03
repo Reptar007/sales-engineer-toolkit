@@ -4,8 +4,9 @@
  *
  * It asks Metronome's own UI endpoint (the query behind its Usage events
  * page) with a token an editor copies from their Metronome session, since
- * there is no API key for this yet. The token lasts about a day; it is used
- * for one pull and never stored or logged. The endpoint is internal to
+ * the public API's keys only give whole-account totals, not events. The
+ * token lasts about a day; it is held in memory by metronomeConnection.js
+ * and never stored or logged. The endpoint is internal to
  * Metronome and can change without notice; a public-API key would replace
  * this file and nothing else.
  *

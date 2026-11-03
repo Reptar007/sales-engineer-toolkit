@@ -958,3 +958,35 @@
   margin-top: 0.5rem;
   padding: 0.5rem 0.75rem;
 }
+
+/* The admin's Metronome connection, under the header's status line. */
+.lone-wolves .lw-connection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  max-width: 64ch;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+}
+
+.lone-wolves .lw-connection--off {
+  border-color: var(--coral);
+}
+
+.lone-wolves .lw-connection-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.lone-wolves .lw-connection .lw-pull-form {
+  width: 100%;
+}
+
+.lone-wolves .lw-pull-form label.lw-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}

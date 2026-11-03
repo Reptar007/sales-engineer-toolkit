@@ -9,6 +9,8 @@ import {
   importLoneWolvesMetered,
   startMetronomePull,
   fetchMetronomePull,
+  connectMetronome,
+  disconnectMetronome,
 } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -29,6 +31,7 @@ import {
   formatMoney,
   linearUrl,
   monthName,
+  metronomeConnectionLine,
   pullFailure,
   pullProgress,
   pullSummary,
@@ -402,21 +405,159 @@ const PULL_POLL_MS = 3000;
 const METRONOME_APP = 'https://app.metronome.com';
 
 /**
- * Pull billing's AI credits from Metronome: the editor pastes their
- * Metronome token (Usage events page > DevTools > Network > a graphql
- * request > authorization, without "Bearer "), and the server reads the
- * environment's events in the background. The token is sent once and not
- * kept, here or on the server. Needs the customer's Metronome ids, set in
- * Edit details.
- *
- * Written for a CSM, not an engineer: the form walks through getting the
- * code step by step, the progress says which step of three it is on, and
- * the result says what came back or what to do next.
+ * The steps for copying the code from a Metronome session, in plain words.
+ * Only admins see them (MetronomeConnection); CSMs never touch Metronome.
  */
-function MetronomePull({ row, onImported }) {
+function MetronomeCodeSteps() {
+  return (
+    <ol className="lw-pull-steps">
+      <li>
+        Open{' '}
+        <a href={METRONOME_APP} target="_blank" rel="noopener noreferrer">
+          Metronome
+        </a>{' '}
+        and sign in.
+      </li>
+      <li>
+        Open any customer and go to its <strong>Usage events</strong> page.
+      </li>
+      <li>
+        Open your browser&apos;s developer tools: press <kbd>⌘</kbd> <kbd>Option</kbd> <kbd>I</kbd>{' '}
+        on a Mac, or <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>I</kbd> on Windows.
+      </li>
+      <li>
+        Click the <strong>Network</strong> tab and type <code>graphql</code> in its filter box. If
+        the list is empty, refresh the page.
+      </li>
+      <li>
+        Click any line. Under <strong>Headers</strong>, find <strong>authorization</strong> and copy
+        the long code after the word Bearer.
+      </li>
+      <li>Paste it below and click Connect.</li>
+    </ol>
+  );
+}
+
+/**
+ * The server's connection to Metronome, for admins: connect with the code
+ * from a Metronome session (kept in the server's memory for about a day,
+ * never saved), optionally pulling every card at once; or disconnect. With
+ * it up, CSMs pull AI credits with one click.
+ */
+function MetronomeConnection({ metronome, onChanged }) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [token, setToken] = useState('');
+  const [pullAll, setPullAll] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const connect = async (event) => {
+    event.preventDefault();
+    const pasted = token;
+    setToken('');
+    setBusy(true);
+    try {
+      const { queued } = await connectMetronome(pasted, pullAll);
+      setOpen(false);
+      toast.success(
+        queued
+          ? `Connected to Metronome. Pulling AI credits for ${queued} customer${queued === 1 ? '' : 's'} in the background; their cards fill in as each finishes.`
+          : 'Connected to Metronome. CSMs can now pull AI credits with one click.',
+      );
+      onChanged();
+    } catch (err) {
+      toast.error(err?.message || 'Metronome could not be connected.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const disconnect = async () => {
+    try {
+      await disconnectMetronome();
+      toast.info('Disconnected from Metronome.');
+      onChanged();
+    } catch (err) {
+      toast.error(err?.message || 'Could not disconnect.');
+    }
+  };
+
+  return (
+    <div className={`lw-connection${metronome?.connected ? '' : ' lw-connection--off'}`}>
+      <span className="lw-small">{metronomeConnectionLine(metronome)}</span>
+      {!open ? (
+        <span className="lw-connection-actions">
+          <button type="button" className="lw-btn lw-btn--quiet" onClick={() => setOpen(true)}>
+            {metronome?.connected ? 'Reconnect' : 'Connect Metronome'}
+          </button>
+          {metronome?.connected ? (
+            <button type="button" className="lw-btn lw-btn--ghost" onClick={disconnect}>
+              Disconnect
+            </button>
+          ) : null}
+        </span>
+      ) : (
+        <form className="lw-pull-form" onSubmit={connect}>
+          <h4>Connect SalesWolf to Metronome</h4>
+          <p className="lw-small">
+            CSMs can&apos;t sign in to Metronome, so SalesWolf borrows your session for the day.
+            After this, anyone can click <strong>Get AI credits</strong> on a card. The code works
+            for about a day; connect again when this box says it has run out.
+          </p>
+          <MetronomeCodeSteps />
+          <label>
+            Code from Metronome
+            <input
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Paste the long code here"
+              required
+            />
+          </label>
+          <label className="lw-check">
+            <input
+              type="checkbox"
+              checked={pullAll}
+              onChange={(e) => setPullAll(e.target.checked)}
+            />
+            Pull AI credits for every customer now
+          </label>
+          <small className="lw-muted">
+            SalesWolf keeps the code in memory only, never in its database or logs, and forgets it
+            when it runs out. Please don&apos;t share it in Slack.
+          </small>
+          <div className="lw-form-actions">
+            <button type="submit" className="lw-btn" disabled={busy || !token.trim()}>
+              {busy ? 'Connecting…' : 'Connect'}
+            </button>
+            <button
+              type="button"
+              className="lw-btn lw-btn--ghost"
+              onClick={() => {
+                setToken('');
+                setOpen(false);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Pull billing's AI credits from Metronome with one click, over the
+ * server's connection (MetronomeConnection); nobody here sees Metronome.
+ * The server reads the environment's usage in the background and the card
+ * says which step of three it is on, then what came back or what to do
+ * next. Needs the customer's Metronome ids, set in Edit details.
+ */
+function MetronomePull({ row, metronome, onImported }) {
+  const toast = useToast();
   const [pull, setPull] = useState(null);
   const timer = useRef(null);
 
@@ -437,17 +578,14 @@ function MetronomePull({ row, onImported }) {
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const start = async (event) => {
-    event.preventDefault();
-    const pasted = token;
-    setToken('');
+  const start = async () => {
     try {
-      const { pull: status } = await startMetronomePull(row.workspaceId, row.environmentId, pasted);
+      const { pull: status } = await startMetronomePull(row.workspaceId, row.environmentId);
       setPull(status);
-      setOpen(false);
       timer.current = setTimeout(poll, PULL_POLL_MS);
     } catch (err) {
-      toast.error(err?.message || 'The pull could not start.');
+      if (err?.body?.code) setPull({ state: 'failed', errorCode: err.body.code });
+      else toast.error(err?.message || 'The pull could not start.');
     }
   };
 
@@ -460,99 +598,40 @@ function MetronomePull({ row, onImported }) {
       </span>
     );
   }
+  if (!metronome?.connected && pull?.state !== 'running') {
+    return (
+      <span className="lw-muted lw-small">
+        AI credits can&apos;t be pulled right now: SalesWolf isn&apos;t connected to Metronome. Ask
+        an admin to connect it at the top of this page.
+      </span>
+    );
+  }
   const running = pull?.state === 'running';
   const progress = pullProgress(pull);
   const summary = pullSummary(pull);
   const failure = pullFailure(pull);
   return (
     <div className="lw-pull">
-      {open ? (
-        <form className="lw-pull-form" onSubmit={start}>
-          <h4>Bring in {row.name}&apos;s AI credits from Metronome</h4>
-          <p className="lw-small">
-            This copies {row.name}&apos;s AI credits and test-building time from billing, week by
-            week since kickoff. Metronome needs a one-time code from you to let SalesWolf read it.
-            The code works for about a day, so get a fresh one each time.
-          </p>
-          <ol className="lw-pull-steps">
-            <li>
-              Open{' '}
-              <a href={METRONOME_APP} target="_blank" rel="noopener noreferrer">
-                Metronome
-              </a>{' '}
-              and sign in.
-            </li>
-            <li>
-              Find <strong>{row.name}</strong> and open its <strong>Usage events</strong> page.
-            </li>
-            <li>
-              Open your browser&apos;s developer tools: press <kbd>⌘</kbd> <kbd>Option</kbd>{' '}
-              <kbd>I</kbd> on a Mac, or <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>I</kbd> on Windows. A
-              panel opens beside or below the page.
-            </li>
-            <li>
-              In that panel, click the <strong>Network</strong> tab and type <code>graphql</code> in
-              its filter box. If the list is empty, refresh the page.
-            </li>
-            <li>
-              Click any line in the list. Under <strong>Headers</strong>, find{' '}
-              <strong>authorization</strong> and copy the long code after the word Bearer.
-            </li>
-            <li>Paste it below and click Get AI credits.</li>
-          </ol>
-          <label>
-            Code from Metronome
-            <input
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="Paste the long code here"
-              required
-            />
-          </label>
-          <small className="lw-muted">
-            It&apos;s fine if the word Bearer comes along. SalesWolf uses the code for this one pull
-            and never saves it. Please don&apos;t share it in Slack.
-          </small>
-          <div className="lw-form-actions">
-            <button type="submit" className="lw-btn" disabled={!token.trim()}>
-              Get AI credits
-            </button>
-            <button
-              type="button"
-              className="lw-btn lw-btn--ghost"
-              onClick={() => {
-                setToken('');
-                setOpen(false);
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : (
-        <button
-          type="button"
-          className="lw-btn lw-btn--quiet"
-          onClick={() => setOpen(true)}
-          disabled={running}
-        >
-          {running ? 'Getting AI credits…' : 'Get AI credits from Metronome'}
-        </button>
-      )}
+      <button
+        type="button"
+        className="lw-btn lw-btn--quiet"
+        onClick={start}
+        disabled={running}
+        title={`Copies ${row.name}'s AI credits and test-building time from billing, week by week since kickoff`}
+      >
+        {running ? 'Getting AI credits…' : 'Get AI credits'}
+      </button>
       {progress ? (
         <p className="lw-muted lw-small" role="status">
           {progress}. This usually takes a minute or two; you can leave this page open.
         </p>
       ) : null}
-      {summary && !open ? (
+      {summary ? (
         <p className="lw-small" role="status">
           {summary}
         </p>
       ) : null}
-      {failure && !open ? (
+      {failure ? (
         <div className="lw-warning lw-small" role="alert">
           <strong>{failure.title}</strong> {failure.next}
         </div>
@@ -577,7 +656,7 @@ function minutesTitle(week) {
     : 'Run records: suite runs, retries included';
 }
 
-function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, onImported }) {
+function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, metronome, onImported }) {
   const toast = useToast();
   const usage = row.usage;
   if (!usage) return null;
@@ -772,12 +851,12 @@ function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, onImport
         ) : null}
         {canEdit ? <MeteredImport row={row} onImported={onImported} /> : null}
       </div>
-      {canEdit ? <MetronomePull row={row} onImported={onImported} /> : null}
+      {canPrice ? <MetronomePull row={row} metronome={metronome} onImported={onImported} /> : null}
     </div>
   );
 }
 
-function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit, canPrice }) {
+function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit, canPrice, metronome }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(() => formFor(row));
@@ -882,6 +961,7 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit, canPrice
         onPickPricing={onPickPricing}
         canPrice={canPrice}
         canEdit={canEdit}
+        metronome={metronome}
         onImported={onSaved}
       />
 
@@ -1211,6 +1291,8 @@ export default function LoneWolves() {
   // too; everyone else reads. The server says which and enforces it.
   const canEdit = Boolean(payload?.canEdit);
   const canPrice = Boolean(payload?.canPrice);
+  const metronome = payload?.metronome || null;
+  const canConnectMetronome = Boolean(payload?.canConnectMetronome);
   const visible = useMemo(() => filterRows(rows, filter), [rows, filter]);
   const counts = useMemo(() => filterCounts(rows), [rows]);
   const selected = rows.find((row) => row.workspaceId === selectedId) || visible[0] || null;
@@ -1273,6 +1355,9 @@ export default function LoneWolves() {
             <span>{payload.summary.total} workspaces</span>
             <span>{payload.taskWolf ? 'Task Wolf connected' : 'Task Wolf not connected'}</span>
           </div>
+        ) : null}
+        {canConnectMetronome && payload?.status === 'ready' ? (
+          <MetronomeConnection metronome={metronome} onChanged={() => load()} />
         ) : null}
       </div>
       <div className="lw-actions">
@@ -1538,6 +1623,7 @@ export default function LoneWolves() {
           onPickPricing={(pricing) => selected && pickPricing(selected, pricing)}
           canEdit={canEdit}
           canPrice={canPrice}
+          metronome={metronome}
         />
       </section>
     </div>

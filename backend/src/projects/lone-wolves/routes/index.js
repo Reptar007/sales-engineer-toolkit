@@ -14,6 +14,10 @@
  * editors only: admins and the CSM lead, as Becca asked (10/28); CSMs may
  * also switch a workspace's pricing. `canEdit` and `canPrice` on the GET
  * answer tell the page which it is showing.
+ *
+ * Billing's AI credits come from Metronome over a connection only an admin
+ * makes (metronomeConnection.js); once it is up, anyone who may price a
+ * workspace pulls with one click and never sees Metronome.
  */
 import express from 'express';
 import { authenticateToken } from '../../../middleware/auth.js';
@@ -30,8 +34,13 @@ import {
   saveMeteredWeeks,
 } from '../workspaceStore.js';
 import { parseMeteredCsv } from '../meteredImport.js';
-import { cleanToken } from '../metronomeClient.js';
-import { pullStatus, startPull } from '../metronomePull.js';
+import {
+  connectMetronome,
+  connectionStatus,
+  disconnectMetronome,
+  metronomeToken,
+} from '../metronomeConnection.js';
+import { pullEvery, pullStatus, startPull } from '../metronomePull.js';
 import { listEnvironments } from '../platformClient.js';
 
 const router = express.Router();
@@ -39,6 +48,10 @@ const router = express.Router();
 /** Who may change Lone Wolves; requireRole lets admins through as well. */
 export const EDITOR_ROLES = ['csm_lead'];
 const requireEditor = requireRole(EDITOR_ROLES);
+/** requireRole lets admins through whatever it is given; nobody else is listed. */
+const requireAdmin = requireRole([]);
+
+const isAdmin = (user) => (user?.roles || []).includes('admin');
 
 /** Whether a signed-in user may edit, by the same rule as requireEditor. */
 export function canEditLoneWolves(user) {
@@ -53,6 +66,12 @@ export function canEditLoneWolves(user) {
  */
 export function canPriceLoneWolves(user) {
   return canEditLoneWolves(user) || (user?.roles || []).some((role) => CSM_ROLES.includes(role));
+}
+
+/** Let a Metronome pull through: anyone who may price a workspace, CSMs included. */
+export function requirePuller(req, res, next) {
+  if (canPriceLoneWolves(req.user)) return next();
+  return res.status(403).json({ error: 'Insufficient permissions' });
 }
 
 /**
@@ -83,13 +102,21 @@ function sendError(res, error, fallback) {
 // summary, rows }` once a scan exists, `{ status: 'building' }` during the
 // first, or an error with `failedAt` when there is no scan and it failed.
 // `?refresh=1` asks for a rescan in the background (editors only; anyone
-// else's is ignored). Every answer carries `canEdit`.
+// else's is ignored). Every answer carries `canEdit`, `canPrice`, `metronome`
+// (whether the server is connected to Metronome, never the code) and
+// `canConnectMetronome` (admins).
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const canEdit = canEditLoneWolves(req.user);
     const refresh = canEdit && (req.query.refresh === '1' || req.query.refresh === 'true');
     const canPrice = canPriceLoneWolves(req.user);
-    const result = { ...(await getOnboardingDashboard({ refresh })), canEdit, canPrice };
+    const result = {
+      ...(await getOnboardingDashboard({ refresh })),
+      canEdit,
+      canPrice,
+      metronome: connectionStatus(),
+      canConnectMetronome: isAdmin(req.user),
+    };
     if (result.status === 'error') {
       return res.status(statusForError(result.error)).json({
         status: 'error',
@@ -218,29 +245,67 @@ router.post(
   },
 );
 
+// PUT /api/lone-wolves/metronome -- connect the server to Metronome with the
+// code from an admin's Metronome session: `{ token, pullAll }`. Kept in
+// memory until it runs out (about a day). With `pullAll`, every card with
+// Metronome ids and an environment is pulled, one after another, in the
+// background. Answers the connection (never the code) and how many pulls
+// were queued.
+router.put('/metronome', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { token, pullAll } = req.body || {};
+    const connection = connectMetronome(token, req.user);
+    let queued = 0;
+    if (pullAll) {
+      const dashboard = await getOnboardingDashboard();
+      const targets = (dashboard.rows || [])
+        .filter((row) => row.environmentId && row.metronomeAliases)
+        .map((row) => ({
+          workspaceId: row.workspaceId,
+          environmentId: row.environmentId,
+          aliases: row.metronomeAliases,
+          kickoffOn: row.kickoffOn,
+        }));
+      queued = targets.length;
+      pullEvery(targets, { token: metronomeToken(), viewer: req.user }).catch((error) =>
+        console.error('Metronome pull of every workspace failed:', error.message),
+      );
+    }
+    return res.json({ status: 'ok', metronome: connection, queued });
+  } catch (error) {
+    return sendError(res, error, 'Metronome could not be connected.');
+  }
+});
+
+// DELETE /api/lone-wolves/metronome -- forget the code now.
+router.delete('/metronome', authenticateToken, requireAdmin, (req, res) => {
+  disconnectMetronome();
+  return res.json({ status: 'ok', metronome: connectionStatus() });
+});
+
 // POST /api/lone-wolves/workspaces/:workspaceId/metered/pull -- pull billing's
-// AI credits and interactive minutes from Metronome in the background:
-// `{ environmentId, token }`, the token pasted from the editor's Metronome
-// session. Used for that pull only, never stored or logged. 202 with the
-// pull's status; 409 while one is running.
+// AI credits and interactive minutes from Metronome in the background, over
+// the server's connection: `{ environmentId }`. Editors and CSMs. 202 with
+// the pull's status; 409 while one is running; 400 with code
+// METRONOME_NOT_CONNECTED when no admin has connected Metronome.
 router.post(
   '/workspaces/:workspaceId/metered/pull',
   authenticateToken,
-  requireEditor,
+  requirePuller,
   async (req, res) => {
     try {
       const { workspaceId } = req.params;
       if (!isWorkspaceId(workspaceId)) {
         throw new OnboardingError('ONBOARDING_INVALID', 'That is not a QA Wolf workspace id.');
       }
-      const { environmentId, token } = req.body || {};
+      const { environmentId } = req.body || {};
       const details = (await listDetails()).find((d) => d.workspaceId === workspaceId) || {};
       const { status } = startPull({
         workspaceId,
         environmentId,
         aliases: details.metronomeAliases,
         kickoffOn: details.kickoffOn,
-        token: cleanToken(token),
+        token: metronomeToken(),
         viewer: req.user,
       });
       return res.status(202).json({ status: 'ok', pull: status });
@@ -256,7 +321,7 @@ router.post(
 // GET /api/lone-wolves/workspaces/:workspaceId/metered/pull -- where the
 // workspace's last pull stands: idle, running (with its step and events
 // read so far), done (with the weeks kept) or failed (with why).
-router.get('/workspaces/:workspaceId/metered/pull', authenticateToken, requireEditor, (req, res) =>
+router.get('/workspaces/:workspaceId/metered/pull', authenticateToken, requirePuller, (req, res) =>
   res.json({ status: 'ok', pull: pullStatus(req.params.workspaceId) }),
 );
 

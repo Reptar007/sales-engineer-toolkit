@@ -13,13 +13,25 @@ import {
 } from '../src/projects/lone-wolves/metronomeClient.js';
 import { inEnvironment, weeksFromEvents } from '../src/projects/lone-wolves/meteredImport.js';
 import {
+  metronomeConnectionLine,
   pullFailure,
   pullProgress,
   pullSummary,
 } from '../../frontend/src/projects/lone-wolves/onboardingView.js';
 import {
+  DEFAULT_LIFETIME_MS,
+  NOT_CONNECTED,
+  connectMetronome,
+  connectionStatus,
+  disconnectMetronome,
+  metronomeToken,
+  resetConnection,
+  tokenExpiry,
+} from '../src/projects/lone-wolves/metronomeConnection.js';
+import {
   SESSIONS_FAILED,
   fillWeeks,
+  pullEvery,
   pullStatus,
   pullWeeks,
   resetPulls,
@@ -326,7 +338,13 @@ describe('a pull', () => {
   });
 
   test('a failure says what happened and what to do, in plain words', () => {
-    assert.match(pullFailure({ state: 'failed', errorCode: TOKEN_REJECTED }).next, /fresh one/);
+    for (const errorCode of [TOKEN_REJECTED, NOT_CONNECTED]) {
+      assert.match(pullFailure({ state: 'failed', errorCode }).next, /admin to reconnect/);
+    }
+    assert.doesNotMatch(
+      pullFailure({ state: 'failed', errorCode: 'METRONOME_FAILED' }).next,
+      /code/,
+    );
     assert.match(pullFailure({ state: 'failed', errorCode: SESSIONS_FAILED }).next, /CSV/);
     assert.equal(
       pullFailure({ state: 'failed', errorCode: null, error: 'Something odd.' }).next,
@@ -340,5 +358,98 @@ describe('a pull', () => {
     assert.throws(() => startPull({ ...base, token: '' }), /token/);
     assert.throws(() => startPull({ ...base, taskWolfClient: null }), /Task Wolf/);
     assert.equal(pullStatus('w1').state, 'idle');
+  });
+
+  test('a code Metronome turns down is dropped; any other failure keeps it', async () => {
+    const forgot = [];
+    const failWith = (code) =>
+      startPull({
+        ...base,
+        sessionIdsImpl: async () => new Set(),
+        pullEventsImpl: async () => {
+          throw new OnboardingError(code, 'no');
+        },
+        forgetImpl: (token) => forgot.push(token),
+      }).done;
+    await failWith('METRONOME_FAILED');
+    assert.deepEqual(forgot, []);
+    await failWith(TOKEN_REJECTED);
+    assert.deepEqual(forgot, ['secret-token']);
+  });
+
+  test('every card, one at a time, stopping when the code is turned down', async () => {
+    const order = [];
+    const targets = ['w1', 'w2', 'w3', 'w4'].map((workspaceId) => ({
+      workspaceId,
+      environmentId: ENV,
+      aliases: 'a1',
+      kickoffOn: base.kickoffOn,
+    }));
+    let running = 0;
+    const finished = await pullEvery(targets, {
+      token: 'secret-token',
+      viewer: base.viewer,
+      now: NOW,
+      taskWolfClient: {},
+      sessionIdsImpl: async () => new Set(),
+      pullEventsImpl: async ({ aliases }) => {
+        running += 1;
+        assert.equal(running, 1);
+        order.push(aliases);
+        await Promise.resolve();
+        running -= 1;
+        if (order.length === 3) throw new OnboardingError(TOKEN_REJECTED, 'expired');
+        return [];
+      },
+      saveImpl: async () => {},
+      forgetImpl: () => {},
+    });
+    assert.equal(finished, 2);
+    assert.equal(order.length, 3);
+    assert.equal(pullStatus('w4').state, 'idle');
+  });
+});
+
+describe('the server’s Metronome connection', () => {
+  beforeEach(() => resetConnection());
+  const NOW = Date.parse('2026-11-03T15:00:00Z');
+  const jwt = (exp) =>
+    ['x', Buffer.from(JSON.stringify({ exp })).toString('base64url'), 'sig'].join('.');
+
+  test('runs out when the code says, else in a day', () => {
+    assert.equal(tokenExpiry(jwt(NOW / 1000 + 3600), NOW), NOW + 3600 * 1000);
+    assert.equal(tokenExpiry('not-a-jwt', NOW), NOW + DEFAULT_LIFETIME_MS);
+  });
+
+  test('connects, hands the code to pulls only, and forgets it when it runs out', () => {
+    assert.throws(
+      () => metronomeToken(NOW),
+      (e) => e.code === NOT_CONNECTED,
+    );
+    const token = jwt(NOW / 1000 + 2 * 3600);
+    const status = connectMetronome(`Bearer ${token}`, { email: 'sebastian@qawolf.com' }, NOW);
+    assert.equal(status.connected, true);
+    assert.equal(status.by, 'sebastian@qawolf.com');
+    assert.doesNotMatch(JSON.stringify(connectionStatus(NOW)), new RegExp(token.slice(0, 10)));
+    assert.equal(metronomeToken(NOW), token);
+    assert.equal(
+      metronomeConnectionLine(connectionStatus(NOW), NOW),
+      'Connected to Metronome by sebastian@qawolf.com · runs out in about 2 hours',
+    );
+    assert.equal(connectionStatus(NOW + 2 * 3600 * 1000).connected, false);
+    assert.match(metronomeConnectionLine({ connected: false }), /Not connected/);
+  });
+
+  test('refuses an empty or spent code; dropping a stale code keeps a newer one', () => {
+    assert.throws(() => connectMetronome('  ', null, NOW), /Paste/);
+    assert.throws(
+      () => connectMetronome(jwt(NOW / 1000 - 1), null, NOW),
+      (e) => e.code === TOKEN_REJECTED,
+    );
+    connectMetronome('newer', null, NOW);
+    disconnectMetronome('older');
+    assert.equal(metronomeToken(NOW), 'newer');
+    disconnectMetronome();
+    assert.equal(connectionStatus(NOW).connected, false);
   });
 });
