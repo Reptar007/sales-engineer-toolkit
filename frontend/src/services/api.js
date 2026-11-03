@@ -499,12 +499,25 @@ export async function importLoneWolvesMetered(workspaceId, environmentId, csv) {
   });
 }
 
-/** Start pulling billing's AI credits from Metronome with a pasted token (runs in the background). */
-export async function startMetronomePull(workspaceId, environmentId, token) {
+/** Start pulling billing's AI credits from Metronome over the server's connection (runs in the background). */
+export async function startMetronomePull(workspaceId, environmentId) {
   return apiRequest(`/lone-wolves/workspaces/${encodeURIComponent(workspaceId)}/metered/pull`, {
     method: 'POST',
-    body: JSON.stringify({ environmentId, token }),
+    body: JSON.stringify({ environmentId }),
   });
+}
+
+/** Connect the server to Metronome with the code from an admin's session; `pullAll` pulls every card. */
+export async function connectMetronome(token, pullAll) {
+  return apiRequest('/lone-wolves/metronome', {
+    method: 'PUT',
+    body: JSON.stringify({ token, pullAll }),
+  });
+}
+
+/** Drop the server's Metronome connection now. */
+export async function disconnectMetronome() {
+  return apiRequest('/lone-wolves/metronome', { method: 'DELETE' });
 }
 
 /** Where a workspace's Metronome pull stands. */

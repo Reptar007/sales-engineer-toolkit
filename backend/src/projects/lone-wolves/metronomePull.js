@@ -7,16 +7,18 @@
  * 1. The environment's Tester chat sessions, from Task Wolf (the platform
  *    database), instead of a session file refreshed by hand.
  * 2. Every usage event for the customer's Metronome ids since the week of
- *    kickoff, with the token an editor pasted (metronomeClient.js).
+ *    kickoff, with the code an admin connected (metronomeConnection.js).
  * 3. Summed per week for the environment (weeksFromEvents) and kept in the
  *    same table as an imported CSV, so the page reads them the same way.
  *
  * A pull takes a minute or two (thousands of events, a thousand a page),
  * longer than Heroku lets a request run, so it runs in the background and
- * the page asks for its status. One pull per workspace at a time. The token
- * lives only in the running pull's closure and is dropped when it ends.
+ * the page asks for its status. One pull per workspace at a time. The code
+ * comes from the server's Metronome connection; a pull that Metronome turns
+ * it down for drops the connection, so the page asks for a fresh one.
  */
-import { pullEvents } from './metronomeClient.js';
+import { TOKEN_REJECTED, pullEvents } from './metronomeClient.js';
+import { disconnectMetronome } from './metronomeConnection.js';
 import { weeksFromEvents } from './meteredImport.js';
 import { chatSessionIds } from './taskWolfSource.js';
 import { WEEK_MS, weekStartOf } from './usageShape.js';
@@ -113,6 +115,7 @@ export function startPull({
   pullEventsImpl = pullEvents,
   sessionIdsImpl = chatSessionIds,
   saveImpl = saveMeteredWeeks,
+  forgetImpl = disconnectMetronome,
 }) {
   if (jobs.get(workspaceId)?.state === 'running') {
     throw new OnboardingError('ONBOARDING_BUSY', 'A pull is already running for this workspace.');
@@ -177,6 +180,8 @@ export function startPull({
       job.state = 'failed';
       job.error = error?.message || 'The pull failed.';
       job.errorCode = error?.code || null;
+      // A code Metronome turned down is no good for the next pull either.
+      if (job.errorCode === TOKEN_REJECTED) forgetImpl(token);
     } finally {
       job.finishedAt = Date.now();
       job.step = null;
@@ -184,4 +189,28 @@ export function startPull({
     }
   })();
   return { status: publicStatus(job), done };
+}
+
+/**
+ * Pull every workspace in `targets` (`[{ workspaceId, environmentId, aliases,
+ * kickoffOn }]`) one after another, so a fresh connection fills every card
+ * without anyone clicking. One at a time, to go easy on Metronome. A
+ * workspace already pulling, or missing what a pull needs, is skipped; a
+ * code Metronome turns down stops the rest. Resolves to how many finished.
+ */
+export async function pullEvery(targets, { token, viewer, ...impls }) {
+  let done = 0;
+  for (const target of targets) {
+    let pull;
+    try {
+      pull = startPull({ ...target, token, viewer, ...impls });
+    } catch {
+      continue;
+    }
+    await pull.done;
+    const status = pullStatus(target.workspaceId);
+    if (status.state === 'done') done += 1;
+    if (status.errorCode === TOKEN_REJECTED) break;
+  }
+  return done;
 }
