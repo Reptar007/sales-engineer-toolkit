@@ -34,7 +34,8 @@ import { addMetered, addWeeks, shapeWeek } from './usageShape.js';
  * `meteredFor(weekStart)` gives a week's imported billing numbers (AI
  * credits, interactive minutes) or null. The total adds the weeks that have
  * them and says how many do (`meteredWeeks`), since a pilot's import can
- * stop short of this week.
+ * stop short of this week. Its suite minutes are each week's as shown:
+ * billing's where imported, run records' elsewhere.
  */
 export function shapeRowUsage(usage, meteredFor = () => null) {
   if (!usage) return null;
@@ -42,13 +43,21 @@ export function shapeRowUsage(usage, meteredFor = () => null) {
   const metered = (usage.weeks || []).map((w) => meteredFor(w.weekStart));
   const weeks = (usage.weeks || []).map((w, i) => shapeWeek(w.weekStart, w.usage, metered[i]));
   const oldest = usage.weeks?.[usage.weeks.length - 1]?.weekStart;
+  const totalMetered = addMetered(metered);
+  if (totalMetered) {
+    const suite = usage.weeks.reduce(
+      (sum, w, i) => sum + (metered[i] ? metered[i].suiteMinutes : w.usage.runnerSeconds / 60),
+      0,
+    );
+    totalMetered.suiteMinutes = Math.round(suite * 100) / 100;
+  }
   return {
     weeks,
     thisWeek: weeks[0] || null,
     lastWeek: weeks[1] || null,
     total: weeks.length
       ? {
-          ...shapeWeek(oldest, addWeeks(usage.weeks.map((w) => w.usage)), addMetered(metered)),
+          ...shapeWeek(oldest, addWeeks(usage.weeks.map((w) => w.usage)), totalMetered),
           sinceKickoff: Boolean(usage.sinceKickoff),
           weekCount: weeks.length,
           meteredWeeks: metered.filter(Boolean).length,

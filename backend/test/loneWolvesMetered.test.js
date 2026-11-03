@@ -62,23 +62,33 @@ describe('the old price with AI credits', () => {
   const usage = { credits: 44, runnerSeconds: 58.1 * 60 };
   const metered = { aiCredits: 2681, interactiveMinutes: 1054, suiteMinutes: 254 };
 
-  test('suite and interactive minutes at $0.15, AI credits at $0.01', () => {
+  test("billing's suite and interactive minutes at $0.15, AI credits at $0.01", () => {
+    // Panorama's Self-Serve, Sep 22 to Nov 2: billing's 254 suite minutes,
+    // not run records' 58.1.
     const { old } = priceUsage(usage, metered);
-    assert.deepEqual(old.parts, { suite: 8.72, interactive: 158.1, ai: 26.81 });
-    assert.equal(old.amount, 193.63);
+    assert.deepEqual(old.parts, { suite: 38.1, interactive: 158.1, ai: 26.81 });
+    assert.equal(old.amount, 223.01);
     assert.equal(old.excludesAiCredits, false);
+  });
+
+  test('the old price also leaves building minutes out, while that is unconfirmed', () => {
+    assert.equal(priceUsage(usage, metered).old.withoutBuilding, 64.91);
+    assert.equal(priceUsage(usage).old.withoutBuilding, null);
   });
 
   test('the new price is run credits only, either way', () => {
     assert.deepEqual(priceUsage(usage, metered).new, priceUsage(usage).new);
   });
 
-  test('a week shows what was imported for it, or null', () => {
-    assert.equal(shapeWeek(OCT_26, { ...usage, runs: 1, flowRuns: 1, attempts: 1 }).metered, null);
-    assert.equal(
-      shapeWeek(OCT_26, { ...usage, runs: 1, flowRuns: 1, attempts: 1 }, metered).metered.aiCredits,
-      2681,
-    );
+  test("a week shows what was imported for it, or null, and billing's minutes when imported", () => {
+    const counts = { ...usage, runs: 1, flowRuns: 1, attempts: 1 };
+    const plain = shapeWeek(OCT_26, counts);
+    assert.equal(plain.metered, null);
+    assert.equal(plain.runnerMinutes, 58.1);
+    const imported = shapeWeek(OCT_26, counts, metered);
+    assert.equal(imported.metered.aiCredits, 2681);
+    assert.equal(imported.runnerMinutes, 254);
+    assert.equal(imported.recordedMinutes, 58.1);
   });
 });
 
@@ -116,10 +126,15 @@ describe('joining imports to a row', () => {
     assert.equal(shaped.thisWeek.metered, null);
     assert.equal(shaped.thisWeek.prices.old.excludesAiCredits, true);
     assert.equal(shaped.lastWeek.metered.aiCredits, 100);
-    assert.equal(shaped.lastWeek.prices.old.amount, 1.5 + 1.5 + 1);
+    // Billing's 9 suite minutes, not run records' 10.
+    assert.equal(shaped.lastWeek.runnerMinutes, 9);
+    assert.equal(shaped.lastWeek.prices.old.amount, 1.35 + 1.5 + 1);
     assert.equal(shaped.total.meteredWeeks, 1);
     assert.equal(shaped.total.metered.aiCredits, 100);
-    assert.equal(shaped.total.prices.old.amount, 3 + 1.5 + 1);
+    // The total's minutes are each week's as shown: 10 from run records + 9 billed.
+    assert.equal(shaped.total.runnerMinutes, 19);
+    assert.equal(shaped.total.prices.old.amount, 2.85 + 1.5 + 1);
+    assert.equal(shaped.total.prices.old.withoutBuilding, 2.85 + 1);
   });
 
   test('no imports reads exactly as before', () => {
@@ -143,10 +158,10 @@ describe('what the CSM copies', () => {
     const week = shapeWeek(OCT_19, base, metered);
     assert.equal(
       describePrice(week, 'old'),
-      '$15.92 (98.1 runner min at $0.15/min + 120.4 AI credits at $0.01)',
+      '$16.20 (100 runner min at $0.15/min + 120.4 AI credits at $0.01)',
     );
     const message = usageMessage(row(week), 'old');
-    assert.match(message, /58\.1 runner minutes running tests/);
+    assert.match(message, /60 runner minutes running tests/);
     assert.match(message, /40 runner minutes building tests/);
     assert.match(message, /120\.4 AI credits/);
   });

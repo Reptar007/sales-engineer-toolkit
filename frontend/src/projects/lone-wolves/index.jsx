@@ -518,6 +518,13 @@ function oldPriceTitle(week) {
   return `Suite min ${formatMoney(parts.suite)} + building min ${formatMoney(parts.interactive)} + AI credits ${formatMoney(parts.ai)}`;
 }
 
+/** Where a week's minutes come from, for the Min cell's tooltip. */
+function minutesTitle(week) {
+  return week.metered
+    ? `Billing's suite minutes (run records: ${oneDecimal(week.recordedMinutes)})`
+    : 'Run records: suite runs, retries included';
+}
+
 function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, onImported }) {
   const toast = useToast();
   const usage = row.usage;
@@ -546,9 +553,16 @@ function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, onImport
   // AI credits and test-building minutes only show once billing's numbers
   // were imported, and not on new pricing, which bills neither.
   const showMetered = pricing !== 'new' && (total?.meteredWeeks || 0) > 0;
+  // Whether building minutes are billed on old pricing is unconfirmed, so
+  // the old price also shows without them.
+  const showWithoutBuilding = pricing === 'old' && showMetered;
   const meteredCell = (week, key) => (
     <td className="lw-num">{week.metered ? oneDecimal(week.metered[key]) : '—'}</td>
   );
+  const withoutBuildingCell = (week) => {
+    const amount = week.prices?.old?.withoutBuilding;
+    return <td className="lw-num">{amount == null ? '—' : formatMoney(amount)}</td>;
+  };
   const lastImport = (usage.weeks || [])
     .map((w) => w.metered?.importedAt)
     .filter(Boolean)
@@ -599,6 +613,15 @@ function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, onImport
                   {pricing === 'old' ? 'Old $' : 'New $'}
                 </th>
               ) : null}
+              {showWithoutBuilding ? (
+                <th
+                  scope="col"
+                  className="lw-num"
+                  title="Old price leaving building minutes out (not yet confirmed whether they are billed)"
+                >
+                  Old $ no build
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
@@ -617,7 +640,9 @@ function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, onImport
                   ) : null}
                 </th>
                 <td className="lw-num">{week.flowRuns}</td>
-                <td className="lw-num">{week.runnerMinutes}</td>
+                <td className="lw-num" title={minutesTitle(week)}>
+                  {week.runnerMinutes}
+                </td>
                 <td className="lw-num">{week.credits}</td>
                 {showMetered ? (
                   <>
@@ -633,6 +658,7 @@ function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, onImport
                     {formatMoney(week.prices[pricing].amount)}
                   </td>
                 ) : null}
+                {showWithoutBuilding ? withoutBuildingCell(week) : null}
               </tr>
             ))}
           </tbody>
@@ -643,7 +669,12 @@ function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, onImport
                   {total.sinceKickoff ? 'Since kickoff' : `Last ${total.weekCount} weeks`}
                 </th>
                 <td className="lw-num">{total.flowRuns}</td>
-                <td className="lw-num">{total.runnerMinutes}</td>
+                <td
+                  className="lw-num"
+                  title={total.metered ? "Billing's suite minutes where imported" : undefined}
+                >
+                  {total.runnerMinutes}
+                </td>
                 <td className="lw-num">{total.credits}</td>
                 {showMetered ? (
                   <>
@@ -659,6 +690,7 @@ function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, onImport
                     {formatMoney(total.prices[pricing].amount)}
                   </td>
                 ) : null}
+                {showWithoutBuilding ? withoutBuildingCell(total) : null}
               </tr>
             </tfoot>
           ) : null}
@@ -674,7 +706,10 @@ function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, onImport
           : ''}
         {pricing === 'new' ? ' New pricing is $1 a run credit.' : ''}
         {showMetered
-          ? ` AI credits and building minutes are billing's numbers, imported for ${total.meteredWeeks} of ${total.weekCount} weeks${lastImport ? ` (last on ${formatDay(lastImport)})` : ''}; weeks without them show —.`
+          ? ` Minutes, building minutes and AI credits are billing's numbers (QA Wolf staff not billed), imported for ${total.meteredWeeks} of ${total.weekCount} weeks${lastImport ? ` (last on ${formatDay(lastImport)})` : ''}; other weeks show run records' minutes and — for the rest.`
+          : ''}
+        {showWithoutBuilding
+          ? ' Whether building minutes are billed on old pricing is not confirmed yet, so "Old $ no build" leaves them out.'
           : ''}
       </p>
       <div className="lw-card-actions">

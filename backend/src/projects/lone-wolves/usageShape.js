@@ -102,14 +102,15 @@ export function runUsage(run, targets = {}) {
   return usage;
 }
 
-/** Weeks shown without a kickoff date; and the most shown with one. */
+/** Weeks shown without a kickoff date; and the most shown with one (a pilot and
+ * its follow-up, e.g. 12 Oct to 23 Nov is seven). */
 const DEFAULT_WEEKS = 4;
-const MAX_WEEKS = 6;
+const MAX_WEEKS = 10;
 
 /**
  * The weeks a workspace's usage covers, newest first: from the week of its
  * kickoff to this week (a pilot is about a month, so this is its usage to
- * date), at most six weeks and always at least this week and last; without
+ * date), at most ten weeks and always at least this week and last; without
  * a kickoff date, the last four. `sinceKickoff` says which, for the total.
  */
 export function usageWindow(kickoffOn, now = Date.now()) {
@@ -168,17 +169,19 @@ const cents = (n) => Math.round(n * 100) / 100;
  * which every customer signed before 10/19 is still on.
  *
  * The old price is $0.15 a runner minute plus $0.01 an AI credit (Anna,
- * 11/2). Run records give the suite minutes; the AI credits and interactive
- * (test-building) minutes come from billing's export when it was imported
- * for the week (`metered`). Without it the old price is suite time only and
- * says so (`excludesAiCredits`). Interactive minutes are billed as runner
- * minutes on the old model (Fahd, 11/2; Mateus to confirm), so they are a
- * part of their own. The new price is run credits only: the runs-based model
+ * 11/2). When billing's numbers were imported for the week (`metered`), all
+ * three parts come from them: billing leaves QA Wolf staff out and meters
+ * runner time its own way, so run records read a little lower (159.7 against
+ * 174 suite minutes for Panorama's week of 26 Oct). Without an import the old
+ * price is run records' suite time only and says so (`excludesAiCredits`).
+ * Interactive (test-building) minutes are billed as runner minutes on the old
+ * model (Fahd, 11/2; Mateus to confirm), so `withoutBuilding` is the same
+ * price leaving them out until that is settled. The new price is run credits only: the runs-based model
  * does not bill interactive time up to fair use (also to confirm).
  */
 export function priceUsage(usage, metered = null) {
   if (!usage) return null;
-  const suite = (usage.runnerSeconds / 60) * OLD_MINUTE_RATE;
+  const suite = (metered ? metered.suiteMinutes : usage.runnerSeconds / 60) * OLD_MINUTE_RATE;
   const interactive = metered ? metered.interactiveMinutes * OLD_MINUTE_RATE : 0;
   const ai = metered ? metered.aiCredits * OLD_AI_CREDIT_RATE : 0;
   return {
@@ -190,6 +193,7 @@ export function priceUsage(usage, metered = null) {
       rate: OLD_MINUTE_RATE,
       aiCreditRate: OLD_AI_CREDIT_RATE,
       amount: cents(suite + interactive + ai),
+      withoutBuilding: metered ? cents(suite + ai) : null,
       parts: metered
         ? { suite: cents(suite), interactive: cents(interactive), ai: cents(ai) }
         : null,
@@ -227,7 +231,9 @@ const shapeMetered = (m) =>
 
 /**
  * A week's totals as the page sends them; `metered` is the week's imported
- * billing numbers, or null when none were imported for it.
+ * billing numbers, or null when none were imported for it. `runnerMinutes`
+ * is billing's suite minutes when imported, else run records';
+ * `recordedMinutes` is always run records', for comparing.
  */
 export function shapeWeek(weekStart, usage, metered = null) {
   if (!usage) return null;
@@ -236,7 +242,8 @@ export function shapeWeek(weekStart, usage, metered = null) {
     runs: usage.runs,
     flowRuns: usage.flowRuns,
     attempts: usage.attempts,
-    runnerMinutes: runnerMinutes(usage),
+    runnerMinutes: metered ? Math.round(metered.suiteMinutes * 10) / 10 : runnerMinutes(usage),
+    recordedMinutes: runnerMinutes(usage),
     credits: usage.credits,
     unfinished: usage.unfinished || 0,
     metered: shapeMetered(metered),
