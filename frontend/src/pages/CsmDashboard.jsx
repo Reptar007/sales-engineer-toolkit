@@ -6,6 +6,7 @@ import { useToast } from '../contexts/ToastContext';
 import { fullName, seesAllClients } from '../utils/roles';
 import {
   activationList,
+  clientPath,
   clientsFor,
   dayLabel,
   describeRuns,
@@ -115,10 +116,7 @@ function ClientCard({ row }) {
             Copy last week's usage
           </button>
         ) : null}
-        <Link
-          className="lw-btn lw-btn--quiet"
-          to={`/projects/lone-wolves?workspace=${encodeURIComponent(row.workspaceId)}`}
-        >
+        <Link className="lw-btn lw-btn--quiet" to={clientPath(row.workspaceId)}>
           Open in Lone Wolves
         </Link>
       </div>

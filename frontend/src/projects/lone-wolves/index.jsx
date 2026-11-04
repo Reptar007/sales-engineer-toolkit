@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   addLoneWolvesWorkspace,
   fetchLoneWolvesEnvironments,
@@ -20,6 +21,7 @@ import {
   STATE_WORDS,
   activationList,
   calendarCells,
+  clientPath,
   dayLabel,
   describeRuns,
   doneCount,
@@ -29,6 +31,7 @@ import {
   filterRows,
   formatDay,
   formatMoney,
+  LIST_PATH,
   linearUrl,
   monthName,
   metronomeConnectionLine,
@@ -52,11 +55,13 @@ import './LoneWolves.css';
  * six activation steps against its kickoff date, and what the platform says
  * about it today: flows, runs, environments, triggers and bugs.
  *
+ * The list keeps one short row per workspace; a row opens the workspace's
+ * own page (/projects/lone-wolves/:workspaceId) with everything else.
  * Everything comes from one server answer: the cached scan joined to the
  * page's own records. The page polls while a scan runs and every few minutes
- * otherwise. Details saved in the card (kickoff, pilot length, failure owner,
- * ticket) are written to this app's database and show on the next read; they
- * never change anything in QA Wolf.
+ * otherwise. Details saved on a workspace's page (kickoff, pilot length,
+ * failure owner, ticket) are written to this app's database and show on the
+ * next read; they never change anything in QA Wolf.
  */
 
 const POLL_MS = 4000;
@@ -166,7 +171,7 @@ function Timeline({ rows, onPick }) {
                 <div className="lw-muted">{segmentLabel(row.segment)}</div>
               </td>
               <td colSpan={6} className="lw-muted">
-                No kickoff date recorded. Set one in the workspace card to put it on the timeline.
+                No kickoff date recorded. Set one on its page to put it on the timeline.
               </td>
             </tr>
           ))}
@@ -304,38 +309,6 @@ function PricingToggle({ pricing, onPick, label }) {
         </button>
       ))}
     </div>
-  );
-}
-
-/**
- * The table's usage cell on the workspace's picked price (picked in the
- * workspace card): old leads with runner minutes and their price, new with
- * credits and theirs, none shows both counts and no dollars.
- */
-function UsageCell({ week, pricing }) {
-  const price = week.prices?.[pricing];
-  return (
-    <>
-      {pricing === 'new' ? (
-        <div>
-          {week.credits} <span className="lw-muted">credits</span>
-        </div>
-      ) : (
-        <div>
-          {week.runnerMinutes} <span className="lw-muted">runner min</span>
-        </div>
-      )}
-      <div className="lw-muted">
-        {pricing === 'none' ? `${week.credits} credits · ` : ''}
-        {week.flowRuns} test runs
-      </div>
-      {price ? (
-        <div>
-          {formatMoney(price.amount)}{' '}
-          <span className="lw-muted">{pricing === 'old' ? 'old pricing' : 'new pricing'}</span>
-        </div>
-      ) : null}
-    </>
   );
 }
 
@@ -856,7 +829,22 @@ function UsageSection({ row, pricing, onPickPricing, canPrice, canEdit, metronom
   );
 }
 
-function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit, canPrice, metronome }) {
+/**
+ * One workspace's own page: everything the list row leaves out, with room to
+ * read it -- the scan's numbers, the first 30 days, usage week by week with
+ * the AI-credit pull, and the details editors keep.
+ */
+function ClientPage({
+  row,
+  connection,
+  onSaved,
+  onHidden,
+  pricing,
+  onPickPricing,
+  canEdit,
+  canPrice,
+  metronome,
+}) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(() => formFor(row));
@@ -876,7 +864,6 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit, canPrice
       .catch(() => setCsms([]));
   }, [editing, canEdit, csms]);
 
-  if (!row) return null;
   const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
   const save = async (event) => {
     event.preventDefault();
@@ -911,7 +898,7 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit, canPrice
     try {
       await saveLoneWolvesDetails(row.workspaceId, { hidden: true });
       toast.success(`${row.name} is off the page.`);
-      onSaved();
+      onHidden();
     } catch (err) {
       toast.error(err?.message || 'It could not be hidden.');
     }
@@ -920,33 +907,90 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit, canPrice
   const kickoff = row.kickoffOn
     ? `Kicked off ${formatDay(row.kickoffOn)}${row.pilotDays ? ` · ${row.pilotDays}-day pilot` : ''}`
     : 'No kickoff date recorded';
+  const check = triggerCheck(row.triggers);
 
   return (
-    <aside className="lw-card" aria-label="Selected workspace">
-      <div>
-        <div className="lw-overline">{segmentLabel(row.segment)}</div>
-        <h2>{row.name}</h2>
-        <div className="lw-muted">{kickoff}</div>
-        {row.environmentName ? (
-          <div className="lw-muted lw-small">Counting the {row.environmentName} environment</div>
-        ) : null}
-        {ticket ? (
-          <a className="lw-link" href={ticket} target="_blank" rel="noreferrer">
-            {row.linearIssue}
-          </a>
-        ) : null}
-      </div>
-
-      <div className="lw-card-section">
-        <h3>First 30 days</h3>
-        {activationList(row.activation).map((step) => (
-          <div key={step.label} className="lw-step">
-            <span aria-hidden="true" className={`lw-dot lw-dot--${step.flag}`} />
-            <span className="lw-step-label">{step.label}</span>
-            <span className="lw-muted lw-small">{step.word}</span>
+    <div className="lw-client-page">
+      <header className="lw-header">
+        <div>
+          <Link className="lw-back" to={LIST_PATH}>
+            ← All workspaces
+          </Link>
+          <div className="lw-overline">{segmentLabel(row.segment)}</div>
+          <h1>{row.name}</h1>
+          <p>
+            {kickoff}
+            {row.environmentName ? ` · counting the ${row.environmentName} environment` : ''}
+          </p>
+          <div className="lw-status">
+            <span className={`lw-pill lw-status--${row.status.replace(/\s/g, '').toLowerCase()}`}>
+              {row.status}
+            </span>
+            {ticket ? (
+              <a className="lw-link" href={ticket} target="_blank" rel="noreferrer">
+                {row.linearIssue}
+              </a>
+            ) : null}
           </div>
-        ))}
-      </div>
+        </div>
+        <div className="lw-actions">
+          {canEdit && !editing ? (
+            <button type="button" className="lw-btn" onClick={() => setEditing(true)}>
+              Edit details
+            </button>
+          ) : null}
+          {row.slug ? (
+            <a
+              className="lw-btn lw-btn--ghost"
+              href={`https://app.qawolf.com/${encodeURIComponent(row.slug)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open in QA Wolf
+            </a>
+          ) : null}
+          {canEdit ? (
+            <button type="button" className="lw-btn lw-btn--quiet" onClick={hide}>
+              Hide
+            </button>
+          ) : null}
+        </div>
+      </header>
+
+      <section className="lw-tiles lw-tiles--client" aria-label={`${row.name} today`}>
+        <Tile
+          label="Day"
+          value={row.day == null ? '—' : row.day}
+          sub={`${doneCount(row.activation)} of 6 steps done${row.pilotDays ? ` · ${row.pilotDays}-day pilot` : ''}`}
+        />
+        <Tile
+          label="Flows active / draft"
+          value={row.flows ? `${row.flows.active} / ${row.flows.draft}` : '—'}
+        />
+        <Tile label="Runs (24h)" value={row.runs?.total ?? '—'} sub={describeRuns(row.runs)} />
+        <Tile
+          label="Triggers"
+          value={row.triggers?.count ?? '—'}
+          sub={check.text}
+          tone={check.tone === 'bad' ? 'bad' : undefined}
+        />
+        <Tile
+          label="Open bugs"
+          value={row.bugs?.open ?? '—'}
+          sub={
+            row.bugs
+              ? `${row.bugs.unprioritized} unprioritized${row.bugs.spike ? ` · +${row.bugs.newToday} in a day` : ''}`
+              : null
+          }
+          tone={row.bugs?.spike ? 'bad' : undefined}
+        />
+        <Tile
+          label="Environment"
+          value={environmentLabel(row.environment?.status)}
+          sub={row.environmentName}
+          tone={row.environment?.status === 'blocked' ? 'bad' : undefined}
+        />
+      </section>
 
       {row.reason ? (
         <div className="lw-card-flag">
@@ -955,181 +999,188 @@ function WorkspaceCard({ row, onSaved, pricing, onPickPricing, canEdit, canPrice
         </div>
       ) : null}
 
-      <UsageSection
-        row={row}
-        pricing={pricing}
-        onPickPricing={onPickPricing}
-        canPrice={canPrice}
-        canEdit={canEdit}
-        metronome={metronome}
-        onImported={onSaved}
-      />
-
       {editing ? (
-        <form className="lw-form" onSubmit={save}>
-          {row.environments?.length ? (
-            <label className="lw-form-wide">
-              Environment to count
-              <select value={form.environmentId} onChange={set('environmentId')}>
-                {row.environments.map((env) => (
-                  <option key={env.id} value={env.id}>
-                    {env.name}
-                    {env.isDefault ? ' (default)' : ''}
+        <section className="lw-card">
+          <h2>Edit {row.name}</h2>
+          <form className="lw-form lw-form--page" onSubmit={save}>
+            {row.environments?.length ? (
+              <label className="lw-form-wide">
+                Environment to count
+                <select value={form.environmentId} onChange={set('environmentId')}>
+                  {row.environments.map((env) => (
+                    <option key={env.id} value={env.id}>
+                      {env.name}
+                      {env.isDefault ? ' (default)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <label>
+              Type
+              <select value={form.segment} onChange={set('segment')}>
+                {Object.entries(SEGMENT_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
                   </option>
                 ))}
               </select>
             </label>
-          ) : null}
-          <label>
-            Type
-            <select value={form.segment} onChange={set('segment')}>
-              {Object.entries(SEGMENT_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
+            <label>
+              Kickoff
+              <input type="date" value={form.kickoffOn} onChange={set('kickoffOn')} />
+            </label>
+            <label>
+              Pilot length (days)
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={form.pilotDays}
+                onChange={set('pilotDays')}
+              />
+            </label>
+            <label>
+              Linear ticket
+              <input
+                placeholder="AXO-1275"
+                value={form.linearIssue}
+                onChange={set('linearIssue')}
+              />
+            </label>
+            <label>
+              AE
+              <input value={form.ae} onChange={set('ae')} />
+            </label>
+            <label>
+              CSM
+              <select value={form.csm} onChange={set('csm')}>
+                <option value="">Not assigned</option>
+                {(csms || []).map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+                {/* A name typed before the picker existed stays selectable. */}
+                {form.csm && !(csms || []).some((c) => c.name === form.csm) ? (
+                  <option value={form.csm}>{form.csm}</option>
+                ) : null}
+              </select>
+            </label>
+            <label>
+              Failure owner
+              <input
+                placeholder="Who reviews failures"
+                value={form.failureOwner}
+                onChange={set('failureOwner')}
+              />
+            </label>
+            <label>
+              Client building tests
+              <select value={form.clientBuildingTests} onChange={set('clientBuildingTests')}>
+                <option value="">Unknown</option>
+                <option value="yes">Yes</option>
+                <option value="no">Not yet</option>
+              </select>
+            </label>
+            <label className="lw-form-wide">
+              Next step
+              <textarea rows={3} value={form.nextStep} onChange={set('nextStep')} />
+            </label>
+            <label className="lw-form-wide">
+              Metronome ids
+              <input
+                value={form.metronomeAliases}
+                onChange={set('metronomeAliases')}
+                placeholder="org_…, …org, Metronome customer id"
+              />
+              <small className="lw-muted">
+                The ids on the customer&apos;s Metronome page, comma-separated. Needed to pull AI
+                credits.
+              </small>
+            </label>
+            <div className="lw-form-actions">
+              <button type="submit" className="lw-btn" disabled={saving}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                type="button"
+                className="lw-btn lw-btn--ghost"
+                onClick={() => setEditing(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : null}
+
+      {/* An admin's Metronome connection, which Get AI credits below uses. */}
+      {connection}
+
+      <div className="lw-client-grid">
+        <div className="lw-client-side">
+          <section className="lw-card">
+            <h3>First 30 days</h3>
+            <div>
+              {activationList(row.activation).map((step) => (
+                <div key={step.label} className="lw-step">
+                  <span aria-hidden="true" className={`lw-dot lw-dot--${step.flag}`} />
+                  <span className="lw-step-label">{step.label}</span>
+                  <span className="lw-muted lw-small">{step.word}</span>
+                </div>
               ))}
-            </select>
-          </label>
-          <label>
-            Kickoff
-            <input type="date" value={form.kickoffOn} onChange={set('kickoffOn')} />
-          </label>
-          <label>
-            Pilot length (days)
-            <input
-              type="number"
-              min="1"
-              max="365"
-              value={form.pilotDays}
-              onChange={set('pilotDays')}
-            />
-          </label>
-          <label>
-            Linear ticket
-            <input placeholder="AXO-1275" value={form.linearIssue} onChange={set('linearIssue')} />
-          </label>
-          <label>
-            AE
-            <input value={form.ae} onChange={set('ae')} />
-          </label>
-          <label>
-            CSM
-            <select value={form.csm} onChange={set('csm')}>
-              <option value="">Not assigned</option>
-              {(csms || []).map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-              {/* A name typed before the picker existed stays selectable. */}
-              {form.csm && !(csms || []).some((c) => c.name === form.csm) ? (
-                <option value={form.csm}>{form.csm}</option>
-              ) : null}
-            </select>
-          </label>
-          <label>
-            Failure owner
-            <input
-              placeholder="Who reviews failures"
-              value={form.failureOwner}
-              onChange={set('failureOwner')}
-            />
-          </label>
-          <label>
-            Client building tests
-            <select value={form.clientBuildingTests} onChange={set('clientBuildingTests')}>
-              <option value="">Unknown</option>
-              <option value="yes">Yes</option>
-              <option value="no">Not yet</option>
-            </select>
-          </label>
-          <label className="lw-form-wide">
-            Next step
-            <textarea rows={3} value={form.nextStep} onChange={set('nextStep')} />
-          </label>
-          <label className="lw-form-wide">
-            Metronome ids
-            <input
-              value={form.metronomeAliases}
-              onChange={set('metronomeAliases')}
-              placeholder="org_…, …org, Metronome customer id"
-            />
-            <small className="lw-muted">
-              The ids on the customer&apos;s Metronome page, comma-separated. Needed to pull AI
-              credits.
-            </small>
-          </label>
-          <div className="lw-form-actions">
-            <button type="submit" className="lw-btn" disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-            <button
-              type="button"
-              className="lw-btn lw-btn--ghost"
-              onClick={() => setEditing(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : (
-        <>
+            </div>
+          </section>
+          <section className="lw-card">
+            <h3>People</h3>
+            <dl className="lw-people">
+              <div>
+                <dt>AE</dt>
+                <dd>{row.ae || '—'}</dd>
+              </div>
+              <div>
+                <dt>CSM</dt>
+                <dd>{row.csm || '—'}</dd>
+              </div>
+              <div>
+                <dt>Failure owner</dt>
+                <dd>{row.failureOwner || '—'}</dd>
+              </div>
+              <div>
+                <dt>Listed by</dt>
+                <dd>{row.source === 'manual' ? 'Added by hand' : 'SelfService team'}</dd>
+              </div>
+            </dl>
+          </section>
           {row.nextStep ? (
-            <div className="lw-card-section">
+            <section className="lw-card">
               <h3>Next step</h3>
               <p>{row.nextStep}</p>
-            </div>
+            </section>
           ) : null}
-          <dl className="lw-people">
-            <div>
-              <dt>AE</dt>
-              <dd>{row.ae || '—'}</dd>
-            </div>
-            <div>
-              <dt>CSM</dt>
-              <dd>{row.csm || '—'}</dd>
-            </div>
-            <div>
-              <dt>Failure owner</dt>
-              <dd>{row.failureOwner || '—'}</dd>
-            </div>
-            <div>
-              <dt>Listed by</dt>
-              <dd>{row.source === 'manual' ? 'Added by hand' : 'SelfService team'}</dd>
-            </div>
-          </dl>
-          <div className="lw-card-actions">
-            {canEdit ? (
-              <button type="button" className="lw-btn" onClick={() => setEditing(true)}>
-                Edit details
-              </button>
-            ) : null}
-            {row.slug ? (
-              <a
-                className="lw-btn lw-btn--ghost"
-                href={`https://app.qawolf.com/${encodeURIComponent(row.slug)}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open in QA Wolf
-              </a>
-            ) : null}
-            {canEdit ? (
-              <button type="button" className="lw-btn lw-btn--quiet" onClick={hide}>
-                Hide
-              </button>
-            ) : null}
-          </div>
           {!canEdit ? (
             <p className="lw-readonly">
               {canPrice
-                ? 'You can switch the pricing above; Becca and Kyla change the other details.'
+                ? 'You can switch the pricing; Becca and Kyla change the other details.'
                 : 'View only. Becca and Kyla can change these details.'}
             </p>
           ) : null}
-        </>
-      )}
-    </aside>
+        </div>
+        <section className="lw-card lw-client-usage">
+          <UsageSection
+            row={row}
+            pricing={pricing}
+            onPickPricing={onPickPricing}
+            canPrice={canPrice}
+            canEdit={canEdit}
+            metronome={metronome}
+            onImported={onSaved}
+          />
+          {!row.usage ? <p className="lw-muted">No usage counted yet.</p> : null}
+        </section>
+      </div>
+    </div>
   );
 }
 
@@ -1246,14 +1297,14 @@ function AddWorkspace({ onAdded }) {
 
 export default function LoneWolves() {
   const toast = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+  // On /projects/lone-wolves/:workspaceId the page is that workspace's own.
+  const { workspaceId } = useParams();
   const [payload, setPayload] = useState(null);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
   const [view, setView] = useState('timeline');
-  // A link from the CSM dashboard opens the page on its workspace.
-  const [selectedId, setSelectedId] = useState(
-    () => new URLSearchParams(window.location.search).get('workspace') || null,
-  );
   const stopped = useRef(false);
 
   const load = useCallback(async (options) => {
@@ -1295,7 +1346,7 @@ export default function LoneWolves() {
   const canConnectMetronome = Boolean(payload?.canConnectMetronome);
   const visible = useMemo(() => filterRows(rows, filter), [rows, filter]);
   const counts = useMemo(() => filterCounts(rows), [rows]);
-  const selected = rows.find((row) => row.workspaceId === selectedId) || visible[0] || null;
+  const open = (id) => navigate(clientPath(id));
 
   // A pricing pick shows at once and is saved behind it; a failed save
   // puts the row back and says so.
@@ -1313,6 +1364,16 @@ export default function LoneWolves() {
       toast.error(err?.message || `${row.name}'s pricing could not be saved.`);
     }
   };
+
+  // Older links (the CSM dashboard's, before workspaces had pages) name the
+  // workspace in ?workspace=; they open its page.
+  const linked = new URLSearchParams(location.search).get('workspace');
+  if (!workspaceId && linked) return <Navigate to={clientPath(linked)} replace />;
+
+  const connection =
+    canConnectMetronome && payload?.status === 'ready' ? (
+      <MetronomeConnection metronome={metronome} onChanged={() => load()} />
+    ) : null;
 
   const rescan = async () => {
     try {
@@ -1337,6 +1398,47 @@ export default function LoneWolves() {
   const exportCsv = () =>
     downloadText(`lone-wolves-${new Date().toISOString().slice(0, 10)}.csv`, rowsToCsv(rows));
 
+  if (workspaceId) {
+    const row = rows.find((r) => r.workspaceId === workspaceId);
+    if (!row) {
+      return (
+        <div className="lone-wolves">
+          <Link className="lw-back" to={LIST_PATH}>
+            ← All workspaces
+          </Link>
+          {error ? (
+            <div className="lw-warning">{error.message}</div>
+          ) : !payload || payload.status === 'building' ? (
+            <div className="lw-hint">Scanning the onboarding workspaces… this takes a minute.</div>
+          ) : (
+            <div className="lw-hint">
+              That workspace isn&apos;t on Lone Wolves. It may have been hidden or taken off the
+              SelfService team.
+            </div>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div className="lone-wolves">
+        <ClientPage
+          row={row}
+          connection={connection}
+          onSaved={() => load()}
+          onHidden={() => {
+            load();
+            navigate(LIST_PATH);
+          }}
+          pricing={pricingFor(row)}
+          onPickPricing={(pricing) => pickPricing(row, pricing)}
+          canEdit={canEdit}
+          canPrice={canPrice}
+          metronome={metronome}
+        />
+      </div>
+    );
+  }
+
   const header = (
     <header className="lw-header">
       <div>
@@ -1356,9 +1458,7 @@ export default function LoneWolves() {
             <span>{payload.taskWolf ? 'Task Wolf connected' : 'Task Wolf not connected'}</span>
           </div>
         ) : null}
-        {canConnectMetronome && payload?.status === 'ready' ? (
-          <MetronomeConnection metronome={metronome} onChanged={() => load()} />
-        ) : null}
+        {connection}
       </div>
       <div className="lw-actions">
         {canEdit ? <AddWorkspace onAdded={() => load()} /> : null}
@@ -1462,9 +1562,9 @@ export default function LoneWolves() {
           <Legend />
         </div>
         {view === 'timeline' ? (
-          <Timeline rows={rows} onPick={setSelectedId} />
+          <Timeline rows={rows} onPick={open} />
         ) : (
-          <Calendar rows={rows} onPick={setSelectedId} />
+          <Calendar rows={rows} onPick={open} />
         )}
         <p className="lw-footnote">
           Targets from kickoff: first flow day 1 · customer-started run and daily run day 3 · first
@@ -1488,143 +1588,73 @@ export default function LoneWolves() {
         ))}
       </div>
 
-      <section className="lw-split">
-        <div className="lw-panel lw-health">
-          <div className="lw-panel-head">
-            <h2>Onboarding health</h2>
-            <span className="lw-muted lw-small">
-              Steps: first flow · customer run · daily run · first bug · failure owner · client
-              tests
-            </span>
-          </div>
-          <div className="lw-scroll">
-            <table className="lw-table">
-              <thead>
-                <tr>
-                  <th scope="col">Workspace</th>
-                  <th scope="col">Day</th>
-                  <th scope="col">Activation</th>
-                  <th scope="col" className="lw-num">
-                    Flows active / draft
-                  </th>
-                  <th scope="col">Runs 24h</th>
-                  <th scope="col">Environment</th>
-                  <th scope="col">Triggers</th>
-                  <th scope="col">Bugs</th>
-                  <th scope="col">Usage this week</th>
-                  <th scope="col">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((row) => {
-                  const check = triggerCheck(row.triggers);
-                  const ticket = linearUrl(row.linearIssue);
-                  return (
-                    <tr
-                      key={row.workspaceId}
-                      className={row.workspaceId === selected?.workspaceId ? 'is-selected' : ''}
-                    >
-                      <td>
-                        <button
-                          type="button"
-                          className="lw-name"
-                          onClick={() => setSelectedId(row.workspaceId)}
-                        >
-                          {row.name}
-                        </button>
-                        <div className="lw-muted lw-small">{segmentLabel(row.segment)}</div>
-                        {ticket ? (
-                          <a
-                            className="lw-link lw-small"
-                            href={ticket}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {row.linearIssue}
-                          </a>
-                        ) : null}
-                      </td>
-                      <td className="lw-nowrap">{dayLabel(row)}</td>
-                      <td>
-                        <StepDots activation={row.activation} />
-                        <div className="lw-muted lw-small">{doneCount(row.activation)} of 6</div>
-                      </td>
-                      <td className="lw-num lw-nowrap">
-                        {row.flows ? `${row.flows.active} / ${row.flows.draft}` : '—'}
-                      </td>
-                      <td className="lw-nowrap">{describeRuns(row.runs)}</td>
-                      <td>
-                        <span className={`lw-pill lw-env--${row.environment?.status || 'unknown'}`}>
-                          {environmentLabel(row.environment?.status)}
-                        </span>
-                        {row.environmentName ? (
-                          <div className="lw-muted lw-small">{row.environmentName}</div>
-                        ) : null}
-                      </td>
-                      <td className="lw-nowrap">
-                        <div>
-                          {row.triggers?.count ?? '—'}{' '}
-                          <span className="lw-muted">
-                            {row.triggers?.count === 1 ? 'trigger' : 'triggers'}
-                          </span>
-                        </div>
-                        <span className={`lw-badge lw-badge--${check.tone}`}>{check.text}</span>
-                      </td>
-                      <td className="lw-nowrap">
-                        <div>
-                          {row.bugs?.open ?? '—'} <span className="lw-muted">open</span>
-                        </div>
-                        {row.bugs ? (
-                          <div className="lw-muted lw-small">
-                            {row.bugs.unprioritized} unprioritized
-                          </div>
-                        ) : null}
-                        {row.bugs?.spike ? (
-                          <span className="lw-badge lw-badge--bad">
-                            +{row.bugs.newToday} in a day
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="lw-small lw-nowrap">
-                        {row.usage?.thisWeek ? (
-                          <UsageCell week={row.usage.thisWeek} pricing={pricingFor(row)} />
-                        ) : (
-                          <span className="lw-muted" title={row.usage?.error || undefined}>
-                            {row.usage?.error ? 'Could not count' : '—'}
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <span
-                          className={`lw-pill lw-status--${row.status.replace(/\s/g, '').toLowerCase()}`}
-                        >
-                          {row.status}
-                        </span>
-                        {row.reason ? (
-                          <div className="lw-muted lw-small lw-reason">{row.reason}</div>
-                        ) : null}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="lw-panel-foot lw-muted lw-small">
-            Showing {visible.length} of {rows.length} · bug spike at 5 or more in a day · QA Wolf
-            (flows, runs, environments, triggers, bugs) + Task Wolf (SelfService team, customer
-            runs)
-          </div>
+      <section className="lw-panel lw-health">
+        <div className="lw-panel-head">
+          <h2>Onboarding health</h2>
+          <span className="lw-muted lw-small">
+            Open a workspace for its flows, triggers, bugs, usage and details
+          </span>
         </div>
-        <WorkspaceCard
-          row={selected}
-          onSaved={() => load()}
-          pricing={selected ? pricingFor(selected) : 'old'}
-          onPickPricing={(pricing) => selected && pickPricing(selected, pricing)}
-          canEdit={canEdit}
-          canPrice={canPrice}
-          metronome={metronome}
-        />
+        <div className="lw-scroll">
+          <table className="lw-table lw-table--rows">
+            <thead>
+              <tr>
+                <th scope="col">Workspace</th>
+                <th scope="col">Day</th>
+                <th scope="col">Activation</th>
+                <th scope="col">Runs 24h</th>
+                <th scope="col">Status</th>
+                <th scope="col">
+                  <span className="lw-sr-only">Open</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((row) => (
+                <tr
+                  key={row.workspaceId}
+                  className="lw-row-link"
+                  onClick={() => open(row.workspaceId)}
+                >
+                  <td>
+                    <Link
+                      className="lw-name"
+                      to={clientPath(row.workspaceId)}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {row.name}
+                    </Link>
+                    <div className="lw-muted lw-small">
+                      {segmentLabel(row.segment)}
+                      {row.csm ? ` · ${row.csm}` : ''}
+                    </div>
+                  </td>
+                  <td className="lw-nowrap">{dayLabel(row)}</td>
+                  <td>
+                    <StepDots activation={row.activation} />
+                    <div className="lw-muted lw-small">{doneCount(row.activation)} of 6</div>
+                  </td>
+                  <td className="lw-nowrap">{describeRuns(row.runs)}</td>
+                  <td>
+                    <span
+                      className={`lw-pill lw-status--${row.status.replace(/\s/g, '').toLowerCase()}`}
+                      title={row.reason || undefined}
+                    >
+                      {row.status}
+                    </span>
+                  </td>
+                  <td className="lw-chevron" aria-hidden="true">
+                    ›
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="lw-panel-foot lw-muted lw-small">
+          Showing {visible.length} of {rows.length} · QA Wolf (flows, runs, environments, triggers,
+          bugs) + Task Wolf (SelfService team, customer runs)
+        </div>
       </section>
     </div>
   );

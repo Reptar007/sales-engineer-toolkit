@@ -468,22 +468,105 @@
 
 /* Table */
 
-/* Health table and workspace card, 75 / 25; stacked on narrower screens. */
-.lone-wolves .lw-split {
+.lone-wolves .lw-health {
+  min-width: 0;
+}
+
+/* The health list: one short row per workspace; the whole row opens its page. */
+.lone-wolves .lw-table.lw-table--rows {
+  min-width: 640px;
+}
+
+.lone-wolves .lw-row-link {
+  cursor: pointer;
+}
+
+.lone-wolves .lw-row-link:hover td {
+  background: rgba(255, 107, 74, 0.07);
+}
+
+.lone-wolves .lw-row-link td {
+  vertical-align: middle;
+}
+
+.lone-wolves .lw-chevron {
+  width: 1.5rem;
+  font-size: 1.2rem;
+  color: var(--lw-muted);
+  text-align: right;
+  padding-right: 1.25rem;
+}
+
+.lone-wolves a.lw-name {
+  text-decoration: none;
+}
+
+.lone-wolves a.lw-name:hover {
+  text-decoration: underline;
+}
+
+.lone-wolves .lw-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* A workspace's own page: tiles, then the first 30 days and people beside usage. */
+.lone-wolves .lw-client-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.lone-wolves .lw-back {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--lw-muted);
+  text-decoration: none;
+}
+
+.lone-wolves .lw-back:hover {
+  color: var(--white);
+}
+
+.lone-wolves .lw-tiles--client {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.lone-wolves .lw-tiles--client .lw-tile-value {
+  font-size: 1.6rem;
+}
+
+.lone-wolves .lw-client-grid {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(320px, 1fr);
-  gap: 1rem;
+  grid-template-columns: minmax(280px, 1fr) minmax(0, 2.2fr);
+  gap: 1.25rem;
   align-items: start;
 }
 
-@media (max-width: 1100px) {
-  .lone-wolves .lw-split {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.lone-wolves .lw-client-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
 }
 
-.lone-wolves .lw-health {
-  min-width: 0;
+.lone-wolves .lw-client-usage .lw-usage-table {
+  font-size: 0.85rem;
+}
+
+.lone-wolves .lw-form--page {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+@media (max-width: 1000px) {
+  .lone-wolves .lw-client-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .lone-wolves .lw-table {
@@ -516,14 +599,6 @@
 .lone-wolves .lw-table th:first-child,
 .lone-wolves .lw-table td:first-child {
   padding-left: 1.25rem;
-}
-
-.lone-wolves .lw-table tr.is-selected td {
-  background: rgba(255, 107, 74, 0.07);
-}
-
-.lone-wolves .lw-table tr.is-selected td:first-child {
-  box-shadow: inset 3px 0 0 var(--coral);
 }
 
 .lone-wolves .lw-num {

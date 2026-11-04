@@ -169,6 +169,16 @@ function AppContent() {
               }
             />
 
+            {/* A Lone Wolves workspace's own page; before the dynamic :projectId route. */}
+            <Route
+              path="/projects/lone-wolves/:workspaceId"
+              element={
+                <ProtectedRoute>
+                  <ProjectView projectId="lone-wolves" />
+                </ProtectedRoute>
+              }
+            />
+
             <Route
               path="/projects/:projectId"
               element={

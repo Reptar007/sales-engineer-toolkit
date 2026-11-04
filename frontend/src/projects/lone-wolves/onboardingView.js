@@ -124,6 +124,13 @@ export function triggerCheck(triggers) {
   return { text: triggers.count === 1 ? 'Matches flows' : 'All match flows', tone: 'good' };
 }
 
+/** Lone Wolves' list, and each workspace's own page under it. */
+export const LIST_PATH = '/projects/lone-wolves';
+
+export function clientPath(workspaceId) {
+  return `${LIST_PATH}/${encodeURIComponent(workspaceId)}`;
+}
+
 export function linearUrl(issue) {
   return issue ? `https://linear.app/qawolf/issue/${encodeURIComponent(issue)}` : null;
 }
