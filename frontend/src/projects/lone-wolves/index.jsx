@@ -96,6 +96,13 @@ function StepDots({ activation }) {
 }
 
 function MilestoneChip({ chip, onClick }) {
+  if (!onClick) {
+    return (
+      <span className={`lw-chip lw-chip--${chip.state} lw-chip--static`} title={chip.title}>
+        {chip.label}
+      </span>
+    );
+  }
   return (
     <button
       type="button"
@@ -122,14 +129,16 @@ function Legend() {
   );
 }
 
-function Timeline({ rows, onPick }) {
-  const { scheduled, unscheduled } = useMemo(() => timeline(rows), [rows]);
+/** One workspace's milestones, kickoff through decision, in a single row. */
+function Timeline({ row }) {
+  const { scheduled } = useMemo(() => timeline([row]), [row]);
+  const [entry] = scheduled;
+  if (!entry) return null;
   return (
     <div className="lw-scroll">
-      <table className="lw-table lw-timeline">
+      <table className="lw-table lw-timeline lw-timeline--one">
         <thead>
           <tr>
-            <th scope="col">Workspace</th>
             <th scope="col">Kickoff</th>
             <th scope="col">Day 1</th>
             <th scope="col">Day 3</th>
@@ -139,42 +148,21 @@ function Timeline({ rows, onPick }) {
           </tr>
         </thead>
         <tbody>
-          {scheduled.map(({ row, kickoff, columns }) => (
-            <tr key={row.workspaceId}>
-              <td>
-                <button type="button" className="lw-name" onClick={() => onPick(row.workspaceId)}>
-                  {row.name}
-                </button>
-                <div className="lw-muted">{dayLabel(row)}</div>
+          <tr>
+            <td>
+              <span className="lw-chip lw-chip--kickoff lw-chip--static">{entry.kickoff}</span>
+            </td>
+            {entry.columns.map((chips, index) => (
+              <td key={index}>
+                {chips.map((chip) => (
+                  <div key={chip.label} className="lw-milestone">
+                    <MilestoneChip chip={chip} />
+                    <div className="lw-muted lw-small">{chip.sub}</div>
+                  </div>
+                ))}
               </td>
-              <td>
-                <span className="lw-chip lw-chip--kickoff lw-chip--static">{kickoff}</span>
-              </td>
-              {columns.map((chips, index) => (
-                <td key={index}>
-                  {chips.map((chip) => (
-                    <div key={chip.label} className="lw-milestone">
-                      <MilestoneChip chip={chip} onClick={() => onPick(row.workspaceId)} />
-                      <div className="lw-muted lw-small">{chip.sub}</div>
-                    </div>
-                  ))}
-                </td>
-              ))}
-            </tr>
-          ))}
-          {unscheduled.map((row) => (
-            <tr key={row.workspaceId}>
-              <td>
-                <button type="button" className="lw-name" onClick={() => onPick(row.workspaceId)}>
-                  {row.name}
-                </button>
-                <div className="lw-muted">{segmentLabel(row.segment)}</div>
-              </td>
-              <td colSpan={6} className="lw-muted">
-                No kickoff date recorded. Set one on its page to put it on the timeline.
-              </td>
-            </tr>
-          ))}
+            ))}
+          </tr>
         </tbody>
       </table>
     </div>
@@ -245,7 +233,7 @@ function Calendar({ rows, onPick }) {
                     state: event.state,
                     title: `${event.text}: ${STATE_WORDS[event.state]}`,
                   }}
-                  onClick={() => onPick(event.row.workspaceId)}
+                  onClick={onPick ? () => onPick(event.row.workspaceId) : undefined}
                 />
               ))}
               {cell.more ? <span className="lw-muted lw-small">+{cell.more} more</span> : null}
@@ -1180,6 +1168,31 @@ function ClientPage({
           {!row.usage ? <p className="lw-muted">No usage counted yet.</p> : null}
         </section>
       </div>
+
+      <section className="lw-panel" aria-labelledby="lw-client-cal-title">
+        <div className="lw-panel-head">
+          <div className="lw-panel-title">
+            <h2 id="lw-client-cal-title">Milestones from kickoff</h2>
+          </div>
+          <Legend />
+        </div>
+        {row.milestones ? (
+          <>
+            <Timeline row={row} />
+            <Calendar rows={[row]} />
+            <p className="lw-footnote">
+              Targets from kickoff: first flow day 1 · customer-started run and daily run day 3 ·
+              first bug day 7 · failure owner and client-built tests day 14 · decision at pilot end
+              (day 30 when no length is recorded; none for hybrid workspaces). Missed means the
+              target date passed without the step.
+            </p>
+          </>
+        ) : (
+          <p className="lw-hint">
+            No kickoff date recorded. Set one with Edit to put its milestones on the timeline.
+          </p>
+        )}
+      </section>
     </div>
   );
 }
@@ -1304,7 +1317,6 @@ export default function LoneWolves() {
   const [payload, setPayload] = useState(null);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
-  const [view, setView] = useState('timeline');
   const stopped = useRef(false);
 
   const load = useCallback(async (options) => {
@@ -1536,42 +1548,6 @@ export default function LoneWolves() {
           value={summary.blocked}
           sub="nobody can run against them"
         />
-      </section>
-
-      <section className="lw-panel" aria-labelledby="lw-ms-title">
-        <div className="lw-panel-head">
-          <div className="lw-panel-title">
-            <h2 id="lw-ms-title">Milestones from kickoff</h2>
-            <div className="lw-segmented" role="group" aria-label="Milestone view">
-              <button
-                type="button"
-                aria-pressed={view === 'timeline'}
-                onClick={() => setView('timeline')}
-              >
-                By workspace
-              </button>
-              <button
-                type="button"
-                aria-pressed={view === 'calendar'}
-                onClick={() => setView('calendar')}
-              >
-                Calendar
-              </button>
-            </div>
-          </div>
-          <Legend />
-        </div>
-        {view === 'timeline' ? (
-          <Timeline rows={rows} onPick={open} />
-        ) : (
-          <Calendar rows={rows} onPick={open} />
-        )}
-        <p className="lw-footnote">
-          Targets from kickoff: first flow day 1 · customer-started run and daily run day 3 · first
-          bug day 7 · failure owner and client-built tests day 14 · decision at pilot end (day 30
-          when no length is recorded; none for hybrid workspaces). Missed means the target date
-          passed without the step.
-        </p>
       </section>
 
       <div className="lw-filters" role="group" aria-label="Filter workspaces">

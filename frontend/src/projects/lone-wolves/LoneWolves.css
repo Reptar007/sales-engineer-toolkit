@@ -522,15 +522,24 @@
 }
 
 .lone-wolves .lw-back {
-  display: inline-block;
-  margin-bottom: 0.5rem;
-  font-size: 0.8rem;
-  color: var(--lw-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--white);
   text-decoration: none;
+  border: 1px solid var(--lw-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.lone-wolves .lw-back:hover {
-  color: var(--white);
+.lone-wolves .lw-back:hover,
+.lone-wolves .lw-back:focus-visible {
+  border-color: var(--coral);
+  background: rgba(255, 107, 74, 0.1);
 }
 
 .lone-wolves .lw-tiles--client {
@@ -578,6 +587,10 @@
 
 .lone-wolves .lw-timeline {
   min-width: 900px;
+}
+
+.lone-wolves .lw-timeline.lw-timeline--one {
+  min-width: 720px;
 }
 
 .lone-wolves .lw-table th {
